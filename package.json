@@ -1,0 +1,24 @@
+{
+  "name": "puppet-overlay",
+  "productName": "Puppet Overlay",
+  "version": "0.1.0",
+  "description": "Overlay Discord vocal en marionnettes + créateur d'avatar + spectateurs Twitch",
+  "main": "electron/main.js",
+  "private": true,
+  "scripts": {
+    "start": "electron .",
+    "dist": "electron-builder --win portable nsis --publish never"
+  },
+  "devDependencies": {
+    "electron": "45.3.0",
+    "electron-builder": "26.18.0"
+  },
+  "build": {
+    "appId": "com.puppetoverlay.app",
+    "productName": "Puppet Overlay",
+    "files": ["electron/**", "web/**", "build/icon.png", "package.json"],
+    "win": { "icon": "build/icon.ico", "target": ["portable", "nsis"] },
+    "portable": { "artifactName": "PuppetOverlay-${version}-portable.exe" },
+    "nsis": { "artifactName": "PuppetOverlay-${version}-setup.exe", "oneClick": true, "perMachine": false }
+  }
+}

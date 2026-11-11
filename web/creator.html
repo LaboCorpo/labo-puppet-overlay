@@ -1,0 +1,95 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<title>Créateur d’avatar — Puppet Overlay</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="stylesheet" href="shared/ui.css">
+<style>
+  body { overflow: auto; }
+  .wrap { display: grid; grid-template-columns: 380px 1fr; gap: 22px; padding: 22px; max-width: 1200px; margin: 0 auto; }
+  @media (max-width: 860px) { .wrap { grid-template-columns: 1fr; } }
+  .stage { position: sticky; top: 22px; align-self: start; }
+  .stage .view { background: radial-gradient(circle at 50% 40%, #3a3346, #1d1a23); border-radius: 16px; border: 1px solid var(--line); }
+  #view { width: 100%; aspect-ratio: 380 / 420; display: block; }
+  .modes { display: flex; gap: 6px; margin-bottom: 14px; }
+  .modes button { flex: 1; }
+  .modes button:not(.on) { background: transparent; color: var(--text); border: 1px solid var(--line); }
+  .opt-row { margin-bottom: 14px; }
+  .opt-row > .lbl { font-weight: 700; color: var(--muted); font-size: 12px; text-transform: uppercase; letter-spacing: .06em; margin-bottom: 6px; }
+  .chips { display: flex; flex-wrap: wrap; gap: 6px; }
+  .chip { all: unset; cursor: pointer; padding: 6px 11px; border-radius: 99px; border: 1px solid var(--line); font-size: 13px; }
+  .chip.on { background: var(--accent); color: #1b1015; border-color: var(--accent); font-weight: 700; }
+  .sw { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+  .sw button { all: unset; cursor: pointer; width: 26px; height: 26px; border-radius: 50%; border: 2px solid #0006; }
+  .sw button.on { outline: 3px solid #fff; outline-offset: 1px; }
+  .sw input[type=color] { width: 34px; height: 30px; }
+  #cropBox { position: relative; width: 320px; height: 320px; border-radius: 12px; overflow: hidden; background: #111; touch-action: none; cursor: grab; }
+  #crop { width: 320px; height: 320px; display: block; }
+  .two { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .two input { min-width: 0; width: 100%; }
+  .hidden { display: none !important; }
+  textarea { width: 100%; min-height: 60px; background: #17151c; color: var(--text); border: 1px solid var(--line); border-radius: 8px; padding: 8px; font: 12px monospace; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="stage">
+    <div class="view"><canvas id="view" width="760" height="840"></canvas></div>
+    <div class="btns">
+      <button id="talk" class="ghost">🗣 Parler (maintenir)</button>
+      <label class="check"><input type="checkbox" id="autoTalk" checked> Animation auto</label>
+    </div>
+    <div class="card" style="margin-top:14px">
+      <div class="two">
+        <label>Pseudo affiché <input id="name" maxlength="32" placeholder="Timo"></label>
+        <label>ID Discord <input id="discordId" inputmode="numeric" placeholder="17 à 20 chiffres"></label>
+      </div>
+      <details class="muted" style="margin-top:8px"><summary>Où trouver mon ID Discord ?</summary>
+        Paramètres Discord → Avancés → active le <b>Mode développeur</b>. Ensuite clic droit sur ton pseudo → <b>Copier l’identifiant de l’utilisateur</b>.
+      </details>
+      <div class="btns">
+        <button id="sendApp" class="hidden">✔ Enregistrer dans mon overlay</button>
+        <button id="dlFile">⬇ Fichier .puppet</button>
+        <button id="copyCode" class="ghost">Copier le code</button>
+      </div>
+      <div id="msg" class="muted" style="margin-top:8px"></div>
+      <details style="margin-top:10px"><summary class="muted">Ouvrir un avatar existant (code ou fichier)</summary>
+        <textarea id="loadCode" placeholder="PUP1.…"></textarea>
+        <div class="btns"><button id="loadBtn" class="ghost">Charger le code</button><label class="button ghost">Charger un fichier<input type="file" id="loadFile" accept=".puppet,.json" hidden></label></div>
+      </details>
+    </div>
+  </div>
+
+  <div>
+    <h1>Créateur d’avatar</h1>
+    <div class="modes">
+      <button data-mode="drawn" class="on">✏️ De zéro</button>
+      <button data-mode="photo">📷 À partir d’une photo</button>
+      <button id="random" class="ghost" style="flex:0 0 auto">🎲 Aléatoire</button>
+    </div>
+
+    <div id="photoPanel" class="card hidden">
+      <div class="btns" style="margin-top:0">
+        <label class="button">Choisir une photo<input type="file" id="photoFile" accept="image/*" hidden></label>
+        <span class="muted">Fais glisser pour placer le visage, molette ou curseur pour zoomer.</span>
+      </div>
+      <div style="display:flex; gap:18px; flex-wrap:wrap; margin-top:12px">
+        <div id="cropBox"><canvas id="crop" width="640" height="640"></canvas></div>
+        <div style="flex:1; min-width:220px; display:flex; flex-direction:column; gap:12px">
+          <label>Zoom <input type="range" id="zoom" min="0.2" max="4" step="0.01" value="1"></label>
+          <label>Ligne de la bouche (là où la tête s’ouvre) <input type="range" id="split" min="0.35" max="0.85" step="0.01" value="0.6"></label>
+          <label>Forme de la tête
+            <select id="photoShape"><option value="rond">Ronde</option><option value="carré">Carrée</option></select></label>
+          <p class="muted">Astuce : cadre le visage dans le cercle, puis place la ligne orange au niveau de la bouche.</p>
+        </div>
+      </div>
+    </div>
+
+    <div id="options"></div>
+  </div>
+</div>
+<script src="shared/puppet.js"></script>
+<script src="creator.js"></script>
+</body>
+</html>

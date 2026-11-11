@@ -1,0 +1,40 @@
+name: Build Windows
+
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      # Inject the Discord Application ID from the repo variable DISCORD_CLIENT_ID (Settings > Secrets and variables > Actions > Variables)
+      - name: Bundle Discord client ID
+        if: ${{ vars.DISCORD_CLIENT_ID != '' }}
+        shell: bash
+        run: echo '{ "discord": { "clientId": "${{ vars.DISCORD_CLIENT_ID }}" } }' > electron/app-config.json
+      - run: npx electron-builder --win portable nsis --publish never
+        env:
+          CSC_IDENTITY_AUTO_DISCOVERY: false
+      - uses: actions/upload-artifact@v4
+        with:
+          name: PuppetOverlay-windows
+          path: |
+            dist/*.exe
+            web/creator.html
+      - name: Publish release (tags only)
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist/*.exe

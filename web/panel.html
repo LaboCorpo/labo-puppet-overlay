@@ -1,0 +1,157 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<title>Puppet Overlay</title>
+<link rel="stylesheet" href="shared/ui.css">
+</head>
+<body>
+<div class="app">
+  <nav class="side">
+    <div class="brand"><canvas id="logo" width="56" height="56"></canvas><span>Puppet<br>Overlay</span></div>
+    <button class="tab active" data-tab="status">Statut</button>
+    <button class="tab" data-tab="overlay">Overlay</button>
+    <button class="tab" data-tab="avatars">Avatars</button>
+    <button class="tab" data-tab="twitch">Twitch</button>
+    <button class="tab" data-tab="obs">OBS / Streamlabs</button>
+    <button class="tab" data-tab="discord">Config Discord</button>
+    <div class="grow"></div>
+    <div class="status-pill" id="pill">…</div>
+  </nav>
+
+  <main>
+    <!-- STATUS -->
+    <section data-panel="status" class="active">
+      <h1>Statut</h1>
+      <div class="card">
+        <div class="row"><b>Discord</b><span id="dStatus">—</span></div>
+        <div class="muted" id="dDetail"></div>
+        <div class="row"><b>Compte</b><span id="dMe">—</span></div>
+        <div class="row"><b>Salon vocal</b><span id="dChannel">aucun</span></div>
+        <div class="btns"><button id="reconnect" class="ghost">Reconnecter / réautoriser</button></div>
+      </div>
+      <h2>Dans le salon</h2>
+      <div id="members" class="members"></div>
+      <h2>Aperçu en direct</h2>
+      <div class="preview checker"><iframe id="preview" src="overlay.html?scene=all&test=1"></iframe></div>
+      <p class="muted">L’aperçu ajoute des faux membres et de faux messages Twitch pour tester les réglages.</p>
+    </section>
+
+    <!-- OVERLAY -->
+    <section data-panel="overlay">
+      <h1>Overlay bureau</h1>
+      <div class="card grid">
+        <label class="check"><input type="checkbox" data-key="overlay.enabled"> Afficher l’overlay sur le bureau</label>
+        <label>Position
+          <select data-key="overlay.anchor">
+            <option value="bottom-left">Bas gauche</option><option value="bottom-center">Bas centre</option><option value="bottom-right">Bas droite</option>
+            <option value="top-left">Haut gauche</option><option value="top-center">Haut centre</option><option value="top-right">Haut droite</option>
+          </select></label>
+        <label>Taille <input type="range" min="0.3" max="1.6" step="0.05" data-key="overlay.scale"><output></output></label>
+        <label>Espacement <input type="range" min="70" max="260" step="5" data-key="overlay.spacing"><output></output></label>
+        <label>Marge du bord <input type="range" min="0" max="200" step="5" data-key="overlay.margin"><output></output></label>
+        <label>Max affichés <input type="number" min="1" max="30" data-key="overlay.maxVisible"></label>
+        <label>Écran (0 = principal) <input type="number" min="0" max="8" data-key="overlay.display"></label>
+        <label class="check"><input type="checkbox" data-key="overlay.showNames"> Afficher les pseudos</label>
+        <label class="check"><input type="checkbox" data-key="overlay.showSelf"> M’afficher moi-même</label>
+        <label class="check"><input type="checkbox" data-key="overlay.hideIdle"> N’afficher que ceux qui parlent</label>
+        <label class="check"><input type="checkbox" data-key="overlay.glow"> Halo vert quand on parle</label>
+        <label class="check"><input type="checkbox" data-key="twitch.showOnDesktop"> Montrer aussi les spectateurs Twitch sur le bureau</label>
+      </div>
+      <p class="muted">L’overlay laisse passer les clics et reste au-dessus des fenêtres. Les jeux en <b>plein écran exclusif</b> le masquent : passe le jeu en « fenêtré sans bordure ».</p>
+    </section>
+
+    <!-- AVATARS -->
+    <section data-panel="avatars">
+      <h1>Avatars de la bande</h1>
+      <div class="card">
+        <div class="btns">
+          <button id="openCreator">Créer / modifier mon avatar</button>
+          <label class="button ghost">Importer un fichier .puppet<input type="file" id="importFile" accept=".puppet,.json" multiple hidden></label>
+        </div>
+        <div class="paste">
+          <input id="importCode" placeholder="…ou colle un code PUP1.xxxx reçu d’un pote">
+          <button id="importCodeBtn">Importer</button>
+        </div>
+        <div id="importMsg" class="muted"></div>
+        <div class="drop" id="drop">Dépose ici les fichiers .puppet</div>
+      </div>
+      <div id="avatarList" class="avatar-grid"></div>
+      <p class="muted">Sans avatar importé, un membre apparaît avec sa photo de profil Discord découpée en marionnette.</p>
+      <h2>Synchro partagée (bêta)</h2>
+      <div class="card grid">
+        <label class="wide">URL d’un JSON partagé (ex. lien « Raw » d’un GitHub Gist)
+          <input data-key="sync.url" placeholder="https://gist.githubusercontent.com/…/avatars.json"></label>
+        <p class="muted wide">Le JSON contient la liste des avatars exportés. Chaque app le relit toutes les 2 minutes. Les avatars importés à la main restent prioritaires.</p>
+      </div>
+    </section>
+
+    <!-- TWITCH -->
+    <section data-panel="twitch">
+      <h1>Spectateurs Twitch</h1>
+      <div class="card grid">
+        <label class="check"><input type="checkbox" data-key="twitch.enabled"> Activer</label>
+        <label>Chaîne Twitch <input data-key="twitch.channel" placeholder="nom_de_ta_chaine"></label>
+        <label>Taille <input type="range" min="0.25" max="1" step="0.05" data-key="twitch.scale"><output></output></label>
+        <label>Spectateurs max <input type="number" min="1" max="80" data-key="twitch.maxViewers"></label>
+        <label>Durée des bulles (s) <input type="number" min="2" max="30" data-key="twitch.bubbleSeconds"></label>
+        <label>Départ après inactivité (min) <input type="number" min="1" max="120" data-key="twitch.idleMinutes"></label>
+        <label>Côté
+          <select data-key="twitch.anchor"><option value="bottom-right">Bas droite</option><option value="bottom-left">Bas gauche</option></select></label>
+        <label>Largeur occupée <input type="range" min="0.2" max="1" step="0.05" data-key="twitch.widthRatio"><output></output></label>
+      </div>
+      <h2>Style des spectateurs</h2>
+      <div class="card grid">
+        <label>Palette des vêtements
+          <select data-key="twitch.palette"><option value="vif">Vive</option><option value="pastel">Pastel</option><option value="mono">Monochrome</option><option value="custom">Mes couleurs</option></select></label>
+        <label>Mes couleurs (séparées par des virgules) <input id="customColors" placeholder="#9146ff, #ffffff, #00f593"></label>
+        <label class="check"><input type="checkbox" data-key="twitch.hats"> Chapeaux</label>
+        <label class="check"><input type="checkbox" data-key="twitch.beards"> Barbes et moustaches</label>
+        <label class="check"><input type="checkbox" data-key="twitch.showNames"> Pseudos</label>
+        <label class="check"><input type="checkbox" data-key="twitch.useChatColor"> Pseudo dans la couleur du chat</label>
+        <label>Fond des bulles <input type="color" data-key="twitch.bubbleBg"></label>
+        <label>Texte des bulles <input type="color" data-key="twitch.bubbleFg"></label>
+        <label class="wide">Comptes ignorés (bots) <input data-key="twitch.ignore"></label>
+      </div>
+      <p class="muted">Chaque spectateur garde le même personnage d’un live à l’autre : il est calculé à partir de son pseudo. Lecture du chat anonyme, sans connexion à Twitch.</p>
+    </section>
+
+    <!-- OBS -->
+    <section data-panel="obs">
+      <h1>OBS / Streamlabs</h1>
+      <div class="card">
+        <p>Ajoute une <b>Source Navigateur</b> avec une de ces URL (largeur 1920, hauteur 1080). Le fond est transparent.</p>
+        <div class="url"><code id="urlAll"></code><button data-copy="urlAll">Copier</button><span class="muted">Discord + Twitch</span></div>
+        <div class="url"><code id="urlDiscord"></code><button data-copy="urlDiscord">Copier</button><span class="muted">Discord seul</span></div>
+        <div class="url"><code id="urlTwitch"></code><button data-copy="urlTwitch">Copier</button><span class="muted">Twitch seul</span></div>
+        <p class="muted">L’app doit rester lancée pendant le stream. Les réglages faits ici s’appliquent en direct dans OBS.</p>
+      </div>
+    </section>
+
+    <!-- DISCORD CONFIG -->
+    <section data-panel="discord">
+      <h1>Configuration Discord</h1>
+      <div class="card grid">
+        <label class="wide">Client ID de l’application Discord <input data-key="discord.clientId" placeholder="123456789012345678"></label>
+        <label class="wide">Redirect URI <input data-key="discord.redirectUri"></label>
+        <details class="wide"><summary>Avancé : Client Secret (seulement si « Public Client » est désactivé)</summary>
+          <input type="password" data-key="discord.clientSecret" placeholder="laisser vide si Public Client est activé">
+        </details>
+      </div>
+      <div class="card">
+        <h2>Mise en place, une seule fois (par la personne qui gère l’app)</h2>
+        <ol>
+          <li>Va sur <a href="https://discord.com/developers/applications" target="_blank">discord.com/developers/applications</a> → <b>New Application</b>.</li>
+          <li>Onglet <b>OAuth2</b> : ajoute la Redirect URI <code>http://localhost</code> et active <b>Public Client</b>.</li>
+          <li>Onglet <b>App Testers</b> : invite chaque pote (50 max). Chacun doit <b>accepter l’invitation</b> (lien reçu par e-mail ou dans Discord).</li>
+          <li>Copie l’<b>Application ID</b> et colle-le ci-dessus (ou intègre-le au build).</li>
+        </ol>
+        <p class="muted">Au premier lancement, Discord affiche une fenêtre d’autorisation : clique « Autoriser ». Les mises à jour suivantes se font sans rien demander.</p>
+      </div>
+    </section>
+  </main>
+</div>
+<script src="shared/puppet.js"></script>
+<script src="panel.js"></script>
+</body>
+</html>
