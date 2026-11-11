@@ -23,7 +23,10 @@ jobs:
       - name: Bundle Discord client ID
         if: ${{ vars.DISCORD_CLIENT_ID != '' }}
         shell: bash
-        run: echo '{ "discord": { "clientId": "${{ vars.DISCORD_CLIENT_ID }}" } }' > electron/app-config.json
+        env:
+          CLIENT_ID: ${{ vars.DISCORD_CLIENT_ID }}
+        run: |
+          printf '{ "discord": { "clientId": "%s" } }' "$CLIENT_ID" > electron/app-config.json
       - run: npx electron-builder --win portable nsis --publish never
         env:
           CSC_IDENTITY_AUTO_DISCOVERY: false

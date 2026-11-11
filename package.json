@@ -1,7 +1,7 @@
 {
   "name": "puppet-overlay",
   "productName": "Puppet Overlay",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Overlay Discord vocal en marionnettes + créateur d'avatar + spectateurs Twitch",
   "main": "electron/main.js",
   "private": true,
