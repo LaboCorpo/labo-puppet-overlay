@@ -20,11 +20,11 @@
     teeth: ['none', 'buck', 'fangs', 'gap'],
     hair: ['none', 'short', 'spiky', 'bowl', 'long', 'bun', 'mohawk', 'afro', 'curly', 'pigtails', 'ponytail', 'sidepart'],
     beard: ['none', 'beard', 'goatee', 'mustache', 'stubble', 'full', 'chinstrap', 'handlebar'],
-    hat: ['none', 'beanie', 'cap', 'crown', 'headphones', 'tophat', 'cowboy', 'wizard', 'beret', 'bandana', 'horns', 'halo', 'propeller'],
-    outfit: ['jacket', 'sweater', 'dress', 'suit', 'hoodie', 'tshirt', 'overalls', 'hawaiian', 'labcoat', 'cape'],
+    hat: ['none', 'beanie', 'cap', 'crown', 'headphones', 'tophat', 'cowboy', 'wizard', 'beret', 'bandana', 'horns', 'halo', 'propeller', 'hardhat', 'party', 'pirate', 'santa', 'chef'],
+    outfit: ['jacket', 'sweater', 'dress', 'suit', 'hoodie', 'tshirt', 'overalls', 'hawaiian', 'labcoat', 'cape', 'hivis', 'apron', 'jersey', 'kimono', 'superhero', 'raincoat'],
     pattern: ['none', 'stripes', 'dots', 'stars', 'checks'],
-    neckwear: ['none', 'scarf', 'bowtie', 'tie', 'necklace', 'medal'],
-    held: ['none', 'mug', 'controller', 'sword', 'flower', 'phone', 'pizza', 'balloon'],
+    neckwear: ['none', 'scarf', 'bowtie', 'tie', 'necklace', 'medal', 'lei', 'chain'],
+    held: ['none', 'mug', 'controller', 'sword', 'flower', 'phone', 'pizza', 'balloon', 'microphone', 'trophy', 'popcorn'],
     heldLayer: ['behind', 'front'],
   };
   // Numeric sliders: [min, max, default]
@@ -36,6 +36,9 @@
     hairSize: [0.85, 1.25, 1], hairHeight: [-1, 1, 0], beardSize: [0.7, 1.4, 1],
     hatSize: [0.7, 1.4, 1], hatHeight: [-1, 1, 0], hatTilt: [-0.5, 0.5, 0],
     bodyWidth: [0.8, 1.3, 1], bodyHeight: [0.85, 1.2, 1], heldSize: [0.6, 1.6, 1], heldHeight: [0, 1, 0], heldX: [-1, 1, 0],
+    // Offsets for every add-on (1 = ~20 px sideways / ~15 px vertically in puppet units)
+    hatX: [-1, 1, 0], glassesX: [-1, 1, 0], noseX: [-1, 1, 0], cheekX: [-1, 1, 0], cheekY: [-1, 1, 0],
+    beardX: [-1, 1, 0], beardY: [-1, 1, 0], teethX: [-1, 1, 0], neckSize: [0.6, 1.5, 1], neckX: [-1, 1, 0], neckY: [-1, 1, 0],
   };
   // Transform helper: scale/rotate around a pivot, optionally shifted.
   function around(ctx, px, py, sc, rot, dx, dy) {
@@ -355,7 +358,7 @@
   }
 
   function drawCape(ctx, a) {
-    if (a.outfit !== 'cape') return;
+    if (a.outfit !== 'cape' && a.outfit !== 'superhero') return;
     ctx.fillStyle = a.accentColor;
     ctx.beginPath(); ctx.moveTo(-28, -86); ctx.quadraticCurveTo(-58, -40, -52, -4); ctx.lineTo(52, -4); ctx.quadraticCurveTo(58, -40, 28, -86); ctx.closePath();
     ctx.fill(); stroke(ctx);
@@ -414,6 +417,43 @@
         ctx.fillStyle = c; ctx.beginPath(); ctx.moveTo(-10, -88); ctx.lineTo(10, -88); ctx.lineTo(6, -20); ctx.lineTo(-6, -20); ctx.closePath(); ctx.fill(); stroke(ctx, 2);
         ctx.beginPath(); ctx.moveTo(-10, -88); ctx.lineTo(-16, -60); ctx.moveTo(10, -88); ctx.lineTo(16, -60); stroke(ctx, 2);
         ctx.fillStyle = '#3498db'; ctx.fillRect(18, -60, 3, 10);
+        break;
+      case 'hivis': {
+        // High-visibility vest (gilet jaune) worn open over the shirt colour
+        const vest = '#e4f21f', band = '#d9dde3';
+        for (const sd of [-1, 1]) {
+          ctx.fillStyle = vest; ctx.beginPath();
+          ctx.moveTo(sd * 30, -88); ctx.lineTo(sd * 10, -88); ctx.lineTo(sd * 7, -10); ctx.lineTo(sd * 38, -10); ctx.closePath(); ctx.fill(); stroke(ctx, 2);
+          ctx.fillStyle = band;
+          for (const y of [-54, -32]) { ctx.beginPath(); ctx.moveTo(sd * 8.5, y); ctx.lineTo(sd * (33 + (y + 88) / 78 * 5), y); ctx.lineTo(sd * (33.5 + (y + 95) / 78 * 5), y + 7); ctx.lineTo(sd * 8.2, y + 7); ctx.closePath(); ctx.fill(); stroke(ctx, 1.5); }
+          ctx.beginPath(); ctx.moveTo(sd * 15, -88); ctx.lineTo(sd * 14, -60); ctx.lineWidth = 6; ctx.strokeStyle = band; ctx.stroke();
+        }
+        break;
+      }
+      case 'apron':
+        ctx.fillStyle = '#ffffff'; ctx.beginPath(); ctx.moveTo(-20, -70); ctx.lineTo(20, -70); ctx.lineTo(24, -12); ctx.quadraticCurveTo(0, -6, -24, -12); ctx.closePath(); ctx.fill(); stroke(ctx, 2);
+        ctx.beginPath(); ctx.moveTo(-18, -70); ctx.lineTo(-12, -88); ctx.moveTo(18, -70); ctx.lineTo(12, -88); stroke(ctx, 2);
+        ctx.fillStyle = a.accentColor; rr(ctx, -10, -44, 20, 12, 3); ctx.fill(); stroke(ctx, 1.5);
+        break;
+      case 'jersey':
+        ctx.fillStyle = a.accentColor; ctx.fillRect(-36, -60, 6, 48); ctx.fillRect(30, -60, 6, 48);
+        ctx.beginPath(); ctx.arc(0, -88, 11, 0, Math.PI); ctx.fill(); stroke(ctx, 2);
+        ctx.font = '900 30px "Segoe UI", system-ui, sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+        ctx.lineWidth = 4; ctx.strokeStyle = OUTLINE; ctx.strokeText('10', 0, -44); ctx.fillStyle = a.accentColor; ctx.fillText('10', 0, -44);
+        break;
+      case 'kimono':
+        ctx.fillStyle = a.accentColor; ctx.beginPath(); ctx.moveTo(-14, -88); ctx.lineTo(-4, -88); ctx.lineTo(20, -50); ctx.lineTo(12, -48); ctx.closePath(); ctx.fill(); stroke(ctx, 2);
+        ctx.beginPath(); ctx.moveTo(14, -88); ctx.lineTo(-2, -60); stroke(ctx, 2);
+        ctx.fillStyle = shade(a.accentColor, -30); ctx.fillRect(-35, -48, 70, 12); ctx.beginPath(); ctx.rect(-35, -48, 70, 12); stroke(ctx, 2);
+        break;
+      case 'superhero':
+        ctx.fillStyle = a.accentColor; ctx.beginPath(); ctx.arc(0, -60, 14, 0, Math.PI * 2); ctx.fill(); stroke(ctx, 2);
+        ctx.fillStyle = '#f5c518'; star(ctx, 0, -60, 10, 4.2); ctx.fillRect(-36, -26, 72, 7); ctx.beginPath(); ctx.rect(-36, -26, 72, 7); stroke(ctx, 1.5);
+        break;
+      case 'raincoat':
+        ctx.beginPath(); ctx.moveTo(0, -88); ctx.lineTo(0, -10); stroke(ctx, 2);
+        ctx.fillStyle = shade(c, -25); ctx.beginPath(); ctx.moveTo(-18, -88); ctx.lineTo(0, -74); ctx.lineTo(18, -88); ctx.closePath(); ctx.fill(); stroke(ctx, 2);
+        ctx.fillStyle = '#ffffff'; [-62, -44, -26].forEach((y) => { rr(ctx, -4, y, 8, 4, 2); ctx.fill(); stroke(ctx, 1.2); });
         break;
       case 'cape':
         ctx.beginPath(); ctx.moveTo(0, -88); ctx.lineTo(0, -10); stroke(ctx, 2);
@@ -484,6 +524,23 @@
         ctx.fillStyle = '#d68a3c'; rr(ctx, x - 15, y - 20, 26, 6, 3); ctx.fill(); stroke(ctx, 2);
         ctx.fillStyle = '#c0392b'; [[-6, -10], [2, -9], [-2, -2]].forEach(([dx, dy]) => { ctx.beginPath(); ctx.arc(x + dx, y + dy, 2.5, 0, Math.PI * 2); ctx.fill(); });
         break;
+      case 'microphone':
+        ctx.fillStyle = '#2d2d36'; rr(ctx, x - 4, y - 14, 8, 26, 3); ctx.fill(); stroke(ctx, 2);
+        ctx.fillStyle = '#b8bec8'; ctx.beginPath(); ctx.arc(x, y - 20, 9, 0, Math.PI * 2); ctx.fill(); stroke(ctx, 2);
+        ctx.strokeStyle = '#7d848f'; ctx.lineWidth = 1; for (let k = -6; k <= 6; k += 4) { ctx.beginPath(); ctx.moveTo(x + k, y - 28); ctx.lineTo(x + k, y - 12); ctx.stroke(); }
+        break;
+      case 'trophy':
+        ctx.fillStyle = '#f5c518';
+        ctx.beginPath(); ctx.moveTo(x - 12, y - 26); ctx.lineTo(x + 12, y - 26); ctx.quadraticCurveTo(x + 12, y - 6, x, y - 4); ctx.quadraticCurveTo(x - 12, y - 6, x - 12, y - 26); ctx.fill(); stroke(ctx, 2);
+        for (const sd of [-1, 1]) { ctx.beginPath(); ctx.arc(x + sd * 14, y - 18, 5, 0, Math.PI * 2); ctx.lineWidth = 3; ctx.strokeStyle = '#d4a10f'; ctx.stroke(); }
+        ctx.fillStyle = '#d4a10f'; ctx.fillRect(x - 3, y - 4, 6, 6); rr(ctx, x - 10, y + 2, 20, 6, 2); ctx.fill(); stroke(ctx, 1.5);
+        break;
+      case 'popcorn':
+        ctx.fillStyle = '#fff6d6'; [[-8, -24], [0, -28], [8, -24], [-4, -30], [5, -32]].forEach(([dx, dy]) => { ctx.beginPath(); ctx.arc(x + dx, y + dy, 6, 0, Math.PI * 2); ctx.fill(); stroke(ctx, 1.2); });
+        ctx.save(); ctx.beginPath(); ctx.moveTo(x - 13, y - 22); ctx.lineTo(x + 13, y - 22); ctx.lineTo(x + 9, y + 6); ctx.lineTo(x - 9, y + 6); ctx.closePath(); ctx.fillStyle = '#ffffff'; ctx.fill(); ctx.clip();
+        ctx.fillStyle = '#e74c3c'; for (let k = -12; k < 14; k += 8) ctx.fillRect(x + k, y - 24, 4, 32); ctx.restore();
+        ctx.beginPath(); ctx.moveTo(x - 13, y - 22); ctx.lineTo(x + 13, y - 22); ctx.lineTo(x + 9, y + 6); ctx.lineTo(x - 9, y + 6); ctx.closePath(); stroke(ctx, 2);
+        break;
       case 'balloon': {
         const sway = Math.sin((st.time || 0) * 1.6) * 6;
         ctx.beginPath(); ctx.moveTo(x, y); ctx.quadraticCurveTo(x - 6 + sway, y - 50, x - 4 + sway, y - 96); ctx.lineWidth = 1.5; ctx.strokeStyle = OUTLINE; ctx.stroke();
@@ -514,6 +571,17 @@
       case 'necklace':
         ctx.beginPath(); ctx.arc(0, -90, 22, 0.25 * Math.PI, 0.75 * Math.PI); ctx.lineWidth = 2.5; ctx.strokeStyle = '#f5c518'; ctx.stroke();
         ctx.beginPath(); ctx.arc(0, -68, 5, 0, Math.PI * 2); ctx.fill(); stroke(ctx, 2);
+        break;
+      case 'lei':
+        for (let i = 0; i <= 10; i++) {
+          const ang = Math.PI * (0.12 + 0.76 * i / 10), px = Math.cos(ang) * 26, py = -84 + Math.sin(ang) * 14;
+          ctx.fillStyle = ['#ff6fa8', '#f5c518', '#ffffff', c][i % 4]; ctx.beginPath(); ctx.arc(px, py, 5.5, 0, Math.PI * 2); ctx.fill(); stroke(ctx, 1.5);
+        }
+        break;
+      case 'chain':
+        ctx.beginPath(); ctx.arc(0, -96, 26, 0.2 * Math.PI, 0.8 * Math.PI); ctx.lineWidth = 6; ctx.strokeStyle = OUTLINE; ctx.stroke(); ctx.lineWidth = 4; ctx.strokeStyle = '#f5c518'; ctx.setLineDash([4, 2]); ctx.stroke(); ctx.setLineDash([]);
+        ctx.fillStyle = '#f5c518'; ctx.beginPath(); ctx.arc(0, -66, 9, 0, Math.PI * 2); ctx.fill(); stroke(ctx, 2.5);
+        ctx.fillStyle = '#d4a10f'; ctx.font = '900 11px sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText('$', 0, -65.5);
         break;
       case 'medal':
         ctx.beginPath(); ctx.moveTo(-14, -88); ctx.lineTo(-2, -64); ctx.moveTo(14, -88); ctx.lineTo(2, -64); ctx.lineWidth = 5; ctx.strokeStyle = c; ctx.stroke();
@@ -622,7 +690,7 @@
   function drawNose(ctx, a) {
     if (!a.nose || a.nose === 'none') return;
     const x = HEAD.cx - 6, y = HEAD.cy + 2;
-    ctx.save(); around(ctx, x, y, a.noseSize || 1, 0, 0, (a.noseHeight || 0) * 10);
+    ctx.save(); around(ctx, x, y, a.noseSize || 1, 0, (a.noseX || 0) * 20, (a.noseHeight || 0) * 10);
     drawNoseShape(ctx, a, x, y);
     ctx.restore();
   }
@@ -644,7 +712,7 @@
 
   function drawCheeks(ctx, a) {
     if (!a.cheeks || a.cheeks === 'none') return;
-    ctx.save(); around(ctx, HEAD.cx - 3, HEAD.cy + 4, a.cheekSize || 1, 0);
+    ctx.save(); around(ctx, HEAD.cx - 3, HEAD.cy + 4, a.cheekSize || 1, 0, (a.cheekX || 0) * 20, (a.cheekY || 0) * 15);
     drawCheekShapes(ctx, a);
     ctx.restore();
   }
@@ -791,6 +859,36 @@
           ctx.fillStyle = c; ctx.fill(); stroke(ctx, 2.5);
         }
         break;
+      case 'hardhat':
+        ctx.beginPath(); ctx.ellipse(cx, top + 16, rx * 0.86, ry * 0.72, 0, Math.PI, Math.PI * 2); ctx.closePath(); ctx.fill(); stroke(ctx);
+        ctx.fillStyle = shade(c, -25); rr(ctx, cx - rx - 8, top + 10, rx * 2 + 16, 9, 4); ctx.fill(); stroke(ctx, 2.5);
+        ctx.fillStyle = shade(c, 25); rr(ctx, cx - 5, top - 22, 10, 32, 4); ctx.fill(); stroke(ctx, 2);
+        break;
+      case 'party':
+        ctx.save(); ctx.translate(cx + 8, top + 8); ctx.rotate(0.18);
+        ctx.beginPath(); ctx.moveTo(-24, 0); ctx.lineTo(0, -62); ctx.lineTo(24, 0); ctx.closePath(); ctx.fill();
+        ctx.save(); ctx.clip(); ctx.fillStyle = a.accentColor; for (let i = 0; i < 4; i++) { ctx.beginPath(); ctx.moveTo(-30, -8 - i * 16); ctx.lineTo(30, -20 - i * 16); ctx.lineTo(30, -14 - i * 16); ctx.lineTo(-30, -2 - i * 16); ctx.fill(); } ctx.restore();
+        ctx.beginPath(); ctx.moveTo(-24, 0); ctx.lineTo(0, -62); ctx.lineTo(24, 0); ctx.closePath(); stroke(ctx);
+        ctx.fillStyle = '#f5c518'; ctx.beginPath(); ctx.arc(0, -64, 7, 0, Math.PI * 2); ctx.fill(); stroke(ctx, 2);
+        ctx.restore();
+        break;
+      case 'pirate':
+        ctx.fillStyle = '#1f1d24';
+        ctx.beginPath(); ctx.moveTo(cx - rx - 14, top + 14); ctx.quadraticCurveTo(cx - rx * 0.6, top - 34, cx, top - 20); ctx.quadraticCurveTo(cx + rx * 0.6, top - 34, cx + rx + 14, top + 14); ctx.quadraticCurveTo(cx, top + 2, cx - rx - 14, top + 14); ctx.fill(); stroke(ctx);
+        ctx.fillStyle = '#ffffff'; ctx.beginPath(); ctx.arc(cx, top - 6, 7, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = '#1f1d24'; ctx.beginPath(); ctx.arc(cx - 2.5, top - 7, 1.6, 0, Math.PI * 2); ctx.arc(cx + 2.5, top - 7, 1.6, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = a.accentColor; ctx.fillRect(cx - rx * 0.7, top + 2, rx * 1.4, 4);
+        break;
+      case 'santa':
+        ctx.beginPath(); ctx.moveTo(cx - rx * 0.92, top + 14); ctx.quadraticCurveTo(cx - 10, top - 50, cx + 44, top - 30); ctx.quadraticCurveTo(cx + 40, top - 10, cx + rx * 0.92, top + 14); ctx.closePath(); ctx.fill(); stroke(ctx);
+        ctx.fillStyle = '#ffffff'; rr(ctx, cx - rx * 0.98, top + 6, rx * 1.96, 16, 8); ctx.fill(); stroke(ctx, 2.5);
+        ctx.beginPath(); ctx.arc(cx + 46, top - 28, 10, 0, Math.PI * 2); ctx.fill(); stroke(ctx, 2.5);
+        break;
+      case 'chef':
+        ctx.fillStyle = '#ffffff';
+        ctx.beginPath(); [[-22, -26, 18], [0, -36, 20], [22, -26, 18]].forEach(([dx, dy, r]) => { ctx.moveTo(cx + dx + r, top + dy); ctx.arc(cx + dx, top + dy, r, 0, Math.PI * 2); }); ctx.fill(); stroke(ctx, 2.5);
+        rr(ctx, cx - rx * 0.66, top - 22, rx * 1.32, 34, 4); ctx.fill(); stroke(ctx, 2.5);
+        break;
       case 'halo': {
         const hy = top - 22 + Math.sin((time || 0) * 2) * 2;
         ctx.save(); ctx.shadowColor = '#ffe066'; ctx.shadowBlur = 12;
@@ -935,7 +1033,7 @@
     headPath(ctx, shape); ctx.save(); ctx.clip(); fillHead(); ctx.restore();
     headPath(ctx, shape); stroke(ctx);
     ctx.restore();
-    if (!isPhoto && face.beard !== 'none') { ctx.save(); around(ctx, HEAD.cx, splitY, face.beardSize || 1, 0); drawBeard(ctx, face, splitY); ctx.restore(); }
+    if (!isPhoto && face.beard !== 'none') { ctx.save(); around(ctx, HEAD.cx, splitY, face.beardSize || 1, 0, (face.beardX || 0) * 20, (face.beardY || 0) * 15); drawBeard(ctx, face, splitY); ctx.restore(); }
 
     // ---- mouth interior (wedge revealed when open) ----
     if (st.open > 0.02) {
@@ -954,7 +1052,7 @@
     const backHair = ['long', 'afro', 'pigtails', 'ponytail', 'curly'];
     const hairT = () => around(ctx, HEAD.cx, HEAD.cy - HEAD.ry * 0.3, face.hairSize || 1, 0, 0, (face.hairHeight || 0) * 8);
     if (!isPhoto && backHair.includes(face.hair)) { ctx.save(); hairT(); drawHair(ctx, face); ctx.restore(); } // hair behind the head
-    if (!isPhoto) drawTeeth(ctx, face, splitY);
+    if (!isPhoto && face.teeth !== 'none') { ctx.save(); ctx.translate((face.teethX || 0) * 20, 0); drawTeeth(ctx, face, splitY); ctx.restore(); }
     ctx.save();
     ctx.beginPath(); ctx.rect(-200, -400, 400, splitY + 400); ctx.clip();
     headPath(ctx, shape); ctx.save(); ctx.clip(); fillHead(); ctx.restore();
@@ -963,7 +1061,7 @@
     ctx.beginPath(); ctx.moveTo(HEAD.cx - HEAD.rx * 0.98, splitY); ctx.lineTo(pivotX, splitY); stroke(ctx, 2.5);
     if (!isPhoto) {
       drawCheeks(ctx, face);
-      ctx.save(); around(ctx, HEAD.cx - 12, splitY - 6, face.beardSize || 1, 0); drawMustache(ctx, face, splitY); ctx.restore();
+      ctx.save(); around(ctx, HEAD.cx - 12, splitY - 6, face.beardSize || 1, 0, (face.beardX || 0) * 20, (face.beardY || 0) * 15); drawMustache(ctx, face, splitY); ctx.restore();
       drawEyes(ctx, face, st.blinking, look);
       drawNose(ctx, face);
       drawBrows(ctx, face);
@@ -978,9 +1076,9 @@
       // photo puppets: a dark band so they still read as "eyes closed"
       ctx.save(); ctx.globalAlpha *= 0.35; ctx.fillStyle = '#000'; ctx.fillRect(HEAD.cx - HEAD.rx, HEAD.cy - 24, HEAD.rx * 2, 20); ctx.restore();
     }
-    drawGlasses(ctx, a);
+    ctx.save(); ctx.translate((a.glassesX || 0) * 20, 0); drawGlasses(ctx, a); ctx.restore();
     if (a.hat && a.hat !== 'none') {
-      ctx.save(); around(ctx, HEAD.cx, HEAD.cy - HEAD.ry, a.hatSize || 1, a.hatTilt || 0, 0, (a.hatHeight || 0) * 12);
+      ctx.save(); around(ctx, HEAD.cx, HEAD.cy - HEAD.ry, a.hatSize || 1, a.hatTilt || 0, (a.hatX || 0) * 20, (a.hatHeight || 0) * 12);
       drawHat(ctx, a, st.time); ctx.restore();
     }
     if (props && opts.deaf) drawEarmuffs(ctx, a.hat === 'headphones');
@@ -990,7 +1088,7 @@
     ctx.restore(); // head
 
     // neckwear sits in front of the chin
-    if (a.neckwear && a.neckwear !== 'none') { ctx.save(); ctx.scale(a.bodyWidth || 1, a.bodyHeight || 1); drawNeckwear(ctx, a); ctx.restore(); }
+    if (a.neckwear && a.neckwear !== 'none') { ctx.save(); ctx.scale(a.bodyWidth || 1, a.bodyHeight || 1); around(ctx, 0, -80, a.neckSize || 1, 0, (a.neckX || 0) * 20, (a.neckY || 0) * 15); drawNeckwear(ctx, a); ctx.restore(); }
     if (a.heldLayer === 'front') {
       const c = a.clothColor || '#3498db';
       ctx.save(); ctx.scale(a.bodyWidth || 1, a.bodyHeight || 1);

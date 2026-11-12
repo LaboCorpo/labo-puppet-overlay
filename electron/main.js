@@ -4,7 +4,7 @@
  * - Tray icon + settings/status panel (hides instead of closing)
  * - Local server for OBS, Discord RPC voice tracking, Twitch chat, avatar sync, auto-update
  */
-const { app, BrowserWindow, Tray, Menu, nativeImage, screen, shell, globalShortcut, Notification, dialog } = require('electron');
+const { app, BrowserWindow, Tray, Menu, nativeImage, screen, shell, globalShortcut, Notification, dialog, desktopCapturer } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const { Store } = require('./store');
@@ -32,6 +32,7 @@ let quitting = false;
 let port;
 let placement = false;
 let startMinimized = false;
+let selfSharing = false; // manual "I'm sharing my screen" (Discord's RPC may not report Go Live)
 let hotkeyErrors = {};
 
 function base() { return `http://127.0.0.1:${port}`; }
@@ -48,7 +49,7 @@ function appState() {
     syncStatus,
     twitchStatus: twitch ? twitch.snapshot() : { status: 'off' },
     app: {
-      version: app.getVersion(), placement, hotkeyErrors, lang: I18N.lang,
+      version: app.getVersion(), placement, hotkeyErrors, lang: I18N.lang, selfSharing,
       update: updater ? updater.state : null,
       portable: !!process.env.PORTABLE_EXECUTABLE_FILE,
       displays: screen.getAllDisplays().map((d, i) => ({ index: i, label: `${i === 0 ? 'Primary — ' : ''}${d.size.width}×${d.size.height}`, primary: d.id === screen.getPrimaryDisplay().id })),
@@ -69,6 +70,7 @@ function startDiscord() {
   rpc.on('status', (s, detail) => { log.info(`[discord] ${s}${detail ? ' — ' + detail : ''}`); push(); });
   rpc.on('channel', () => { store.rememberMembers(rpc.snapshot().members || []); push(); });
   rpc.on('speaking', (id, speaking) => srv.broadcast('speaking', { id, speaking }));
+  rpc.on('effect', (e) => { log.info('[discord] voice effect ' + JSON.stringify(e).slice(0, 200)); srv.broadcast('voice-effect', e); });
   rpc.on('error', (e) => log.error('[discord] ' + e.message));
   rpc.on('warn', (e) => log.warn('[discord] ' + e.message));
   rpc.start();
@@ -131,6 +133,29 @@ function scheduleSync() {
   syncOnce();
   syncTimer = setInterval(syncOnce, Math.max(30, store.settings.sync.intervalSec || 120) * 1000);
 }
+
+// ---------- Screen share preview (own screen only; Discord doesn't expose others' streams) ----------
+function myId() { const d = rpc && rpc.snapshot(); return d && d.me ? d.me.id : null; }
+function iAmSharing() {
+  if (selfSharing) return true;
+  const d = rpc && rpc.snapshot(); const me = myId();
+  return !!(d && me && (d.members || []).some((m) => m.id === me && m.streaming));
+}
+let lastCapture = 0, capturing = false;
+async function previewTick() {
+  const o = store.settings.overlay;
+  if (o.screenShare !== 'advanced' || !iAmSharing() || capturing) return;
+  if (Date.now() - lastCapture < Math.max(1, o.previewInterval || 2) * 1000) return;
+  capturing = true; lastCapture = Date.now();
+  try {
+    // Tiny thumbnail at a low rate keeps this cheap (~15-60 ms every couple of seconds).
+    const srcs = await desktopCapturer.getSources({ types: ['screen'], thumbnailSize: { width: 192, height: 108 } });
+    const src = srcs[o.previewDisplay || 0] || srcs[0];
+    if (src) srv.broadcast('screen-preview', { id: myId() || 'self', img: 'data:image/jpeg;base64,' + src.thumbnail.toJPEG(55).toString('base64') });
+  } catch (e) { log.warn('[preview] ' + e.message); }
+  capturing = false;
+}
+function toggleSharing(on) { selfSharing = on == null ? !selfSharing : !!on; if (!selfSharing) srv.broadcast('screen-preview', { id: myId() || 'self', img: null }); push(); }
 
 // ---------- Overlay window ----------
 function overlayScene() { return store.settings.twitch.showOnDesktop ? 'all' : 'discord'; }
@@ -237,6 +262,7 @@ function updateTray() {
     { type: 'separator' },
     { label: t('Show overlay'), type: 'checkbox', checked: ov, accelerator: pretty(hk.toggleOverlay), click: toggleOverlay },
     { label: t(placement ? 'Finish placement' : 'Move puppets…'), accelerator: pretty(hk.placement), click: () => setPlacement(!placement) },
+    { label: t("I'm sharing my screen"), type: 'checkbox', checked: selfSharing, accelerator: pretty(hk.shareScreen), click: () => toggleSharing() },
     { label: t('Reconnect Discord'), click: () => rpc && rpc.restart() },
   ];
   if (up && (up.status === 'ready' || up.status === 'available')) items.push({ type: 'separator' }, { label: up.status === 'ready' ? t('Restart to update (v{v})', { v: up.latest }) : t('Download v{v}', { v: up.latest }), click: () => updater.install() });
@@ -273,7 +299,7 @@ function registerHotkeys() {
   globalShortcut.unregisterAll();
   hotkeyErrors = {};
   const hk = store.settings.app.hotkeys || {};
-  const map = { toggleOverlay, placement: () => setPlacement(!placement), muteChat: () => applySettings({ twitch: { sound: { muted: !store.settings.twitch.sound.muted } } }) };
+  const map = { toggleOverlay, placement: () => setPlacement(!placement), muteChat: () => applySettings({ twitch: { sound: { muted: !store.settings.twitch.sound.muted } } }), shareScreen: () => toggleSharing() };
   for (const [name, fn] of Object.entries(map)) {
     const acc = hk[name];
     if (!acc) continue;
@@ -319,6 +345,14 @@ async function onAction(name, b) {
     case 'twitch-test': twitch.simulate(b.kind); return;
     case 'fx-test': srv.broadcast('fx-test', {}); return;
     case 'sync-now': await syncOnce(); return;
+    case 'toggle-sharing': toggleSharing(b.on); return;
+    case 'test-voice-fx': {
+      const d = rpc && rpc.snapshot(); const ms = (d && d.members) || [];
+      const m = ms[Math.floor(Math.random() * ms.length)];
+      const emojis = ['🎉', '😂', '🔥', '❤️', '👏', '💀'];
+      srv.broadcast('voice-effect', { userId: m ? m.id : 'f1', emoji: { name: emojis[Math.floor(Math.random() * emojis.length)], id: null }, soundId: Math.random() < 0.4 ? 1 : null, test: true });
+      return;
+    }
     case 'forget-member': store.forgetMember(String(b.id || '')); push(); return;
     case 'clear-viewers': store.clearViewers(); srv.broadcast('viewers-reset', {}); push(); return;
     case 'export-config': {
@@ -366,6 +400,7 @@ app.whenReady().then(async () => {
   startTwitch();
   createOverlay();
   scheduleSync();
+  setInterval(previewTick, 500);
   registerHotkeys();
   applyLoginItem();
   updateTray();

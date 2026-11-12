@@ -1,7 +1,7 @@
 {
   "name": "puppet-overlay",
   "productName": "Puppet Overlay",
-  "version": "0.7.0",
+  "version": "0.8.0",
   "description": "Discord voice overlay with paper puppets, avatar creator and Twitch viewers",
   "main": "electron/main.js",
   "private": true,

@@ -79,6 +79,15 @@ Windows desktop overlay that shows the members of your current Discord voice cha
 - **Settings → Overlay → Layout** and **Twitch → Layout**: `Horizontal` (a row) or `Vertical` (a column). In vertical layout, Twitch bubbles open sideways.
 - Placement mode works with both.
 
+### Screen sharing and reactions
+- **Overlay → Screen sharing display**:
+  - `Off`.
+  - `Simple`: a laptop with a LIVE badge appears in front of whoever is sharing.
+  - `Advanced`: same, plus a live thumbnail of your own screen in the laptop. It's a 192×108 JPEG captured every 1–10 s (default 2 s); each capture takes roughly 15–60 ms.
+- Detection: Discord's RPC voice state is only documented with mute/deaf fields. If your client reports `self_stream`, it is used (Status tab → *Go Live detection*). Otherwise, toggle **I'm sharing my screen** (`Ctrl+Shift+L`, tray menu or panel).
+- Previews of other people's streams are not possible: Discord doesn't expose them.
+- **Emoji reactions / soundboard**: the app subscribes to `VOICE_CHANNEL_EFFECT_SEND` over RPC as an experiment. The Status tab shows whether your client accepts it. When supported, the emoji (plus a sound ring for soundboard) floats above the sender.
+
 ### Members
 The Members tab lists everyone you've shared a voice channel with. For each person you can set:
 - hidden or shown;
@@ -109,7 +118,8 @@ npm install
 npm start                    # run from source
 npm run dist                 # Windows build (on Windows)
 ```
-- `web/overlay.html?demo=1` shows the scene offline. `&fx=portal` forces an entrance effect.
+- `web/overlay.html?demo=1` shows the scene offline. `&fx=portal` forces an entrance effect; `&layout=vertical` switches to a column.
+- `tools/mock-discord.js` is a fake Discord IPC server for testing without Discord (see `CLAUDE.md`).
 - Source layout:
   - `electron/`: main process (`main.js`), Discord RPC, Twitch IRC, updater, local server (127.0.0.1, SSE + JSON API).
   - `web/`: overlay, panel, creator, and shared files (`shared/puppet.js` renderer, `chatsound.js`, `i18n.js`).

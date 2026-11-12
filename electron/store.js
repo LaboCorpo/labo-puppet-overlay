@@ -10,14 +10,16 @@ const DEFAULTS = {
     launchAtStartup: false,
     taskbarIcon: true, // keep a taskbar button while the app runs (panel minimizes instead of hiding)
     autoUpdate: true,
-    hotkeys: { toggleOverlay: 'CommandOrControl+Shift+O', placement: 'CommandOrControl+Shift+P', muteChat: 'CommandOrControl+Shift+M' },
+    hotkeys: { toggleOverlay: 'CommandOrControl+Shift+O', placement: 'CommandOrControl+Shift+P', muteChat: 'CommandOrControl+Shift+M', shareScreen: 'CommandOrControl+Shift+L' },
     firstRunDone: false,
   },
   discord: { clientId: '', clientSecret: '', redirectUri: 'http://localhost' },
   overlay: {
     enabled: true, layout: 'horizontal', anchor: 'bottom-left', pos: { x: 0.15, y: 0.92 }, scale: 0.8, spacing: 120, margin: 30,
     showNames: true, hideIdle: false, showSelf: true, glow: false, maxVisible: 12, display: 0,
-    entrance: 'random', exit: 'random', statusStyle: 'props', sleepMinutes: 10, lookAtSpeaker: true,
+    entrance: 'random', exit: 'random',
+    voiceEffects: true, // emoji reactions / soundboard over the member (if Discord exposes them)
+    screenShare: 'simple', previewInterval: 2, previewDisplay: 0, // 'off' | 'simple' | 'advanced' statusStyle: 'props', sleepMinutes: 10, lookAtSpeaker: true,
   },
   twitch: {
     enabled: false, channel: '', scale: 0.5, maxViewers: 20, bubbleSeconds: 7, idleMinutes: 10,

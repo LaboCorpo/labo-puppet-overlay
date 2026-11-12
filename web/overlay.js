@@ -25,6 +25,8 @@
   let avatars = {};           // discordId -> avatar
   let overrides = {};         // twitch login -> customisation from chat commands
   let placement = false;
+  let meId = null, selfSharing = false;
+  const previews = new Map(); // member id -> Image of their screen (only ever our own screen)
   let fakeMembers = null;
   const dEnts = new Map();    // discord puppets on screen
   const viewers = new Map();  // twitch viewers on screen
@@ -50,7 +52,8 @@
     if (s.settings) { const restyle = !settings || styleKey(s.settings.twitch) !== styleKey(settings.twitch); settings = s.settings; if (restyle) restyleAll(); }
     if (s.avatars) avatars = s.avatars;
     if (s.viewers) { overrides = s.viewers; restyleAll(); }
-    if (s.discord) members = s.discord.members || [];
+    if (s.discord) { members = s.discord.members || []; meId = s.discord.me ? s.discord.me.id : null; }
+    if (s.app) selfSharing = !!s.app.selfSharing;
     if (s.app && s.app.lang) I18N.setLang(s.app.lang);
     placement = DESKTOP && !!(s.app && s.app.placement);
     if (s.settings) configureSound();
@@ -67,6 +70,12 @@
     es.addEventListener('chat', (e) => onChat(JSON.parse(e.data)));
     es.addEventListener('twitch-event', (e) => onTwitchEvent(JSON.parse(e.data)));
     es.addEventListener('viewer', (e) => { const d = JSON.parse(e.data); if (d.override) overrides[d.login] = d.override; else delete overrides[d.login]; restyle(d.login); });
+    es.addEventListener('voice-effect', (e) => onVoiceEffect(JSON.parse(e.data)));
+    es.addEventListener('screen-preview', (e) => {
+      const d = JSON.parse(e.data);
+      if (!d.img) { previews.delete(d.id); return; }
+      const img = new Image(); img.onload = () => previews.set(d.id, img); img.src = d.img;
+    });
     es.addEventListener('viewers-reset', () => { overrides = {}; restyleAll(); });
     // Panel "Replay entrances" button: everyone leaves with the exit effect, then comes back in.
     es.addEventListener('fx-test', () => { for (const e of dEnts.values()) if (e.leaving < 0) { e.forceLeave = true; startExit(e); } });
@@ -79,7 +88,7 @@
     fakeMembers = [
       { id: 'f1', name: 'Timo', demoAvatar: Object.assign(P.randomAvatar('Timo'), { hat: 'headphones' }) },
       { id: 'f2', name: 'Lea', mute: true, demoAvatar: P.randomAvatar('Lea') },
-      { id: 'f3', name: 'Max', demoAvatar: P.randomAvatar('Max') },
+      { id: 'f3', name: 'Max', streaming: true, demoAvatar: P.randomAvatar('Max') },
       { id: 'f4', name: 'Sam', deaf: true, mute: true, demoAvatar: P.randomAvatar('Sammy') },
     ];
     setInterval(() => { for (const m of fakeMembers) m.speaking = !m.mute && Math.random() < 0.35; }, 1300);
@@ -208,6 +217,62 @@
         if (e.leaving > EXIT_DURATION[e.exit]) dEnts.delete(e.id);
       }
     }
+  }
+
+  // ---------- Screen share (laptop prop) & voice effects ----------
+  function isSharing(m) { return !!(m.streaming || (m.id === meId && selfSharing) || (m.self && selfSharing)); }
+  // A small laptop in front of the puppet. With a preview image (own screen only) it is drawn into the lid.
+  function drawLaptop(x, y, s, img, t) {
+    ctx.save();
+    ctx.translate(x, y); ctx.scale(s, s);
+    const W2 = 46, sh = 52, by = -26;
+    // lid
+    ctx.fillStyle = '#2b2a33'; ctx.beginPath(); ctx.moveTo(-W2, by); ctx.lineTo(W2, by); ctx.lineTo(W2 - 4, by - sh); ctx.lineTo(-W2 + 4, by - sh); ctx.closePath(); ctx.fill();
+    ctx.lineWidth = 3; ctx.strokeStyle = '#1d1a1f'; ctx.stroke();
+    const sx = -W2 + 8, sy = by - sh + 5, sw = W2 * 2 - 16, sh2 = sh - 11;
+    if (img) ctx.drawImage(img, sx, sy, sw, sh2);
+    else {
+      const g = ctx.createLinearGradient(sx, sy, sx + sw, sy + sh2);
+      g.addColorStop(0, '#3a6df0'); g.addColorStop(1, '#9b5cff'); ctx.fillStyle = g; ctx.fillRect(sx, sy, sw, sh2);
+      ctx.globalAlpha = 0.25 + 0.15 * Math.sin(t * 3); ctx.fillStyle = '#ffffff'; ctx.fillRect(sx, sy + ((t * 30) % sh2), sw, 3); ctx.globalAlpha = 1;
+    }
+    // LIVE badge
+    ctx.fillStyle = '#ed4245'; ctx.beginPath(); ctx.roundRect ? ctx.roundRect(sx + 3, sy + 3, 26, 11, 3) : ctx.rect(sx + 3, sy + 3, 26, 11); ctx.fill();
+    ctx.fillStyle = '#fff'; ctx.font = '800 8px "Segoe UI", sans-serif'; ctx.textBaseline = 'middle'; ctx.fillText('LIVE', sx + 6, sy + 9);
+    // base
+    ctx.fillStyle = '#c9ccd6'; ctx.beginPath(); ctx.moveTo(-W2 - 6, by); ctx.lineTo(W2 + 6, by); ctx.lineTo(W2 + 2, by + 8); ctx.lineTo(-W2 - 2, by + 8); ctx.closePath(); ctx.fill(); ctx.stroke();
+    ctx.restore();
+  }
+
+  // Emoji reactions / soundboard sent in the voice channel, floating above the sender.
+  function onVoiceEffect(ev) {
+    if (!settings || settings.overlay.voiceEffects === false) return;
+    let e = dEnts.get(ev.userId);
+    if (!e && ev.test) e = [...dEnts.values()][Math.floor(Math.random() * dEnts.size)];
+    if (!e) return;
+    const em = ev.emoji || {};
+    const p = { kind: 'emoji', follow: e, ox: (Math.random() - 0.5) * 30, rise: 0, life: 2.6, max: 2.6, sound: !!ev.soundId, init: true };
+    if (em.id) { p.img = new Image(); p.img.src = `https://cdn.discordapp.com/emojis/${em.id}.${em.animated ? 'gif' : 'png'}?size=96`; }
+    p.text = em.name && !em.id ? em.name : (ev.soundId && !em.id ? '🔊' : null);
+    particles.push(p);
+    e.anim.jump(14);
+  }
+  function drawEmojiParticle(p, dt) {
+    const e = p.follow; if (!e || !dEnts.has(e.id)) { p.life = 0; return; }
+    p.rise += dt * 55;
+    const s = e.s, age = p.max - p.life;
+    const k = Math.min(1, age / 0.18) * (age < 0.3 ? 1 + 0.25 * Math.sin(age / 0.3 * Math.PI) : 1);
+    const x = e.x + p.ox * s, y = e.y + P.headTopLocal({}) * s - 30 * s - p.rise * s;
+    ctx.save(); ctx.globalAlpha = Math.min(1, p.life * 1.5);
+    if (p.sound) { // sound rings
+      for (let i = 0; i < 2; i++) { const r = ((age * 1.4 + i * 0.5) % 1); ctx.globalAlpha = Math.min(1, p.life) * (1 - r) * 0.6; ctx.strokeStyle = '#ffd166'; ctx.lineWidth = 3; ctx.beginPath(); ctx.arc(x, y, (20 + r * 40) * s, 0, Math.PI * 2); ctx.stroke(); }
+      ctx.globalAlpha = Math.min(1, p.life * 1.5);
+    }
+    const size = 46 * s * k;
+    if (p.img && p.img.complete && p.img.naturalWidth) ctx.drawImage(p.img, x - size / 2, y - size / 2, size, size);
+    else if (p.text) { ctx.font = `${Math.round(size)}px "Segoe UI Emoji", "Apple Color Emoji", sans-serif`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(p.text, x, y); }
+    if (p.sound && (p.img || p.text !== '🔊')) { ctx.font = `${Math.round(18 * s)}px "Segoe UI Emoji", sans-serif`; ctx.fillText('🔊', x + size * 0.55, y + size * 0.4); }
+    ctx.restore();
   }
 
   // ---------- Entrance / exit effects ----------
@@ -355,6 +420,7 @@
           flip: e.walking && e.tx > e.x, // puppets face left by default
           discordAvatarUrl: discordAvatarUrl(m),
         });
+        if (isSharing(m) && cfg.screenShare !== 'off' && e.leaving < 0) drawLaptop(e.x, e.y + (f.dy || 0) + st.bob * e.s, e.s * st.scaleMul, cfg.screenShare === 'advanced' ? (previews.get(m.id) || (m.id === meId && previews.get('self'))) : null, t);
         ctx.restore();
       }
       drawFxFront(e, t);
@@ -553,6 +619,7 @@
       const p = particles[i];
       if (!p.init) { const v = p.follow; const s = settings.twitch.scale || 0.5; p.x = v.x || W / 2; p.y = (v.y || H) - 170 * s; p.init = true; p.follow = null; }
       p.life -= dt;
+      if (p.kind === 'emoji') { drawEmojiParticle(p, dt); if (p.life <= 0) particles.splice(i, 1); continue; }
       if (p.kind === 'feather') {
         p.vy = Math.min(p.vy + 260 * dt, 55); p.vx *= Math.pow(0.15, dt);
         p.x += (p.vx + Math.sin(t * 2.4 + p.ph) * 38) * dt; p.y += p.vy * dt; p.rot = Math.sin(t * 2.4 + p.ph) * 0.9;

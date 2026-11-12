@@ -134,11 +134,15 @@
       $('#updateText').textContent = u.status === 'ready' ? t('Version {v} is downloaded and ready.', { v: u.latest }) : t("Version {v} is available. The portable build can't update itself — grab the new .exe.", { v: u.latest });
       $('#updateBtn').textContent = t(u.status === 'ready' ? 'Restart & update' : 'Download');
     } else banner.classList.add('hidden');
-    for (const k of ['toggleOverlay', 'placement', 'muteChat']) $('#hk-' + k).textContent = t((a.hotkeyErrors || {})[k] || '');
+    for (const k of ['toggleOverlay', 'placement', 'muteChat', 'shareScreen']) $('#hk-' + k).textContent = t((a.hotkeyErrors || {})[k] || '');
     const sel = $('#displaySelect');
     const opts = (a.displays || []).map((d) => `<option value="${d.index}">${escapeHtml(d.label.replace('Primary', t('Primary')))}</option>`).join('');
     if (sel.dataset.opts !== opts) { sel.innerHTML = opts; sel.dataset.opts = opts; sel.value = state.settings.overlay.display; }
     $$('[data-placement]').forEach((b) => (b.textContent = t(a.placement ? 'Finish placement' : b.dataset.label)));
+    $$('[data-sharing]').forEach((b) => { b.textContent = a.selfSharing ? '🔴 ' + t('Sharing — click to stop') : t("🖥 I'm sharing my screen"); b.classList.toggle('ghost', !a.selfSharing); });
+    const f = (state.discord && state.discord.features) || {};
+    $('#fEffects').innerHTML = f.effects === true ? `<span class="ok">${t('supported')}</span>` : f.effects === false ? `<span class="warn">${t('not exposed by Discord (RPC)')}</span>` : t('unknown — join a voice channel');
+    $('#fStream').innerHTML = f.streamField ? `<span class="ok">${t('reported by Discord')}</span>` : `<span class="warn">${t('not reported — use “I’m sharing my screen”')}</span>`;
   }
   $('#updateBtn').onclick = () => action('update-install');
   $('#checkUpdate').onclick = () => action('update-check');
@@ -320,6 +324,8 @@
   }
   renderUrls();
   $$('[data-copy]').forEach((b) => b.onclick = () => { navigator.clipboard.writeText($('#' + b.dataset.copy).textContent); toast(t('Copied to clipboard')); });
+  $$('[data-sharing]').forEach((b) => (b.onclick = () => action('toggle-sharing')));
+  $('#testVoiceFx').onclick = () => action('test-voice-fx');
   $('#replayFx').onclick = () => { action('fx-test'); toast(t('Watch the preview, your overlay and OBS')); };
   $('#reconnect').onclick = () => { action('reconnect'); toast(t('Reconnecting to Discord…')); };
 

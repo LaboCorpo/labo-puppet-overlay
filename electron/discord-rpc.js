@@ -44,6 +44,8 @@ class DiscordVoiceRPC extends EventEmitter {
     this.me = null;
     this.stopped = false;
     this.retryTimer = null;
+    this.features = { effects: null, streamField: false }; // what this Discord client actually exposes
+    this.seenEvents = new Set();
   }
 
   setStatus(s, detail) { this.status = s; this.statusDetail = detail || ''; this.emit('status', s, detail); }
@@ -186,7 +188,7 @@ class DiscordVoiceRPC extends EventEmitter {
   async _setChannel(ch) {
     const prev = this.channel;
     if (prev) {
-      for (const evt of ['VOICE_STATE_CREATE', 'VOICE_STATE_UPDATE', 'VOICE_STATE_DELETE', 'SPEAKING_START', 'SPEAKING_STOP']) {
+      for (const evt of ['VOICE_STATE_CREATE', 'VOICE_STATE_UPDATE', 'VOICE_STATE_DELETE', 'SPEAKING_START', 'SPEAKING_STOP', 'VOICE_CHANNEL_EFFECT_SEND']) {
         this.request('UNSUBSCRIBE', { channel_id: prev.id }, evt).catch(() => {});
       }
     }
@@ -197,6 +199,10 @@ class DiscordVoiceRPC extends EventEmitter {
       for (const evt of ['VOICE_STATE_CREATE', 'VOICE_STATE_UPDATE', 'VOICE_STATE_DELETE', 'SPEAKING_START', 'SPEAKING_STOP']) {
         await this.request('SUBSCRIBE', { channel_id: this.channel.id }, evt).catch((e) => this.emit('warn', e));
       }
+      // Experimental: emoji reactions / soundboard are a gateway event; the local RPC may or may not accept it.
+      this.request('SUBSCRIBE', { channel_id: this.channel.id }, 'VOICE_CHANNEL_EFFECT_SEND', 5000)
+        .then(() => { this.features.effects = true; this.emit('channel'); })
+        .catch((e) => { this.features.effects = false; this.emit('warn', new Error('VOICE_CHANNEL_EFFECT_SEND not available over RPC: ' + e.message)); this.emit('channel'); });
     }
     this.emit('channel');
   }
@@ -204,6 +210,7 @@ class DiscordVoiceRPC extends EventEmitter {
   _upsert(vs) {
     const u = vs.user || {};
     const st = vs.voice_state || {};
+    if ('self_stream' in st || 'self_stream' in vs) this.features.streamField = true;
     const old = this.members.get(u.id) || {};
     this.members.set(u.id, {
       id: u.id,
@@ -211,6 +218,9 @@ class DiscordVoiceRPC extends EventEmitter {
       avatarHash: u.avatar || null,
       mute: !!(st.mute || st.self_mute || st.suppress),
       deaf: !!(st.deaf || st.self_deaf),
+      // Go Live / camera: documented for the gateway only; read them if this client sends them over RPC.
+      streaming: !!(st.self_stream || vs.self_stream),
+      video: !!(st.self_video || vs.self_video),
       speaking: old.speaking || false,
       self: this.me && u.id === this.me.id,
     });
@@ -235,7 +245,11 @@ class DiscordVoiceRPC extends EventEmitter {
         this.emit('speaking', data.user_id, speaking);
         break;
       }
+      case 'VOICE_CHANNEL_EFFECT_SEND':
+        this.emit('effect', { userId: data.user_id, emoji: data.emoji || null, soundId: data.sound_id || null, animationType: data.animation_type });
+        break;
       default:
+        if (!this.seenEvents.has(evt)) { this.seenEvents.add(evt); this.emit('warn', new Error('Unhandled RPC event ' + evt + ': ' + JSON.stringify(data).slice(0, 300))); }
     }
   }
 
@@ -245,6 +259,7 @@ class DiscordVoiceRPC extends EventEmitter {
       me: this.me ? { id: this.me.id, name: this.me.global_name || this.me.username } : null,
       channel: this.channel,
       members: [...this.members.values()],
+      features: this.features,
     };
   }
 }
