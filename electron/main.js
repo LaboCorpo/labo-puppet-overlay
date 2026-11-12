@@ -20,6 +20,7 @@ if (!app.requestSingleInstanceLock()) { app.quit(); process.exit(0); }
 
 const WEB_DIR = path.join(__dirname, '..', 'web');
 const ICON = path.join(__dirname, '..', 'build', 'icon.png');
+const img = (name) => nativeImage.createFromPath(path.join(__dirname, '..', 'build', name));
 const START_HIDDEN = process.argv.includes('--hidden');
 let bundled = {};
 try { bundled = JSON.parse(fs.readFileSync(path.join(__dirname, 'app-config.json'), 'utf8')); } catch (e) {}
@@ -28,6 +29,7 @@ let log, store, rpc, twitch, updater, srv, tray, overlayWin, panelWin, creatorWi
 let quitting = false;
 let port;
 let placement = false;
+let startMinimized = false;
 let hotkeyErrors = {};
 
 function base() { return `http://127.0.0.1:${port}`; }
@@ -50,7 +52,7 @@ function appState() {
     },
   };
 }
-const push = () => { if (srv) srv.pushState(); updateTray(); };
+const push = () => { if (srv) srv.pushState(); updateTray(); updateTaskbar(); };
 
 // ---------- Discord ----------
 function startDiscord() {
@@ -158,7 +160,13 @@ function openPanel() {
     icon: ICON, autoHideMenuBar: true, backgroundColor: '#17151c', show: false,
   });
   panelWin.loadURL(`${base()}/panel.html`);
-  panelWin.once('ready-to-show', () => panelWin.show());
+  panelWin.once('ready-to-show', () => {
+    if (startMinimized) { startMinimized = false; panelWin.showInactive(); panelWin.minimize(); }
+    else panelWin.show();
+    updateTaskbar();
+  });
+  panelWin.on('show', updateTaskbar);
+  panelWin.on('restore', updateTaskbar);
   panelWin.webContents.setWindowOpenHandler(({ url }) => {
     if (url.startsWith(base())) { openCreator(url); return { action: 'deny' }; }
     if (/^https:\/\//.test(url)) shell.openExternal(url);
@@ -166,10 +174,12 @@ function openPanel() {
   });
   panelWin.on('close', (e) => {
     if (quitting) return;
-    e.preventDefault(); panelWin.hide();
+    e.preventDefault();
+    // With the taskbar icon on, closing just minimizes so the app stays visible in the taskbar.
+    if (store.settings.app.taskbarIcon) panelWin.minimize(); else panelWin.hide();
     if (!store.settings.app.firstRunDone) {
       store.updateSettings({ app: { firstRunDone: true } });
-      if (Notification.isSupported()) new Notification({ title: t('Puppet Overlay is still running'), body: t('It lives in the system tray. Right-click the icon to quit.'), icon: ICON }).show();
+      if (Notification.isSupported()) new Notification({ title: t('Puppet Overlay is still running'), body: t(store.settings.app.taskbarIcon ? 'It stays in your taskbar and system tray. Right-click the tray icon to quit.' : 'It lives in the system tray. Right-click the icon to quit.'), icon: ICON }).show();
     }
   });
 }
@@ -208,6 +218,30 @@ function updateTray() {
   tray.setContextMenu(Menu.buildFromTemplate(items));
 }
 
+// ---------- Taskbar (Windows): status badge, thumbnail buttons, update progress, title ----------
+let lastBadge = null;
+function updateTaskbar() {
+  if (!panelWin || panelWin.isDestroyed()) return;
+  const d = rpc ? rpc.snapshot() : { status: 'starting' };
+  const n = (d.members || []).length;
+  panelWin.setTitle(d.channel ? `Puppet Overlay — ${d.channel.name || t('Call')} (${n})` : 'Puppet Overlay');
+  if (process.platform !== 'win32') return;
+  const badge = d.channel ? 'live' : /error|refused/.test(d.status) ? 'error' : d.status === 'connected' ? null : 'idle';
+  if (badge !== lastBadge) {
+    lastBadge = badge;
+    panelWin.setOverlayIcon(badge ? img(`badge-${badge}.png`) : null, badge ? t(d.status) : '');
+  }
+  const up = updater && updater.state;
+  panelWin.setProgressBar(up && up.status === 'downloading' ? Math.max(0.02, (up.progress || 0) / 100) : -1);
+  try {
+    panelWin.setThumbarButtons([
+      { tooltip: t('Show / hide overlay'), icon: img('thumb-eye.png'), click: toggleOverlay },
+      { tooltip: t(placement ? 'Finish placement' : 'Move puppets…'), icon: img('thumb-move.png'), click: () => setPlacement(!placement) },
+      { tooltip: t('Replay entrances'), icon: img('thumb-fx.png'), click: () => srv.broadcast('fx-test', {}) },
+    ]);
+  } catch (e) { /* window not shown yet */ }
+}
+
 // ---------- Hotkeys & startup ----------
 function registerHotkeys() {
   globalShortcut.unregisterAll();
@@ -243,6 +277,7 @@ function applySettings(patch) {
   if (JSON.stringify(prev.app.hotkeys) !== JSON.stringify(s.app.hotkeys)) registerHotkeys();
   if (prev.app.launchAtStartup !== s.app.launchAtStartup) applyLoginItem();
   if (prev.app.language !== s.app.language) syncLang();
+  if (prev.app.taskbarIcon !== s.app.taskbarIcon && !s.app.taskbarIcon && panelWin && !panelWin.isDestroyed() && panelWin.isMinimized()) panelWin.hide();
   push();
 }
 
@@ -256,6 +291,7 @@ async function onAction(name, b) {
     case 'open-logs': shell.openPath(log.dir); return;
     case 'open-url': if (/^https:\/\//.test(b.url || '')) shell.openExternal(b.url); return;
     case 'twitch-test': twitch.simulate(b.kind); return;
+    case 'fx-test': srv.broadcast('fx-test', {}); return;
     case 'forget-member': store.forgetMember(String(b.id || '')); push(); return;
     case 'clear-viewers': store.clearViewers(); srv.broadcast('viewers-reset', {}); push(); return;
     case 'export-config': {
@@ -307,6 +343,7 @@ app.whenReady().then(async () => {
   applyLoginItem();
   updateTray();
   if (!START_HIDDEN) openPanel();
+  else if (store.settings.app.taskbarIcon) { startMinimized = true; openPanel(); } // hidden start still gets its taskbar button
   screen.on('display-removed', rebuildOverlay);
   screen.on('display-added', rebuildOverlay);
   screen.on('display-metrics-changed', rebuildOverlay);

@@ -19,6 +19,15 @@ A Discord voice overlay where everyone in your call is a cut-paper puppet: the t
   - Sliders for head size, eye size/spacing/height and body width/height.
   - Options are grouped in tabs; you can randomize a single tab, and undo/redo with Ctrl+Z / Ctrl+Y.
   - Photo puppets: rotation, mirror, brightness, contrast, saturation, black & white, cartoon effect, plus all the body and accessory options.
+- **Fine-tuning sliders**: head width/height, mouth line, eye tilt, eyebrow size/height/tilt/spacing, nose size/height, cheek size, hair size/height, facial-hair size, hat size/height/tilt, glasses size, held-item size.
+- **Entrance / exit effects**:
+  - Entrances: walk in, drop, pop, portal, teleport beam, feathers, puff of smoke.
+  - Exits: smoke, portal, teleport beam, feathers.
+  - *Replay entrances* (panel, or the taskbar thumbnail button) previews them.
+- **Taskbar presence** (Windows): the app keeps a taskbar button while running (closing the panel minimizes it); this can be turned off in Settings.
+  - A status badge shows whether you're in voice, idle or have an error.
+  - Thumbnail buttons: show/hide overlay, move puppets, replay entrances.
+  - The taskbar button also shows update download progress.
 - **Members tab**: hide someone, give them a nickname, change their size, and set the order everyone stands in. These settings are remembered for everyone you've shared a voice channel with.
 - **Performance modes**:
   - Performance: full frame rate.

@@ -72,7 +72,10 @@
       <h2>Behaviour</h2>
       <div class="card grid">
         <label>Entrance
-          <select data-key="overlay.entrance"><option value="random">Random</option><option value="walk">Walk in</option><option value="drop">Drop from the sky</option><option value="pop">Pop</option><option value="none">None</option></select></label>
+          <select data-key="overlay.entrance"><option value="random">Random</option><option value="walk">Walk in</option><option value="drop">Drop from the sky</option><option value="pop">Pop</option><option value="portal">Portal</option><option value="beam">Teleport beam</option><option value="feathers">Feathers</option><option value="smoke">Puff of smoke</option><option value="none">None</option></select></label>
+        <label>Exit
+          <select data-key="overlay.exit"><option value="random">Random</option><option value="poof">Puff of smoke</option><option value="portal">Portal</option><option value="beam">Teleport beam</option><option value="feathers">Feathers</option><option value="none">None</option></select></label>
+        <div class="btns" style="margin:0;align-self:end"><button class="ghost" id="replayFx">✨ Replay entrances</button></div>
         <label>Mute / deafen display
           <select data-key="overlay.statusStyle"><option value="props">Tape &amp; earmuffs</option><option value="badges">Red badges</option><option value="both">Both</option></select></label>
         <label>Fall asleep after (minutes, 0 = never) <input type="number" min="0" max="120" step="1" data-key="overlay.sleepMinutes"></label>
@@ -190,6 +193,7 @@
         <label>Performance
           <select data-key="app.performance"><option value="performance">Performance (smoothest)</option><option value="normal">Normal</option><option value="eco">Eco (lighter on your PC)</option></select></label>
         <p class="muted wide">Performance: full frame rate and sharpness. Normal: 60 fps. Eco: 30 fps, lower resolution, fewer effects — and the overlay sleeps when nobody is on screen (all modes pause when empty).</p>
+        <label class="check"><input type="checkbox" data-key="app.taskbarIcon"> Keep an icon in the taskbar while running</label>
         <label class="check"><input type="checkbox" data-key="app.launchAtStartup"> Launch with Windows (starts hidden in the tray)</label>
         <label class="check"><input type="checkbox" data-key="app.autoUpdate"> Check for updates automatically</label>
       </div>

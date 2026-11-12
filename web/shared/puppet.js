@@ -28,9 +28,21 @@
   };
   // Numeric sliders: [min, max, default]
   const SLIDERS = {
-    headSize: [0.85, 1.25, 1], eyeSize: [0.7, 1.4, 1], eyeSpacing: [0.75, 1.3, 1], eyeHeight: [-1, 1, 0],
-    bodyWidth: [0.8, 1.3, 1], bodyHeight: [0.85, 1.2, 1],
+    headSize: [0.85, 1.25, 1], headWidth: [0.85, 1.2, 1], headHeight: [0.85, 1.2, 1], mouthHeight: [0.45, 0.75, 0.62],
+    eyeSize: [0.7, 1.4, 1], eyeSpacing: [0.75, 1.3, 1], eyeHeight: [-1, 1, 0], eyeTilt: [-0.5, 0.5, 0],
+    browSize: [0.6, 1.6, 1], browHeight: [-1, 1, 0], browTilt: [-0.6, 0.6, 0], browSpacing: [0.7, 1.4, 1],
+    glassesSize: [0.7, 1.4, 1], noseSize: [0.6, 1.6, 1], noseHeight: [-1, 1, 0], cheekSize: [0.6, 1.6, 1],
+    hairSize: [0.85, 1.25, 1], hairHeight: [-1, 1, 0], beardSize: [0.7, 1.4, 1],
+    hatSize: [0.7, 1.4, 1], hatHeight: [-1, 1, 0], hatTilt: [-0.5, 0.5, 0],
+    bodyWidth: [0.8, 1.3, 1], bodyHeight: [0.85, 1.2, 1], heldSize: [0.6, 1.6, 1],
   };
+  // Transform helper: scale/rotate around a pivot, optionally shifted.
+  function around(ctx, px, py, sc, rot, dx, dy) {
+    ctx.translate(px + (dx || 0), py + (dy || 0));
+    if (rot) ctx.rotate(rot);
+    if (sc && sc !== 1) ctx.scale(sc, sc);
+    ctx.translate(-px, -py);
+  }
 
   // v0.1 stored French values: translate them so old codes/files keep working.
   const LEGACY = {
@@ -73,6 +85,7 @@
       bodyWidth: 1, bodyHeight: 1,
       neckwear: 'none', neckColor: PALETTES.cloth[0], held: 'none',
       photo: null, photoSplit: 0.58,
+      ...Object.fromEntries(Object.entries(SLIDERS).map(([k, v]) => [k, v[2]])),
     };
   }
 
@@ -125,6 +138,8 @@
     a.bodyWidth = between(0.9, 1.15); a.bodyHeight = between(0.92, 1.08);
     a.neckwear = maybe(0.25, OPTIONS.neckwear); a.neckColor = pick(cloth);
     a.held = maybe(0.15, OPTIONS.held);
+    a.eyeTilt = between(-0.15, 0.15); a.browTilt = between(-0.2, 0.2); a.noseSize = between(0.85, 1.2);
+    a.mouthHeight = between(0.56, 0.68); a.headWidth = between(0.94, 1.08);
     return a;
   }
 
@@ -407,7 +422,7 @@
     }
     // mitten hands (right one can wave)
     const hand = a.outfit === 'tshirt' ? (a.skin || '#ffe0c2') : shade(c, -25);
-    if (a.held && a.held !== 'none') { ctx.save(); ctx.translate(-44, -44); ctx.scale(1.4, 1.4); ctx.translate(44, 44); drawHeld(ctx, a, st); ctx.restore(); }
+    if (a.held && a.held !== 'none') { ctx.save(); ctx.translate(-44, -44); ctx.scale(1.4 * (a.heldSize || 1), 1.4 * (a.heldSize || 1)); ctx.translate(44, 44); drawHeld(ctx, a, st); ctx.restore(); }
     mitten(ctx, -40, -40, 0.3, hand); // mitten in front of the item = it's being held
     const w = st.wave || 0;
     if (w > 0) {
@@ -503,7 +518,7 @@
     const px = (look || 0) * 4;
     for (const side of [-1, 1]) {
       const x = HEAD.cx + side * dx - 4;
-      ctx.save(); ctx.translate(x, y); ctx.scale(es, es);
+      ctx.save(); ctx.translate(x, y); ctx.rotate(-side * (a.eyeTilt || 0)); ctx.scale(es, es);
       const closed = blinking || a.eyes === 'sleepy' || (a.eyes === 'wink' && side === 1);
       if (closed) {
         ctx.beginPath(); ctx.moveTo(-10, 2); ctx.quadraticCurveTo(0, blinking ? 6 : 8, 10, 2); stroke(ctx, 3);
@@ -541,7 +556,7 @@
     const y = HEAD.cy - 12 + (a.eyeHeight || 0) * 12;
     const dx = 22 * (a.eyeSpacing || 1);
     const c = a.glassesColor || OUTLINE;
-    const L = HEAD.cx - dx - 4, R = HEAD.cx + dx - 4, r = 14 * es;
+    const L = HEAD.cx - dx - 4, R = HEAD.cx + dx - 4, r = 14 * es * (a.glassesSize || 1);
     ctx.lineWidth = 3.5; ctx.strokeStyle = c;
     const lens = (x, fill) => {
       ctx.beginPath();
@@ -567,26 +582,36 @@
 
   function drawBrows(ctx, a) {
     if (a.brows === 'none') return;
-    const y = HEAD.cy - 30 + (a.eyeHeight || 0) * 12 - ((a.eyeSize || 1) - 1) * 12;
-    const dx = 22 * (a.eyeSpacing || 1);
+    const y = HEAD.cy - 30 + (a.eyeHeight || 0) * 12 - ((a.eyeSize || 1) - 1) * 12 + (a.browHeight || 0) * 10;
+    const dx = 22 * (a.eyeSpacing || 1) * (a.browSpacing || 1);
+    const bs = a.browSize || 1, tilt = a.browTilt || 0;
     ctx.lineCap = 'round'; ctx.strokeStyle = a.hairColor;
     if (a.brows === 'unibrow') {
+      ctx.save(); around(ctx, HEAD.cx - 4, y, bs, 0);
       ctx.beginPath(); ctx.moveTo(HEAD.cx - dx - 14, y + 1); ctx.quadraticCurveTo(HEAD.cx - 4, y - 6, HEAD.cx + dx + 6, y + 1);
-      ctx.lineWidth = 7; ctx.stroke(); return;
+      ctx.lineWidth = 7; ctx.stroke(); ctx.restore(); return;
     }
     for (const side of [-1, 1]) {
       const x = HEAD.cx + side * dx - 4;
+      ctx.save(); ctx.translate(x, y); ctx.rotate(side * tilt); ctx.scale(bs, bs);
       ctx.beginPath();
-      if (a.brows === 'frown') { ctx.moveTo(x - 10 * side, y - 4); ctx.lineTo(x + 10 * side, y + 4); }
-      else if (a.brows === 'worried') { ctx.moveTo(x - 10 * side, y + 3); ctx.lineTo(x + 10 * side, y - 5); }
-      else if (a.brows === 'surprised') { ctx.moveTo(x - 9, y - 2); ctx.quadraticCurveTo(x, y - 12, x + 9, y - 2); }
-      else { ctx.moveTo(x - 10, y); ctx.lineTo(x + 10, y - 1); }
+      if (a.brows === 'frown') { ctx.moveTo(-10 * side, -4); ctx.lineTo(10 * side, 4); }
+      else if (a.brows === 'worried') { ctx.moveTo(-10 * side, 3); ctx.lineTo(10 * side, -5); }
+      else if (a.brows === 'surprised') { ctx.moveTo(-9, -2); ctx.quadraticCurveTo(0, -12, 9, -2); }
+      else { ctx.moveTo(-10, 0); ctx.lineTo(10, -1); }
       ctx.lineWidth = a.brows === 'thick' ? 7 : 3.5; ctx.strokeStyle = a.hairColor; ctx.stroke();
+      ctx.restore();
     }
   }
 
   function drawNose(ctx, a) {
+    if (!a.nose || a.nose === 'none') return;
     const x = HEAD.cx - 6, y = HEAD.cy + 2;
+    ctx.save(); around(ctx, x, y, a.noseSize || 1, 0, 0, (a.noseHeight || 0) * 10);
+    drawNoseShape(ctx, a, x, y);
+    ctx.restore();
+  }
+  function drawNoseShape(ctx, a, x, y) {
     ctx.fillStyle = shade(a.skin || '#ffe0c2', -28);
     switch (a.nose) {
       case 'dot': ctx.fillStyle = OUTLINE; ctx.beginPath(); ctx.arc(x, y, 2.5, 0, Math.PI * 2); ctx.fill(); break;
@@ -603,6 +628,12 @@
   }
 
   function drawCheeks(ctx, a) {
+    if (!a.cheeks || a.cheeks === 'none') return;
+    ctx.save(); around(ctx, HEAD.cx - 3, HEAD.cy + 4, a.cheekSize || 1, 0);
+    drawCheekShapes(ctx, a);
+    ctx.restore();
+  }
+  function drawCheekShapes(ctx, a) {
     const y = HEAD.cy + 4, xl = HEAD.cx - 36, xr = HEAD.cx + 30;
     switch (a.cheeks) {
       case 'blush':
@@ -811,15 +842,22 @@
   }
 
   // Head is drawn bigger/smaller around the neck and lifted by a taller body.
+  // Width/height stretch the head from its chin, so it grows upwards and stays on the body.
+  const CHIN_Y = HEAD.cy + HEAD.ry;
   function headTransform(ctx, a) {
     const bh = a.bodyHeight || 1, hs = a.headSize || 1;
     ctx.translate(0, -(bh - 1) * 88);
     ctx.translate(0, NECK_Y); ctx.scale(hs, hs); ctx.translate(0, -NECK_Y);
+    ctx.translate(HEAD.cx, CHIN_Y); ctx.scale(a.headWidth || 1, a.headHeight || 1); ctx.translate(-HEAD.cx, -CHIN_Y);
   }
-  // Where the top of the head ends up (for bubbles/labels), in local units.
+  // Maps a y in head space to puppet space (used for bubbles/labels/glow).
+  function headY(a, y) {
+    const bh = (a && a.bodyHeight) || 1, hs = (a && a.headSize) || 1, hh = (a && a.headHeight) || 1;
+    const y1 = CHIN_Y + (y - CHIN_Y) * hh;
+    return -(bh - 1) * 88 + NECK_Y + (y1 - NECK_Y) * hs;
+  }
   function headTopLocal(a) {
-    const bh = (a && a.bodyHeight) || 1, hs = (a && a.headSize) || 1;
-    return -(bh - 1) * 88 + NECK_Y + (HEAD.cy - HEAD.ry - NECK_Y) * hs;
+    return headY(a, HEAD.cy - HEAD.ry);
   }
 
   /**
@@ -839,7 +877,7 @@
     ctx.save();
     if (st.alpha != null) ctx.globalAlpha *= Math.max(0, Math.min(1, st.alpha));
     ctx.translate(opts.x || 0, (opts.y || 0) + (st.bob || 0) * s);
-    ctx.scale(s * flipK, s);
+    ctx.scale(s * flipK * (st.sx || 1), s * (st.sy || 1));
     if (st.rock) ctx.rotate(st.rock * flipK);
 
     // soft shadow under the paper cut-out
@@ -857,7 +895,7 @@
     const img = photoSrc ? getImage(photoSrc) : null;
     const isPhoto = !!photoSrc;
     const shape = isPhoto ? (a.headShape === 'square' ? 'square' : 'round') : a.headShape;
-    const splitRatio = isPhoto ? (a.photoSplit || 0.6) : 0.62;
+    const splitRatio = isPhoto ? (a.photoSplit || 0.6) : (a.mouthHeight || 0.62);
     const splitY = HEAD.cy - HEAD.ry + HEAD.ry * 2 * splitRatio;
     const pivotX = HEAD.cx + HEAD.rx * 0.92;
     const angle = (st.open || 0) * 0.6; // radians; upper half hinges at the back
@@ -882,7 +920,7 @@
     headPath(ctx, shape); ctx.save(); ctx.clip(); fillHead(); ctx.restore();
     headPath(ctx, shape); stroke(ctx);
     ctx.restore();
-    if (!isPhoto) drawBeard(ctx, face, splitY);
+    if (!isPhoto && face.beard !== 'none') { ctx.save(); around(ctx, HEAD.cx, splitY, face.beardSize || 1, 0); drawBeard(ctx, face, splitY); ctx.restore(); }
 
     // ---- mouth interior (wedge revealed when open) ----
     if (st.open > 0.02) {
@@ -899,7 +937,8 @@
     ctx.save();
     ctx.translate(pivotX, splitY); ctx.rotate(angle); ctx.translate(-pivotX, -splitY);
     const backHair = ['long', 'afro', 'pigtails', 'ponytail', 'curly'];
-    if (!isPhoto && backHair.includes(face.hair)) drawHair(ctx, face); // hair behind the head
+    const hairT = () => around(ctx, HEAD.cx, HEAD.cy - HEAD.ry * 0.3, face.hairSize || 1, 0, 0, (face.hairHeight || 0) * 8);
+    if (!isPhoto && backHair.includes(face.hair)) { ctx.save(); hairT(); drawHair(ctx, face); ctx.restore(); } // hair behind the head
     if (!isPhoto) drawTeeth(ctx, face, splitY);
     ctx.save();
     ctx.beginPath(); ctx.rect(-200, -400, 400, splitY + 400); ctx.clip();
@@ -909,21 +948,26 @@
     ctx.beginPath(); ctx.moveTo(HEAD.cx - HEAD.rx * 0.98, splitY); ctx.lineTo(pivotX, splitY); stroke(ctx, 2.5);
     if (!isPhoto) {
       drawCheeks(ctx, face);
-      drawMustache(ctx, face, splitY);
+      ctx.save(); around(ctx, HEAD.cx - 12, splitY - 6, face.beardSize || 1, 0); drawMustache(ctx, face, splitY); ctx.restore();
       drawEyes(ctx, face, st.blinking, look);
       drawNose(ctx, face);
       drawBrows(ctx, face);
       if (!backHair.includes(face.hair)) {
         // Tall hairstyles would poke through hats: flatten them under a hat.
         const hatted = face.hat && !['none', 'headphones', 'crown', 'halo', 'horns', 'bandana'].includes(face.hat);
+        ctx.save(); hairT();
         drawHair(ctx, hatted && ['spiky', 'mohawk', 'bun'].includes(face.hair) ? Object.assign({}, face, { hair: 'short' }) : face);
+        ctx.restore();
       }
     } else if (st.asleep) {
       // photo puppets: a dark band so they still read as "eyes closed"
       ctx.save(); ctx.globalAlpha *= 0.35; ctx.fillStyle = '#000'; ctx.fillRect(HEAD.cx - HEAD.rx, HEAD.cy - 24, HEAD.rx * 2, 20); ctx.restore();
     }
     drawGlasses(ctx, a);
-    if (a.hat && a.hat !== 'none') drawHat(ctx, a, st.time);
+    if (a.hat && a.hat !== 'none') {
+      ctx.save(); around(ctx, HEAD.cx, HEAD.cy - HEAD.ry, a.hatSize || 1, a.hatTilt || 0, 0, (a.hatHeight || 0) * 12);
+      drawHat(ctx, a, st.time); ctx.restore();
+    }
     if (props && opts.deaf) drawEarmuffs(ctx, a.hat === 'headphones');
     ctx.restore();
     if (props && opts.muted) drawTape(ctx, splitY);
@@ -938,8 +982,8 @@
     // ---- overlays not affected by flip ----
     const x = opts.x || 0;
     const topLocal = headTopLocal(a);
-    const hs = a.headSize || 1;
-    const headCY = (opts.y || 0) + (st.bob || 0) * s + (topLocal + HEAD.ry * hs) * s;
+    const hs = (a.headSize || 1) * Math.max(a.headWidth || 1, a.headHeight || 1);
+    const headCY = (opts.y || 0) + (st.bob || 0) * s + headY(a, HEAD.cy) * s;
     const headTopY = (opts.y || 0) + (st.bob || 0) * s + topLocal * s;
     ctx.save();
     if (st.alpha != null) ctx.globalAlpha *= Math.max(0, Math.min(1, st.alpha));

@@ -292,6 +292,7 @@
   }
   renderUrls();
   $$('[data-copy]').forEach((b) => b.onclick = () => { navigator.clipboard.writeText($('#' + b.dataset.copy).textContent); toast(t('Copied to clipboard')); });
+  $('#replayFx').onclick = () => { action('fx-test'); toast(t('Watch the preview, your overlay and OBS')); };
   $('#reconnect').onclick = () => { action('reconnect'); toast(t('Reconnecting to Discord…')); };
 
   // ---------- Logo ----------

@@ -67,6 +67,8 @@
     es.addEventListener('twitch-event', (e) => onTwitchEvent(JSON.parse(e.data)));
     es.addEventListener('viewer', (e) => { const d = JSON.parse(e.data); if (d.override) overrides[d.login] = d.override; else delete overrides[d.login]; restyle(d.login); });
     es.addEventListener('viewers-reset', () => { overrides = {}; restyleAll(); });
+    // Panel "Replay entrances" button: everyone leaves with the exit effect, then comes back in.
+    es.addEventListener('fx-test', () => { for (const e of dEnts.values()) if (e.leaving < 0) { e.forceLeave = true; startExit(e); } });
     es.onerror = () => { if (!DESKTOP) return; hint.style.display = 'block'; hint.textContent = t('Puppet Overlay app not reachable — retrying…'); };
     es.onopen = () => { hint.style.display = 'none'; };
   }
@@ -160,16 +162,16 @@
         dEnts.set(m.id, e);
       }
       e.member = m; e.tx = tx; e.ty = L.y; e.s = L.s * scales[i];
-      if (e.leaving >= 0) { e.leaving = -1; e.scaleMul = 1; }
+      if (e.leaving >= 0 && !e.forceLeave) { e.leaving = -1; e.scaleMul = 1; e.exit = null; }
     });
-    for (const e of dEnts.values()) if (!ids.has(e.id) && e.leaving < 0) e.leaving = 0;
+    for (const e of dEnts.values()) if (!ids.has(e.id) && e.leaving < 0) startExit(e);
 
     // who is speaking, for the "look at speaker" behaviour
     const speakers = [...dEnts.values()].filter((e) => e.leaving < 0 && e.member.speaking && !e.member.mute);
     for (const e of dEnts.values()) {
       const a = e.anim;
       e.age += dt;
-      a.talking = !!e.member.speaking && !e.member.mute;
+      a.talking = !!e.member.speaking && !e.member.mute && e.leaving < 0;
       a.sleepAfter = (cfg.sleepMinutes || 0) * 60;
       if (cfg.lookAtSpeaker !== false && !a.talking && speakers.length) {
         let best = null; for (const sp of speakers) if (sp !== e && (!best || Math.abs(sp.x - e.x) < Math.abs(best.x - e.x))) best = sp;
@@ -182,15 +184,138 @@
         if (e.y >= e.ty) { e.y = e.ty; e.vy = -e.vy * 0.35; if (Math.abs(e.vy) < 120) { e.vy = 0; e.enter = 'done'; } }
       } else e.y += (e.ty - e.y) * Math.min(1, dt * 8);
       const dx = e.tx - e.x;
-      e.walking = Math.abs(dx) > 4;
-      e.x += Math.sign(dx) * Math.min(Math.abs(dx), (e.enter === 'walk' ? 520 : 900) * dt * (Math.abs(dx) > 40 ? 1 : 0.5));
-      if (e.enter === 'pop') { const p = Math.min(1, e.age / 0.45); e.scaleMul = p < 1 ? 1.15 * Math.sin(p * Math.PI * 0.62) / Math.sin(Math.PI * 0.62) : 1; }
+      e.walking = Math.abs(dx) > 4 && e.leaving < 0;
+      if (e.leaving < 0) e.x += Math.sign(dx) * Math.min(Math.abs(dx), (e.enter === 'walk' ? 520 : 900) * dt * (Math.abs(dx) > 40 ? 1 : 0.5));
+      enterFx(e, dt);
       if (e.leaving >= 0) {
         e.leaving += dt;
-        e.scaleMul = Math.max(0, 1 - e.leaving / 0.22);
-        if (e.leaving > 0.7) dEnts.delete(e.id);
+        exitFx(e, dt);
+        if (e.leaving > EXIT_DURATION[e.exit]) dEnts.delete(e.id);
       }
     }
+  }
+
+  // ---------- Entrance / exit effects ----------
+  // Each effect returns per-frame render modifiers on the entity (e.fx): offsets, squash, alpha, clip.
+  const ENTRANCES = ['walk', 'drop', 'pop', 'portal', 'beam', 'feathers', 'smoke'];
+  const EXITS = ['poof', 'portal', 'beam', 'feathers'];
+  const EXIT_DURATION = { poof: 0.7, portal: 1.15, beam: 1.0, feathers: 0.35, none: 0 };
+  const ease = (p) => 1 - Math.pow(1 - Math.min(1, Math.max(0, p)), 3);
+  function pickEntrance(mode) {
+    if (ENTRANCES.includes(mode)) return mode;
+    if (mode === 'none') return 'done';
+    return ENTRANCES[Math.floor(Math.random() * ENTRANCES.length)];
+  }
+  function startExit(e) {
+    const mode = settings.overlay.exit || 'random';
+    e.exit = mode === 'none' ? 'none' : EXITS.includes(mode) ? mode : EXITS[Math.floor(Math.random() * EXITS.length)];
+    e.leaving = 0;
+    if (e.exit === 'feathers') featherBurst(e.x, e.y - 110 * e.s, e.s, e.anim, 14);
+  }
+  function enterFx(e, dt) {
+    const f = (e.fx = { dy: 0, sx: 1, sy: 1, alpha: 1, clipBelow: null, hidden: false, rock: 0 });
+    const a = e.age;
+    switch (e.enter) {
+      case 'pop': { const p = Math.min(1, a / 0.45); e.scaleMul = p < 1 ? 1.15 * Math.sin(p * Math.PI * 0.62) / Math.sin(Math.PI * 0.62) : 1; break; }
+      case 'portal':
+        if (a < 0.35) f.hidden = true;
+        else if (a < 0.95) { f.dy = (1 - ease((a - 0.35) / 0.6)) * 230 * e.s; f.clipBelow = e.y + 2; }
+        if (a > 1.3) e.enter = 'done';
+        break;
+      case 'beam':
+        if (a < 0.3) f.hidden = true;
+        else if (a < 0.85) { const p = (a - 0.3) / 0.55; f.alpha = p * (0.6 + 0.4 * Math.abs(Math.sin(a * 40))); f.sx = 0.25 + 0.75 * ease(p); f.sy = 1.4 - 0.4 * ease(p); if (Math.random() < 0.6) sparkle(e.x + (Math.random() - 0.5) * 60 * e.s, e.y - Math.random() * 200 * e.s, e.s); }
+        if (a > 1.15) e.enter = 'done';
+        break;
+      case 'feathers': {
+        const D = 1.7, p = Math.min(1, a / D);
+        f.dy = -(1 - ease(p)) * 420 * e.s; f.rock = Math.sin(a * 4) * 0.25 * (1 - p);
+        if (p < 1 && Math.random() < dt * 5) featherBurst(e.x + (Math.random() - 0.5) * 90 * e.s, e.y + f.dy - 120 * e.s, e.s, null, 1);
+        if (a > D) e.enter = 'done';
+        break;
+      }
+      case 'smoke':
+        if (a < 0.22) f.hidden = true;
+        else if (a < 0.5) e.scaleMul = ease((a - 0.22) / 0.28);
+        else { e.scaleMul = 1; }
+        if (a > 0.8) e.enter = 'done';
+        break;
+      default:
+    }
+  }
+  function exitFx(e) {
+    const f = e.fx, l = e.leaving;
+    switch (e.exit) {
+      case 'poof': e.scaleMul = Math.max(0, 1 - l / 0.22); break;
+      case 'portal':
+        if (l > 0.3) { f.dy = ease((l - 0.3) / 0.55) * 230 * e.s; f.clipBelow = e.y + 2; if (l > 0.85) f.hidden = true; }
+        break;
+      case 'beam':
+        if (l > 0.25) { const p = Math.min(1, (l - 0.25) / 0.45); f.sx = 1 - 0.92 * ease(p); f.sy = 1 + 0.6 * ease(p); f.alpha = 1 - p; if (Math.random() < 0.7) sparkle(e.x + (Math.random() - 0.5) * 50 * e.s, e.y - Math.random() * 220 * e.s, e.s); if (p >= 1) f.hidden = true; }
+        break;
+      case 'feathers': e.scaleMul = Math.max(0, 1 - l / 0.12); break;
+      default: f.hidden = true;
+    }
+  }
+  // Effects drawn behind (portal back half, beam) and in front (portal rim, smoke) of the puppet.
+  function drawFxBack(e, t) {
+    const a = e.age, l = e.leaving;
+    if (e.enter === 'portal' && a < 1.3) drawPortal(e.x, e.y, e.s, portalK(a, 0.35, 0.95, 1.3), t, true);
+    if (e.exit === 'portal' && l >= 0) drawPortal(e.x, e.y, e.s, portalK(l, 0.3, 0.85, 1.15), t, true);
+    if (e.enter === 'beam' && a < 1.15) drawBeam(e.x, e.y, e.s, a < 0.3 ? ease(a / 0.3) : 1 - ease((a - 0.85) / 0.3));
+    if (e.exit === 'beam' && l >= 0) drawBeam(e.x, e.y, e.s, l < 0.25 ? ease(l / 0.25) : 1 - ease((l - 0.7) / 0.3));
+  }
+  function drawFxFront(e, t) {
+    const a = e.age, l = e.leaving;
+    if (e.enter === 'portal' && a < 1.3) drawPortal(e.x, e.y, e.s, portalK(a, 0.35, 0.95, 1.3), t, false);
+    if (e.exit === 'portal' && l >= 0) drawPortal(e.x, e.y, e.s, portalK(l, 0.3, 0.85, 1.15), t, false);
+    if (e.enter === 'smoke' && a < 0.8) P.drawPoof(ctx, e.x, e.y - 110 * e.s, e.s * 1.3, Math.min(1, a / 0.8));
+    if ((e.exit === 'poof' || e.exit === 'feathers') && l >= 0) P.drawPoof(ctx, e.x, e.y - 120 * e.s, e.s * (e.exit === 'feathers' ? 0.7 : 1), Math.min(1, l / (e.exit === 'feathers' ? 0.35 : 0.7)));
+  }
+  // Portal size over time: opens, stays, closes.
+  function portalK(time, open, hold, close) { return time < open ? ease(time / open) : time < hold ? 1 : 1 - ease((time - hold) / (close - hold)); }
+  function drawPortal(x, y, s, k, t, back) {
+    if (k <= 0.01) return;
+    const rx = 72 * s * k, ry = 18 * s * k;
+    ctx.save();
+    if (back) {
+      const g = ctx.createRadialGradient(x, y, 0, x, y, rx);
+      g.addColorStop(0, '#120a24'); g.addColorStop(0.6, '#2a1050'); g.addColorStop(1, 'rgba(155,92,255,0.0)');
+      ctx.fillStyle = g; ctx.beginPath(); ctx.ellipse(x, y, rx * 1.25, ry * 1.6, 0, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = '#140b26'; ctx.beginPath(); ctx.ellipse(x, y, rx, ry, 0, 0, Math.PI * 2); ctx.fill();
+      // swirl
+      ctx.lineWidth = 3 * s; ctx.lineCap = 'round';
+      for (let i = 0; i < 3; i++) {
+        ctx.strokeStyle = ['#9b5cff', '#3fd0ff', '#ff6fd8'][i];
+        ctx.beginPath(); ctx.ellipse(x, y, rx * (0.35 + i * 0.22), ry * (0.35 + i * 0.22), 0, t * (3 + i) + i, t * (3 + i) + i + Math.PI * 1.2); ctx.stroke();
+      }
+    } else {
+      // front rim drawn over the puppet's feet so it looks like they pass through
+      ctx.shadowColor = '#b48cff'; ctx.shadowBlur = 16 * s;
+      ctx.lineWidth = 5 * s; ctx.strokeStyle = '#c9a6ff';
+      ctx.beginPath(); ctx.ellipse(x, y, rx, ry, 0, 0, Math.PI); ctx.stroke();
+    }
+    ctx.restore();
+  }
+  function drawBeam(x, y, s, k) {
+    if (k <= 0.01) return;
+    const w = 80 * s * k;
+    ctx.save();
+    const g = ctx.createLinearGradient(x - w / 2, 0, x + w / 2, 0);
+    g.addColorStop(0, 'rgba(120,220,255,0)'); g.addColorStop(0.5, `rgba(200,245,255,${0.55 * k})`); g.addColorStop(1, 'rgba(120,220,255,0)');
+    ctx.fillStyle = g; ctx.fillRect(x - w / 2, 0, w, y + 4);
+    ctx.fillStyle = `rgba(255,255,255,${0.6 * k})`; ctx.fillRect(x - w * 0.07, 0, w * 0.14, y + 4);
+    ctx.fillStyle = `rgba(160,235,255,${0.5 * k})`; ctx.beginPath(); ctx.ellipse(x, y, w * 0.8, 10 * s, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.restore();
+  }
+  function sparkle(x, y, s) {
+    if (perfMode() === 'eco' && Math.random() < 0.6) return;
+    particles.push({ kind: 'sparkle', x, y, vx: (Math.random() - 0.5) * 30, vy: -20 - Math.random() * 40, life: 0.5 + Math.random() * 0.4, size: (3 + Math.random() * 4) * Math.max(0.6, s), init: true });
+  }
+  function featherBurst(x, y, s, anim, n) {
+    if (perfMode() === 'eco') n = Math.ceil(n * 0.5);
+    const cols = ['#ffffff', '#f6f1e7', '#ffe9a8', '#ffd1e3'];
+    for (let i = 0; i < n; i++) particles.push({ kind: 'feather', x: x + (Math.random() - 0.5) * 40 * s, y: y + (Math.random() - 0.5) * 40 * s, vx: (Math.random() - 0.5) * 220, vy: -120 - Math.random() * 180, rot: Math.random() * 6, ph: Math.random() * 6, life: 2.2 + Math.random() * 1.2, size: (10 + Math.random() * 6) * Math.max(0.6, s), c: cols[i % cols.length], init: true });
   }
 
   function drawDiscord(t) {
@@ -198,25 +323,27 @@
     const ents = [...dEnts.values()].sort((a, b) => a.x - b.x);
     for (const e of ents) {
       const m = e.member;
-      const st = e.anim.state(t);
-      if (e.walking) st.bob -= Math.abs(Math.sin(t * 13 + e.x * 0.01)) * 9;
-      st.scaleMul = e.scaleMul == null ? 1 : e.scaleMul;
-      const av = avatars[m.id] || m.demoAvatar || { ...P.defaultAvatar(), kind: 'discord', photoSplit: 0.6, clothColor: '#5865f2', accentColor: '#ffffff' };
-      P.draw(ctx, av, st, {
-        x: e.x, y: e.y, scale: e.s,
-        name: cfg.showNames !== false && e.leaving < 0 ? (memberCfg(m.id).alias || m.name) : null,
-        muted: m.mute, deaf: m.deaf, glow: cfg.glow && m.speaking && !m.mute, statusStyle: cfg.statusStyle,
-        flip: e.walking && e.tx > e.x, // puppets face left by default
-        discordAvatarUrl: discordAvatarUrl(m),
-      });
-      if (e.leaving >= 0) P.drawPoof(ctx, e.x, e.y - 120 * e.s, e.s, Math.min(1, e.leaving / 0.7));
+      const f = e.fx || {};
+      drawFxBack(e, t);
+      if (!f.hidden) {
+        const st = e.anim.state(t);
+        if (e.walking) st.bob -= Math.abs(Math.sin(t * 13 + e.x * 0.01)) * 9;
+        st.scaleMul = e.scaleMul == null ? 1 : e.scaleMul;
+        st.sx = f.sx; st.sy = f.sy; st.alpha = f.alpha; st.rock = (st.rock || 0) + (f.rock || 0);
+        const av = avatars[m.id] || m.demoAvatar || { ...P.defaultAvatar(), kind: 'discord', photoSplit: 0.6, clothColor: '#5865f2', accentColor: '#ffffff' };
+        ctx.save();
+        if (f.clipBelow != null) { ctx.beginPath(); ctx.rect(0, 0, W, f.clipBelow); ctx.clip(); }
+        P.draw(ctx, av, st, {
+          x: e.x, y: e.y + (f.dy || 0), scale: e.s,
+          name: cfg.showNames !== false && e.leaving < 0 && e.enter === 'done' || cfg.showNames !== false && e.leaving < 0 && ['walk', 'drop', 'pop'].includes(e.enter) ? (memberCfg(m.id).alias || m.name) : null,
+          muted: m.mute, deaf: m.deaf, glow: cfg.glow && m.speaking && !m.mute, statusStyle: cfg.statusStyle,
+          flip: e.walking && e.tx > e.x, // puppets face left by default
+          discordAvatarUrl: discordAvatarUrl(m),
+        });
+        ctx.restore();
+      }
+      drawFxFront(e, t);
     }
-  }
-
-  function pickEntrance(mode) {
-    if (mode === 'walk' || mode === 'drop' || mode === 'pop') return mode;
-    if (mode === 'none') return 'done';
-    return ['walk', 'drop', 'pop'][Math.floor(Math.random() * 3)];
   }
 
   // ---------- Twitch viewers ----------
@@ -365,13 +492,34 @@
     }
   }
 
-  function drawParticles(dt) {
+  // Particles: confetti (falls fast), feathers (drift and sway), sparkles (twinkle and fade).
+  function drawParticles(dt, t) {
     for (let i = particles.length - 1; i >= 0; i--) {
       const p = particles[i];
       if (!p.init) { const v = p.follow; const s = settings.twitch.scale || 0.5; p.x = v.x || W / 2; p.y = (v.y || H) - 170 * s; p.init = true; p.follow = null; }
-      p.vy += 900 * dt; p.vx *= 0.99; p.x += p.vx * dt; p.y += p.vy * dt; p.rot += p.vr * dt; p.life -= dt;
+      p.life -= dt;
+      if (p.kind === 'feather') {
+        p.vy = Math.min(p.vy + 260 * dt, 55); p.vx *= Math.pow(0.15, dt);
+        p.x += (p.vx + Math.sin(t * 2.4 + p.ph) * 38) * dt; p.y += p.vy * dt; p.rot = Math.sin(t * 2.4 + p.ph) * 0.9;
+      } else if (p.kind === 'sparkle') {
+        p.x += p.vx * dt; p.y += p.vy * dt;
+      } else {
+        p.vy += 900 * dt; p.vx *= 0.99; p.x += p.vx * dt; p.y += p.vy * dt; p.rot += p.vr * dt;
+      }
       if (p.life <= 0 || p.y > H + 40) { particles.splice(i, 1); continue; }
-      ctx.save(); ctx.globalAlpha = Math.min(1, p.life * 2); ctx.translate(p.x, p.y); ctx.rotate(p.rot); ctx.fillStyle = p.c; ctx.fillRect(-p.w / 2, -p.h / 2, p.w, p.h); ctx.restore();
+      ctx.save(); ctx.globalAlpha = Math.min(1, p.life * 2); ctx.translate(p.x, p.y); ctx.rotate(p.rot || 0);
+      if (p.kind === 'feather') {
+        const L = p.size;
+        ctx.fillStyle = p.c; ctx.beginPath(); ctx.ellipse(0, 0, L * 0.32, L, 0, 0, Math.PI * 2); ctx.fill();
+        ctx.lineWidth = 1.5; ctx.strokeStyle = '#1d1a1f'; ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(0, -L); ctx.lineTo(0, L * 1.25); ctx.stroke();
+      } else if (p.kind === 'sparkle') {
+        const r = p.size * (0.6 + 0.4 * Math.abs(Math.sin(p.life * 18)));
+        ctx.fillStyle = '#ffffff'; ctx.beginPath();
+        for (let k = 0; k < 8; k++) { const ang = k * Math.PI / 4, rad = k % 2 ? r * 0.3 : r; ctx.lineTo(Math.cos(ang) * rad, Math.sin(ang) * rad); }
+        ctx.closePath(); ctx.shadowColor = '#7fe0ff'; ctx.shadowBlur = 8; ctx.fill();
+      } else { ctx.fillStyle = p.c; ctx.fillRect(-p.w / 2, -p.h / 2, p.w, p.h); }
+      ctx.restore();
     }
   }
 
@@ -468,17 +616,22 @@
       const showTwitch = SCENE !== 'discord' && (settings.twitch.enabled || DEMO || TEST);
       if (showDiscord) updateDiscord(dt, t);
       if (showTwitch) updateTwitch(dt, t);
-      empty = !placement && (!showDiscord || !dEnts.size) && (!showTwitch || (!viewers.size && !particles.length));
+      empty = !placement && (!showDiscord || !dEnts.size) && (!showTwitch || !viewers.size) && !particles.length;
       if (!(empty && wasEmpty)) {
         ctx.clearRect(0, 0, W, H);
         if (placement) { groupRects(); drawPlacement(); }
         if (showDiscord) drawDiscord(t);
-        if (showTwitch) { drawTwitch(t); drawParticles(dt); }
+        if (showTwitch) drawTwitch(t);
+        drawParticles(dt, t);
       }
     }
     wasEmpty = empty;
     schedule(empty);
   }
+
+  // Debug/test hooks (also handy from the DevTools console).
+  window.puppetFxTest = () => { for (const e of dEnts.values()) if (e.leaving < 0) { e.forceLeave = true; startExit(e); } };
+  if (DEMO && params.get('fx')) setTimeout(() => { settings.overlay.entrance = params.get('fx'); settings.overlay.exit = params.get('exit') || params.get('fx'); }, 0);
 
   if (DEMO) startDemo();
   else { connect(); makeFakeMembers(); if (TEST) fakeChatLoop(); }

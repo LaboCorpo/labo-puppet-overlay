@@ -169,6 +169,17 @@
     'Performance': 'Performance', 'Performance (smoothest)': 'Performance (le plus fluide)', 'Normal': 'Normal', 'Eco (lighter on your PC)': 'Éco (plus léger pour ton PC)',
     'Performance: full frame rate and sharpness. Normal: 60 fps. Eco: 30 fps, lower resolution, fewer effects — and the overlay sleeps when nobody is on screen (all modes pause when empty).': 'Performance : fluidité et netteté maximales. Normal : 60 i/s. Éco : 30 i/s, résolution réduite, moins d’effets — et l’overlay se met en veille quand personne n’est à l’écran (tous les modes se mettent en pause quand c’est vide).',
 
+    // ----- v0.5 -----
+    'Head width': 'Largeur de la tête', 'Head height': 'Hauteur de la tête', 'Mouth line': 'Ligne de la bouche', 'Nose size': 'Taille du nez', 'Nose height': 'Hauteur du nez',
+    'Cheek size': 'Taille des joues', 'Eye tilt': 'Inclinaison des yeux', 'Eyebrow size': 'Taille des sourcils', 'Eyebrow height': 'Hauteur des sourcils',
+    'Eyebrow tilt': 'Inclinaison des sourcils', 'Eyebrow spacing': 'Écart des sourcils', 'Glasses size': 'Taille des lunettes', 'Hair size': 'Taille des cheveux',
+    'Hair height': 'Hauteur des cheveux', 'Facial hair size': 'Taille de la pilosité', 'Hat size': 'Taille du chapeau', 'Hat height': 'Hauteur du chapeau',
+    'Hat tilt': 'Inclinaison du chapeau', 'Item size': 'Taille de l’objet', 'Reset sliders': 'Réinitialiser les curseurs',
+    'Exit': 'Sortie', 'Portal': 'Portail', 'Teleport beam': 'Téléportation', 'Feathers': 'Plumes', 'Puff of smoke': 'Nuage de fumée',
+    '✨ Replay entrances': '✨ Rejouer les entrées', 'Replay entrances': 'Rejouer les entrées', 'Watch the preview, your overlay and OBS': 'Regarde l’aperçu, ton overlay et OBS',
+    'Keep an icon in the taskbar while running': 'Garder une icône dans la barre des tâches pendant que l’app tourne',
+    'It stays in your taskbar and system tray. Right-click the tray icon to quit.': 'Elle reste dans la barre des tâches et la zone de notification. Clic droit sur l’icône de notification pour quitter.',
+
     // ----- tray / notifications (main process) -----
     'Discord: {s}': 'Discord : {s}', 'Open panel': 'Ouvrir le panneau', 'Show overlay': 'Afficher l’overlay', 'Reconnect Discord': 'Reconnecter Discord',
     'Restart to update (v{v})': 'Redémarrer pour mettre à jour (v{v})', 'Download v{v}': 'Télécharger la v{v}', 'Quit': 'Quitter',

@@ -8,6 +8,7 @@ const DEFAULTS = {
     language: 'auto', // 'auto' follows Windows, or 'en' / 'fr'
     performance: 'normal', // 'performance' | 'normal' | 'eco'
     launchAtStartup: false,
+    taskbarIcon: true, // keep a taskbar button while the app runs (panel minimizes instead of hiding)
     autoUpdate: true,
     hotkeys: { toggleOverlay: 'CommandOrControl+Shift+O', placement: 'CommandOrControl+Shift+P' },
     firstRunDone: false,
@@ -16,7 +17,7 @@ const DEFAULTS = {
   overlay: {
     enabled: true, anchor: 'bottom-left', pos: { x: 0.15, y: 0.92 }, scale: 0.8, spacing: 120, margin: 30,
     showNames: true, hideIdle: false, showSelf: true, glow: false, maxVisible: 12, display: 0,
-    entrance: 'random', statusStyle: 'props', sleepMinutes: 10, lookAtSpeaker: true,
+    entrance: 'random', exit: 'random', statusStyle: 'props', sleepMinutes: 10, lookAtSpeaker: true,
   },
   twitch: {
     enabled: false, channel: '', scale: 0.5, maxViewers: 20, bubbleSeconds: 7, idleMinutes: 10,

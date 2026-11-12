@@ -20,8 +20,14 @@
       { type: 'opt', key: 'headShape', label: 'Head shape' },
       { type: 'color', key: 'skin', label: 'Skin', pal: 'skin' },
       { type: 'slider', key: 'headSize', label: 'Head size', photo: true },
+      { type: 'slider', key: 'headWidth', label: 'Head width', photo: true },
+      { type: 'slider', key: 'headHeight', label: 'Head height', photo: true },
+      { type: 'slider', key: 'mouthHeight', label: 'Mouth line' },
       { type: 'opt', key: 'nose', label: 'Nose' },
+      { type: 'slider', key: 'noseSize', label: 'Nose size' },
+      { type: 'slider', key: 'noseHeight', label: 'Nose height' },
       { type: 'opt', key: 'cheeks', label: 'Cheeks' },
+      { type: 'slider', key: 'cheekSize', label: 'Cheek size' },
       { type: 'opt', key: 'teeth', label: 'Teeth' },
     ] },
     { id: 'eyes', label: 'Eyes', items: [
@@ -30,14 +36,23 @@
       { type: 'slider', key: 'eyeSize', label: 'Eye size' },
       { type: 'slider', key: 'eyeSpacing', label: 'Eye spacing' },
       { type: 'slider', key: 'eyeHeight', label: 'Eye height' },
+      { type: 'slider', key: 'eyeTilt', label: 'Eye tilt' },
       { type: 'opt', key: 'brows', label: 'Eyebrows' },
+      { type: 'slider', key: 'browSize', label: 'Eyebrow size' },
+      { type: 'slider', key: 'browHeight', label: 'Eyebrow height' },
+      { type: 'slider', key: 'browTilt', label: 'Eyebrow tilt' },
+      { type: 'slider', key: 'browSpacing', label: 'Eyebrow spacing' },
       { type: 'opt', key: 'glasses', label: 'Glasses', photo: true },
       { type: 'color', key: 'glassesColor', label: 'Glasses colour', pal: 'cloth', photo: true },
+      { type: 'slider', key: 'glassesSize', label: 'Glasses size', photo: true },
     ] },
     { id: 'hair', label: 'Hair', items: [
       { type: 'opt', key: 'hair', label: 'Hair' },
       { type: 'color', key: 'hairColor', label: 'Hair / beard', pal: 'hair' },
+      { type: 'slider', key: 'hairSize', label: 'Hair size' },
+      { type: 'slider', key: 'hairHeight', label: 'Hair height' },
       { type: 'opt', key: 'beard', label: 'Facial hair' },
+      { type: 'slider', key: 'beardSize', label: 'Facial hair size' },
     ] },
     { id: 'outfit', label: 'Outfit', items: [
       { type: 'opt', key: 'outfit', label: 'Outfit', photo: true },
@@ -50,9 +65,13 @@
     { id: 'extras', label: 'Accessories', items: [
       { type: 'opt', key: 'hat', label: 'Hat', photo: true },
       { type: 'color', key: 'hatColor', label: 'Hat', pal: 'cloth', photo: true },
+      { type: 'slider', key: 'hatSize', label: 'Hat size', photo: true },
+      { type: 'slider', key: 'hatHeight', label: 'Hat height', photo: true },
+      { type: 'slider', key: 'hatTilt', label: 'Hat tilt', photo: true },
       { type: 'opt', key: 'neckwear', label: 'Neckwear', photo: true },
       { type: 'color', key: 'neckColor', label: 'Neckwear colour', pal: 'cloth', photo: true },
       { type: 'opt', key: 'held', label: 'In hand', photo: true },
+      { type: 'slider', key: 'heldSize', label: 'Item size', photo: true },
     ] },
   ];
   let tab = 'head';
@@ -76,6 +95,12 @@
       commit(); buildOptions();
     };
     bar.appendChild(dice);
+    const sliders = visibleItems(TABS.find((x) => x.id === tab)).filter((it) => it.type === 'slider');
+    if (sliders.length) {
+      const rs = document.createElement('button'); rs.className = 'ghost iconbtn'; rs.textContent = '↺ ' + t('Reset sliders');
+      rs.onclick = () => { sliders.forEach((it) => (av[it.key] = P.SLIDERS[it.key][2])); commit(); buildOptions(); };
+      bar.appendChild(rs);
+    }
   }
 
   function buildOptions() {
@@ -109,7 +134,8 @@
         row.className = 'slider-row';
         row.innerHTML = `<span>${t(it.label)}</span><input type="range" min="${min}" max="${max}" step="0.01"><output></output>`;
         const inp = row.querySelector('input'), out = row.querySelector('output');
-        const show = () => (out.textContent = it.key === 'eyeHeight' ? (av[it.key] > 0 ? '+' : '') + Math.round(av[it.key] * 100) : Math.round(av[it.key] * 100) + '%');
+        const signed = min < 0 && max > 0;
+        const show = () => (out.textContent = signed ? (av[it.key] > 0 ? '+' : '') + Math.round(av[it.key] * 100) : Math.round(av[it.key] * 100) + '%');
         inp.value = av[it.key]; show();
         inp.oninput = () => { av[it.key] = Number(inp.value); show(); };
         inp.onchange = commit;
