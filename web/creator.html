@@ -29,6 +29,17 @@
   .two { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
   .two input { min-width: 0; width: 100%; }
   .hidden { display: none !important; }
+  .ctabs { display: flex; gap: 4px; flex-wrap: wrap; margin: 4px 0 10px; align-items: center; }
+  .ctab { all: unset; cursor: pointer; padding: 8px 14px; border-radius: 8px; color: var(--muted); font-weight: 700; border: 1px solid transparent; }
+  .ctab.on { background: var(--card); color: var(--text); border-color: var(--line); }
+  .ctab:hover { color: var(--text); }
+  .ctabs .grow { flex: 1; }
+  .slider-row { display: grid; grid-template-columns: 150px 1fr 46px; align-items: center; gap: 10px; margin-bottom: 10px; }
+  .slider-row span { color: var(--muted); font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; }
+  .slider-row output { text-align: right; font-size: 12px; color: var(--muted); }
+  .iconbtn { padding: 7px 10px; }
+  .modes .iconbtn { flex: 0 0 auto; }
+  .iconbtn[disabled] { opacity: .4; cursor: default; }
   textarea { width: 100%; min-height: 60px; background: #17151c; color: var(--text); border: 1px solid var(--line); border-radius: 8px; padding: 8px; font: 12px monospace; }
 </style>
 </head>
@@ -68,6 +79,8 @@
       <button data-mode="drawn" class="on">✏️ From scratch</button>
       <button data-mode="photo">📷 From a photo</button>
       <button id="random" class="ghost" style="flex:0 0 auto">🎲 Random</button>
+      <button id="undo" class="ghost iconbtn" title="Undo (Ctrl+Z)">↶</button>
+      <button id="redo" class="ghost iconbtn" title="Redo (Ctrl+Y)">↷</button>
     </div>
 
     <div id="photoPanel" class="card hidden">
@@ -82,11 +95,19 @@
           <label>Mouth line (where the head opens) <input type="range" id="split" min="0.35" max="0.85" step="0.01" value="0.6"></label>
           <label>Head shape
             <select id="photoShape"><option value="round">Round</option><option value="square">Square</option></select></label>
+          <label>Rotation <input type="range" id="pRotate" min="-30" max="30" step="1" value="0"></label>
+          <label>Brightness <input type="range" id="pBright" min="50" max="160" step="1" value="100"></label>
+          <label>Contrast <input type="range" id="pContrast" min="50" max="170" step="1" value="100"></label>
+          <label>Saturation <input type="range" id="pSat" min="0" max="200" step="1" value="100"></label>
+          <label class="check"><input type="checkbox" id="pMirror"> Mirror</label>
+          <label class="check"><input type="checkbox" id="pCartoon"> Cartoon effect</label>
+          <label class="check"><input type="checkbox" id="pGray"> Black &amp; white</label>
           <p class="muted">Tip: frame the face inside the oval, then move the orange line to the mouth.</p>
         </div>
       </div>
     </div>
 
+    <div class="ctabs" id="ctabs" data-no-i18n></div>
     <div id="options" data-no-i18n></div>
   </div>
 </div>

@@ -32,9 +32,12 @@
   let W = innerWidth, H = innerHeight;
 
   // ---------- Canvas sizing ----------
+  const perfMode = () => (settings && settings.app && settings.app.performance) || 'normal';
   function resize() {
     W = innerWidth; H = innerHeight;
-    const dpr = window.devicePixelRatio || 1;
+    // Eco renders at 1x pixel density, Normal caps at 2x, Performance uses the screen's full density.
+    const raw = window.devicePixelRatio || 1;
+    const dpr = perfMode() === 'eco' ? Math.min(raw, 1) : perfMode() === 'normal' ? Math.min(raw, 2) : raw;
     canvas.width = Math.round(W * dpr);
     canvas.height = Math.round(H * dpr);
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
@@ -43,6 +46,7 @@
 
   // ---------- Server link (SSE) ----------
   function applyState(s) {
+    if (s.settings && settings && s.settings.app && settings.app && s.settings.app.performance !== settings.app.performance) setTimeout(resize, 0);
     if (s.settings) { const restyle = !settings || styleKey(s.settings.twitch) !== styleKey(settings.twitch); settings = s.settings; if (restyle) restyleAll(); }
     if (s.avatars) avatars = s.avatars;
     if (s.viewers) { overrides = s.viewers; restyleAll(); }
@@ -107,42 +111,55 @@
   }
 
   // Group origin: either a corner anchor or a custom position (ratios of the screen) set in placement mode.
-  function discordLayout(count) {
+  // Slots are as wide as each puppet's own scale, so a bigger puppet pushes its neighbours away.
+  function discordLayout(scales) {
     const cfg = settings.overlay;
     const s = cfg.scale || 0.8, gap = (cfg.spacing || 120) * s / 0.8, margin = cfg.margin || 30;
-    const total = Math.max(0, count - 1) * gap;
+    const offs = []; let cur = 0;
+    scales.forEach((sc, i) => { if (i > 0) cur += gap * (scales[i - 1] + sc) / 2; offs.push(cur); });
+    const total = cur;
+    const first = scales[0] || 1, lastS = scales[scales.length - 1] || 1;
     const anchor = cfg.anchor || 'bottom-left';
     let x0, y;
     if (anchor === 'custom' && cfg.pos) { x0 = cfg.pos.x * W - total / 2; y = cfg.pos.y * H; }
     else {
-      if (anchor.endsWith('left')) x0 = margin + 60 * s;
-      else if (anchor.endsWith('right')) x0 = W - margin - 60 * s - total;
+      if (anchor.endsWith('left')) x0 = margin + 60 * s * first;
+      else if (anchor.endsWith('right')) x0 = W - margin - 60 * s * lastS - total;
       else x0 = W / 2 - total / 2;
-      y = anchor.startsWith('top') ? margin + 230 * s : H - margin - 30 * s;
+      y = anchor.startsWith('top') ? margin + 230 * s * Math.max(1, ...scales) : H - margin - 30 * s;
     }
-    return { x0, gap, y, s };
+    return { xs: offs.map((o) => x0 + o), y, s };
+  }
+
+  // Per-member settings (hide / nickname / size) and manual order from the panel.
+  function memberCfg(id) { return (settings.members && settings.members[id]) || {}; }
+  function orderMembers(list) {
+    const order = settings.memberOrder || [];
+    const idx = (id) => { const i = order.indexOf(id); return i < 0 ? 1e6 : i; };
+    return list.map((m, i) => ({ m, i })).sort((a, b) => idx(a.m.id) - idx(b.m.id) || a.i - b.i).map((x) => x.m);
   }
 
   function updateDiscord(dt, t) {
     const cfg = settings.overlay;
     const real = members.length > 0;
     const src = real ? members : (fakeMembers && (TEST || DEMO || placement) ? fakeMembers : []);
-    let list = src.filter((m) => !(cfg.showSelf === false && m.self));
+    let list = src.filter((m) => !(cfg.showSelf === false && m.self) && !memberCfg(m.id).hidden);
     if (cfg.hideIdle && !placement) list = list.filter((m) => m.speaking || (dEnts.get(m.id) && dEnts.get(m.id).anim.hangover > 0));
-    list = list.slice(0, cfg.maxVisible || 12);
-    const L = discordLayout(list.length);
+    list = orderMembers(list).slice(0, cfg.maxVisible || 12);
+    const scales = list.map((m) => Math.min(1.8, Math.max(0.5, Number(memberCfg(m.id).scale) || 1)));
+    const L = discordLayout(scales);
     const ids = new Set(list.map((m) => m.id));
 
     list.forEach((m, i) => {
       let e = dEnts.get(m.id);
-      const tx = L.x0 + i * L.gap;
+      const tx = L.xs[i];
       if (!e) {
         e = { id: m.id, anim: new P.Animator(m.id), x: tx, y: L.y, vy: 0, enter: pickEntrance(cfg.entrance), age: 0, leaving: -1 };
         if (e.enter === 'walk') e.x = tx < W / 2 ? -120 : W + 120;
         if (e.enter === 'drop') e.y = -260 * L.s;
         dEnts.set(m.id, e);
       }
-      e.member = m; e.tx = tx; e.ty = L.y; e.s = L.s;
+      e.member = m; e.tx = tx; e.ty = L.y; e.s = L.s * scales[i];
       if (e.leaving >= 0) { e.leaving = -1; e.scaleMul = 1; }
     });
     for (const e of dEnts.values()) if (!ids.has(e.id) && e.leaving < 0) e.leaving = 0;
@@ -187,7 +204,7 @@
       const av = avatars[m.id] || m.demoAvatar || { ...P.defaultAvatar(), kind: 'discord', photoSplit: 0.6, clothColor: '#5865f2', accentColor: '#ffffff' };
       P.draw(ctx, av, st, {
         x: e.x, y: e.y, scale: e.s,
-        name: cfg.showNames !== false && e.leaving < 0 ? m.name : null,
+        name: cfg.showNames !== false && e.leaving < 0 ? (memberCfg(m.id).alias || m.name) : null,
         muted: m.mute, deaf: m.deaf, glow: cfg.glow && m.speaking && !m.mute, statusStyle: cfg.statusStyle,
         flip: e.walking && e.tx > e.x, // puppets face left by default
         discordAvatarUrl: discordAvatarUrl(m),
@@ -208,7 +225,7 @@
     const cfg = (settings && settings.twitch) || {};
     const ov = overrides[login] || {};
     const a = P.randomAvatar(ov.seed || login, { palette: cfg.palette, hats: cfg.hats, beards: cfg.beards, colors: cfg.colors });
-    for (const k of ['hat', 'hair', 'outfit', 'eyes', 'clothColor', 'hatColor']) if (ov[k]) a[k] = ov[k];
+    for (const k of ['hat', 'hair', 'outfit', 'eyes', 'glasses', 'held', 'neckwear', 'pattern', 'clothColor', 'hatColor']) if (ov[k]) a[k] = ov[k];
     return a;
   }
   function restyle(login) { const v = viewers.get(login); if (v && !v.temp) v.avatar = viewerAvatar(login); }
@@ -279,6 +296,7 @@
   }
 
   function burst(v, n) {
+    if (perfMode() === 'eco') n = Math.ceil(n * 0.4);
     const cols = ['#ff7a45', '#f5c518', '#43b581', '#5865f2', '#ff6fa8', '#00cec9', '#ffffff'];
     for (let i = 0; i < n; i++) {
       particles.push({ follow: v, x: 0, y: 0, vx: (Math.random() - 0.5) * 520, vy: -250 - Math.random() * 520, rot: Math.random() * 6, vr: (Math.random() - 0.5) * 14, c: cols[i % cols.length], life: 2 + Math.random() * 1.2, w: 6 + Math.random() * 6, h: 4 + Math.random() * 4, init: false });
@@ -341,7 +359,7 @@
       if (v.leaving >= 0) P.drawPoof(ctx, v.x, v.y - 120 * L.s, L.s, Math.min(1, v.leaving / 0.7));
       if (v.msg && now < v.msgUntil && v.leaving < 0) {
         const alpha = Math.min(1, (v.msgUntil - now) / 0.5);
-        const headTop = v.y + st.bob * L.s + (P.HEAD.cy - P.HEAD.ry) * L.s - (v.col % 2) * 46 * L.s;
+        const headTop = v.y + st.bob * L.s + P.headTopLocal(v.avatar) * L.s - (v.col % 2) * 46 * L.s;
         Puppet.drawBubble(ctx, v.msg, v.x, headTop, Math.max(0.75, L.s * 1.4), { alpha, bg: v.system ? '#2b2633' : cfg.bubbleBg, fg: v.system ? '#ffd166' : cfg.bubbleFg, viewW: W, maxLines: v.system ? 4 : 3 });
       }
     }
@@ -362,7 +380,7 @@
   function groupRects() {
     const ds = [...dEnts.values()].filter((e) => e.leaving < 0);
     if (ds.length && SCENE !== 'twitch') {
-      const s = ds[0].s; const xs = ds.map((e) => e.tx);
+      const s = Math.max(...ds.map((e) => e.s)); const xs = ds.map((e) => e.tx);
       groups.discord = { x: Math.min(...xs) - 75 * s, y: ds[0].ty - 270 * s, w: Math.max(...xs) - Math.min(...xs) + 150 * s, h: 310 * s };
     } else groups.discord = null;
     if (SCENE !== 'discord' && settings.twitch && (settings.twitch.enabled || settings.twitch.showOnDesktop)) {
@@ -431,19 +449,35 @@
   addEventListener('keydown', (e) => { if (placement && e.key === 'Escape') finishPlacement(); });
 
   // ---------- Render loop ----------
-  let last = performance.now();
+  // Frame cap: Performance = display rate, Normal = 60 fps, Eco = 30 fps.
+  // When nothing is on screen the canvas is cleared once and the loop idles (Eco also slows its polling).
+  let last = performance.now(), lastDraw = 0, wasEmpty = false;
+  function schedule(idle) {
+    if (idle && perfMode() === 'eco') setTimeout(() => requestAnimationFrame(frame), 250);
+    else requestAnimationFrame(frame);
+  }
   function frame(now) {
+    const cap = perfMode() === 'eco' ? 30 : perfMode() === 'normal' ? 60 : 0;
+    if (cap && now - lastDraw < 1000 / cap - 2) { requestAnimationFrame(frame); return; }
+    lastDraw = now;
     const dt = Math.min(0.05, (now - last) / 1000); last = now;
     const t = now / 1000;
-    ctx.clearRect(0, 0, W, H);
+    let empty = true;
     if (settings) {
       const showDiscord = SCENE !== 'twitch' && (settings.overlay.enabled !== false || placement || !DESKTOP);
       const showTwitch = SCENE !== 'discord' && (settings.twitch.enabled || DEMO || TEST);
-      if (placement) { groupRects(); drawPlacement(); }
-      if (showDiscord) { updateDiscord(dt, t); drawDiscord(t); }
-      if (showTwitch) { updateTwitch(dt, t); drawTwitch(t); drawParticles(dt); }
+      if (showDiscord) updateDiscord(dt, t);
+      if (showTwitch) updateTwitch(dt, t);
+      empty = !placement && (!showDiscord || !dEnts.size) && (!showTwitch || (!viewers.size && !particles.length));
+      if (!(empty && wasEmpty)) {
+        ctx.clearRect(0, 0, W, H);
+        if (placement) { groupRects(); drawPlacement(); }
+        if (showDiscord) drawDiscord(t);
+        if (showTwitch) { drawTwitch(t); drawParticles(dt); }
+      }
     }
-    requestAnimationFrame(frame);
+    wasEmpty = empty;
+    schedule(empty);
   }
 
   if (DEMO) startDemo();

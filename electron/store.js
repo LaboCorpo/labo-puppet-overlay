@@ -6,6 +6,7 @@ const DEFAULTS = {
   port: 47800,
   app: {
     language: 'auto', // 'auto' follows Windows, or 'en' / 'fr'
+    performance: 'normal', // 'performance' | 'normal' | 'eco'
     launchAtStartup: false,
     autoUpdate: true,
     hotkeys: { toggleOverlay: 'CommandOrControl+Shift+O', placement: 'CommandOrControl+Shift+P' },
@@ -27,6 +28,9 @@ const DEFAULTS = {
     actionCooldown: 5, styleCooldown: 10,
     raidEffects: true, raidMax: 15, subEffects: true, bitsEffects: true,
   },
+  // Per-member overrides keyed by Discord user ID: { hidden, alias, scale }
+  members: {},
+  memberOrder: [],
   // Shared JSON (e.g. a GitHub Gist raw URL) that every app reads periodically.
   sync: { url: '', intervalSec: 120 },
 };
@@ -56,7 +60,7 @@ class Store {
       if (fs.existsSync(this.file)) try { fs.copyFileSync(this.file, this.file + '.broken'); } catch (err) {}
     }
     migrate(saved);
-    this.data = deepMerge({ settings: deepMerge(DEFAULTS, bundledDefaults || {}), avatars: {}, syncedAvatars: {}, viewers: {}, token: null }, saved);
+    this.data = deepMerge({ settings: deepMerge(DEFAULTS, bundledDefaults || {}), avatars: {}, syncedAvatars: {}, viewers: {}, known: {}, token: null }, saved);
     if (!this.data.settings.discord.clientId && bundledDefaults && bundledDefaults.discord) this.data.settings.discord.clientId = bundledDefaults.discord.clientId || '';
     this.timer = null;
   }
@@ -87,6 +91,28 @@ class Store {
     this.save();
   }
   clearViewers() { this.data.viewers = {}; this.save(); }
+
+  // Everyone seen in a voice channel, so per-member settings work even when they're offline.
+  rememberMembers(list) {
+    let changed = false;
+    for (const m of list) {
+      const k = this.data.known[m.id];
+      if (!k || k.name !== m.name || k.avatarHash !== m.avatarHash || Date.now() - k.lastSeen > 60000) {
+        this.data.known[m.id] = { name: m.name, avatarHash: m.avatarHash || null, lastSeen: Date.now() };
+        changed = true;
+      }
+    }
+    const ids = Object.keys(this.data.known);
+    if (ids.length > 300) ids.sort((a, b) => this.data.known[a].lastSeen - this.data.known[b].lastSeen).slice(0, ids.length - 300).forEach((id) => delete this.data.known[id]);
+    if (changed) this.save();
+    return changed;
+  }
+  forgetMember(id) {
+    delete this.data.known[id];
+    delete this.data.settings.members[id];
+    this.data.settings.memberOrder = (this.data.settings.memberOrder || []).filter((x) => x !== id);
+    this.save();
+  }
 }
 
 module.exports = { Store, DEFAULTS };

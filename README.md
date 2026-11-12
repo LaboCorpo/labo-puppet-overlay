@@ -15,6 +15,16 @@ A Discord voice overlay where everyone in your call is a cut-paper puppet: the t
   - puppets fall asleep (Zzz) after a configurable idle time
   - everyone turns to look at whoever is speaking
   - the longer someone talks, the more animated they get
+- **Avatar creator**: 7 head shapes, 10 eye styles, plus glasses, noses, cheeks (blush, freckles, scars…), teeth, 12 hairstyles, 8 kinds of facial hair, 13 hats (including a wizard hat, a halo and a spinning propeller), 10 outfits, 5 clothing patterns, neckwear, and items to hold (mug, controller, sword, balloon…).
+  - Sliders for head size, eye size/spacing/height and body width/height.
+  - Options are grouped in tabs; you can randomize a single tab, and undo/redo with Ctrl+Z / Ctrl+Y.
+  - Photo puppets: rotation, mirror, brightness, contrast, saturation, black & white, cartoon effect, plus all the body and accessory options.
+- **Members tab**: hide someone, give them a nickname, change their size, and set the order everyone stands in. These settings are remembered for everyone you've shared a voice channel with.
+- **Performance modes**:
+  - Performance: full frame rate.
+  - Normal: 60 fps.
+  - Eco: 30 fps, 1× resolution, fewer effects.
+  - In every mode, the overlay idles when nobody is on screen.
 - **Placement mode**: drag the Discord and Twitch groups with the mouse and use the scroll wheel to resize them. Positions are relative, so they carry over to OBS.
 - **Global shortcuts** (configurable): `Ctrl+Shift+O` shows or hides the overlay, `Ctrl+Shift+P` turns placement mode on and off.
 - **Launch with Windows**: off by default. When on, the app starts hidden in the tray.

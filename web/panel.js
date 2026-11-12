@@ -193,8 +193,81 @@
   document.addEventListener('drop', (e) => { if (e.dataTransfer.files.length) { showTab('avatars'); readFiles(e.dataTransfer.files); } });
   $('#openCreator').onclick = () => { const me = state.discord && state.discord.me; action('open-creator', { id: me ? me.id : '' }); };
 
+  // ---------- Members ----------
+  function orderedKnown() {
+    const known = state.known || {};
+    const live = new Set((state.discord.members || []).map((m) => m.id));
+    const order = state.settings.memberOrder || [];
+    const ids = Object.keys(known);
+    (state.discord.members || []).forEach((m) => { if (!known[m.id]) { known[m.id] = { name: m.name, avatarHash: m.avatarHash, lastSeen: Date.now() }; ids.push(m.id); } });
+    const idx = (id) => { const i = order.indexOf(id); return i < 0 ? 1e6 : i; };
+    return ids.sort((a, b) => idx(a) - idx(b) || (live.has(b) - live.has(a)) || (known[b].lastSeen - known[a].lastSeen)).map((id) => ({ id, live: live.has(id), ...known[id] }));
+  }
+  function ago(ts) {
+    const m = Math.round((Date.now() - ts) / 60000);
+    if (m < 2) return t('just now');
+    if (m < 60) return t('{n} min ago', { n: m });
+    const h = Math.round(m / 60); if (h < 48) return t('{n} h ago', { n: h });
+    return t('{n} days ago', { n: Math.round(h / 24) });
+  }
+  function memberAvatar(m) {
+    return state.avatars[m.id] || Object.assign(Puppet.defaultAvatar(), { kind: 'discord', photoSplit: 0.6, clothColor: '#5865f2', accentColor: '#ffffff' });
+  }
+  function renderMembers() {
+    const box = $('#memberList');
+    if (box.contains(document.activeElement) && document.activeElement.tagName === 'INPUT') return; // don't steal focus while typing
+    const list = orderedKnown();
+    box.innerHTML = '';
+    if (!list.length) { box.innerHTML = `<span class="muted">${t('Nobody yet — members appear here once you have joined a voice channel with them.')}</span>`; return; }
+    const cfg = state.settings.members || {};
+    const saveOrder = (ids) => save('memberOrder', ids);
+    list.forEach((m, i) => {
+      const c = cfg[m.id] || {};
+      const row = document.createElement('div'); row.className = 'mrow' + (c.hidden ? ' hidden-member' : '');
+      // preview
+      const cv = document.createElement('canvas'); cv.width = 112; cv.height = 128;
+      const cx = cv.getContext('2d'); cx.scale(2, 2);
+      const url = m.avatarHash ? `https://cdn.discordapp.com/avatars/${m.id}/${m.avatarHash}.png?size=128` : null;
+      const paint = () => { cx.clearRect(0, 0, 56, 64); Puppet.draw(cx, memberAvatar(m), { open: 0 }, { x: 28, y: 60, scale: 0.26, discordAvatarUrl: url }); };
+      paint(); setTimeout(paint, 500); setTimeout(paint, 1500);
+      // who
+      const who = document.createElement('div'); who.className = 'who';
+      const nb = document.createElement('b'); nb.textContent = c.alias || m.name;
+      const sm = document.createElement('small'); sm.innerHTML = (m.live ? `<span class="live-dot"></span>${t('in the channel')}` : escapeHtml(ago(m.lastSeen))) + (c.alias ? ' · ' + escapeHtml(m.name) : '');
+      who.append(nb, sm);
+      // alias
+      const alias = document.createElement('input'); alias.placeholder = t('Nickname'); alias.value = c.alias || ''; alias.maxLength = 32;
+      alias.onchange = () => save(`members.${m.id}.alias`, alias.value.trim());
+      // size
+      const size = document.createElement('div'); size.className = 'size';
+      size.innerHTML = `<input type="range" min="0.5" max="1.8" step="0.05"><output></output>`;
+      const rng = size.querySelector('input'), out = size.querySelector('output');
+      rng.value = c.scale || 1; out.textContent = Math.round(rng.value * 100) + '%';
+      rng.oninput = () => { out.textContent = Math.round(rng.value * 100) + '%'; save(`members.${m.id}.scale`, Number(rng.value)); };
+      rng.title = t('Size');
+      // hide
+      const hide = document.createElement('label'); hide.className = 'check';
+      hide.innerHTML = `<input type="checkbox" ${c.hidden ? 'checked' : ''}> ${t('Hidden')}`;
+      hide.querySelector('input').onchange = (e) => { save(`members.${m.id}.hidden`, e.target.checked); row.classList.toggle('hidden-member', e.target.checked); };
+      // order
+      const ord = document.createElement('div'); ord.className = 'order';
+      const ids = list.map((x) => x.id);
+      const up = document.createElement('button'); up.className = 'ghost'; up.textContent = '▲'; up.title = t('Move left'); up.disabled = i === 0;
+      const dn = document.createElement('button'); dn.className = 'ghost'; dn.textContent = '▼'; dn.title = t('Move right'); dn.disabled = i === list.length - 1;
+      up.onclick = () => { [ids[i - 1], ids[i]] = [ids[i], ids[i - 1]]; state.settings.memberOrder = ids; saveOrder(ids); renderMembers(); };
+      dn.onclick = () => { [ids[i + 1], ids[i]] = [ids[i], ids[i + 1]]; state.settings.memberOrder = ids; saveOrder(ids); renderMembers(); };
+      ord.append(up, dn);
+      // forget
+      const forget = document.createElement('button'); forget.className = 'danger'; forget.textContent = t('Forget');
+      forget.onclick = () => { if (confirm(t('Forget {name} and their settings?', { name: c.alias || m.name }))) action('forget-member', { id: m.id }); };
+      if (m.live) forget.disabled = true;
+      row.append(cv, who, alias, size, hide, ord, forget);
+      box.appendChild(row);
+    });
+  }
+
   // ---------- Twitch ----------
-  const COMMANDS = [['jump', 'jump'], ['dance', 'dance'], ['wave', 'wave hello'], ['hat', 'hat crown / cap / none…'], ['hair', 'hair afro / long…'], ['outfit', 'outfit suit / dress…'], ['eyes', 'eyes stars / glasses…'], ['color', 'color pink / #ff00aa'], ['hatcolor', 'hatcolor gold'], ['reroll', 'new random look'], ['reset', 'back to default look'], ['puppet', 'list commands']];
+  const COMMANDS = [['jump', 'jump'], ['dance', 'dance'], ['wave', 'wave hello'], ['hat', 'hat crown / cap / none…'], ['hair', 'hair afro / long…'], ['outfit', 'outfit suit / dress…'], ['eyes', 'eyes stars / hearts…'], ['glasses', 'glasses sunglasses…'], ['item', 'item pizza / sword…'], ['neck', 'neck scarf / medal…'], ['pattern', 'pattern stripes…'], ['color', 'color pink / #ff00aa'], ['hatcolor', 'hatcolor gold'], ['reroll', 'new random look'], ['reset', 'back to default look'], ['puppet', 'list commands']];
   function renderCommands() {
     const s = state.settings.twitch, p = s.commandPrefix || '!';
     const disabled = s.disabledCommands || [];
@@ -230,7 +303,7 @@
   })();
 
   // ---------- Live updates ----------
-  let lastAvatars = '', lastCmdKey = '', langApplied = false;
+  let lastAvatars = '', lastCmdKey = '', lastMembers = '', langApplied = false;
   function connect() {
     const es = new EventSource('/api/events');
     es.onopen = () => $('#offline').classList.add('hidden');
@@ -239,9 +312,11 @@
       state = JSON.parse(e.data);
       // Language: translate static text once per change, then force the dynamic parts to re-render.
       const langChanged = I18N.setLang((state.app && state.app.lang) || 'en') || !langApplied;
-      if (langChanged) { langApplied = true; I18N.apply(document.body); lastAvatars = ''; lastCmdKey = ''; $('#displaySelect').dataset.opts = ''; }
+      if (langChanged) { langApplied = true; I18N.apply(document.body); lastAvatars = ''; lastCmdKey = ''; lastMembers = ''; $('#displaySelect').dataset.opts = ''; }
       fillInputs(); renderStatus(); renderApp();
       const av = JSON.stringify(state.avatars); if (av !== lastAvatars) { lastAvatars = av; renderAvatars(); }
+      const mk = I18N.lang + JSON.stringify([Object.keys(state.known || {}), (state.discord.members || []).map((m) => m.id), state.settings.memberOrder, state.settings.members, av.length]);
+      if (mk !== lastMembers) { lastMembers = mk; renderMembers(); }
       const ck = I18N.lang + (state.settings.twitch.commandPrefix || '') + JSON.stringify(state.settings.twitch.disabledCommands || []);
       if (ck !== lastCmdKey) { lastCmdKey = ck; renderCommands(); }
     });

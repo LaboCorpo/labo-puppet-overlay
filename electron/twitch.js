@@ -5,31 +5,32 @@
  */
 const { EventEmitter } = require('events');
 
-const HAT = ['none', 'beanie', 'cap', 'crown', 'headphones', 'tophat'];
-const HAIR = ['none', 'short', 'spiky', 'bowl', 'long', 'bun', 'mohawk', 'afro'];
-const OUTFIT = ['jacket', 'sweater', 'dress', 'suit'];
-const EYES = ['dots', 'round', 'sleepy', 'stars', 'glasses', 'angry'];
-const COLOR_NAMES = {
-  red: '#e74c3c', orange: '#e67e22', yellow: '#f1c40f', green: '#2ecc71', teal: '#16a085', blue: '#3498db',
-  navy: '#34495e', purple: '#9b59b6', pink: '#ff6fa8', white: '#ecf0f1', black: '#222222', grey: '#888888',
-  gray: '#888888', brown: '#8b5a2b', gold: '#f5c518', cyan: '#00cec9', lime: '#a3e635',
-};
+// Part lists come from the shared renderer so chat commands always match what the creator offers.
+require('../web/shared/puppet.js');
+const OPT = globalThis.Puppet.OPTIONS;
+const COLOR_NAMES = globalThis.Puppet.COLOR_NAMES;
+const list = (k) => OPT[k].filter((v) => v !== 'glasses' || k !== 'eyes');
 
 // Command catalogue. kind 'action' = animation, 'style' = persistent customisation.
 const COMMANDS = {
   jump: { kind: 'action', help: 'jump' },
   dance: { kind: 'action', help: 'dance for a few seconds' },
   wave: { kind: 'action', help: 'wave hello' },
-  hat: { kind: 'style', help: 'hat <' + HAT.join('|') + '>', key: 'hat', values: HAT },
-  hair: { kind: 'style', help: 'hair <' + HAIR.join('|') + '>', key: 'hair', values: HAIR },
-  outfit: { kind: 'style', help: 'outfit <' + OUTFIT.join('|') + '>', key: 'outfit', values: OUTFIT },
-  eyes: { kind: 'style', help: 'eyes <' + EYES.join('|') + '>', key: 'eyes', values: EYES },
+  hat: { kind: 'style', key: 'hat', values: list('hat') },
+  hair: { kind: 'style', key: 'hair', values: list('hair') },
+  outfit: { kind: 'style', key: 'outfit', values: list('outfit') },
+  eyes: { kind: 'style', key: 'eyes', values: list('eyes') },
+  glasses: { kind: 'style', key: 'glasses', values: list('glasses') },
+  item: { kind: 'style', key: 'held', values: list('held') },
+  neck: { kind: 'style', key: 'neckwear', values: list('neckwear') },
+  pattern: { kind: 'style', key: 'pattern', values: list('pattern') },
   color: { kind: 'style', help: 'color <name or #hex>', key: 'clothColor', color: true },
   hatcolor: { kind: 'style', help: 'hatcolor <name or #hex>', key: 'hatColor', color: true },
   reroll: { kind: 'style', help: 'get a brand new random look' },
   reset: { kind: 'style', help: 'back to your original look' },
   puppet: { kind: 'help', help: 'list commands' },
 };
+for (const [name, def] of Object.entries(COMMANDS)) if (def.values) def.help = name + ' <' + def.values.join('|') + '>';
 
 function unescapeTag(v) { return String(v || '').replace(/\\s/g, ' ').replace(/\\:/g, ';').replace(/\\\\/g, '\\'); }
 function parseTags(raw) {

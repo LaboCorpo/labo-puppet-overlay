@@ -40,6 +40,7 @@ process.on('unhandledRejection', (e) => { if (log) log.error('unhandled rejectio
 function appState() {
   return {
     discord: rpc ? rpc.snapshot() : { status: 'starting', members: [] },
+    known: store.data.known,
     twitchStatus: twitch ? twitch.snapshot() : { status: 'off' },
     app: {
       version: app.getVersion(), placement, hotkeyErrors, lang: I18N.lang,
@@ -61,7 +62,7 @@ function startDiscord() {
     saveToken: (t) => { store.data.token = t ? Object.assign({ clientId: d.clientId }, t) : null; store.save(); },
   });
   rpc.on('status', (s, detail) => { log.info(`[discord] ${s}${detail ? ' — ' + detail : ''}`); push(); });
-  rpc.on('channel', push);
+  rpc.on('channel', () => { store.rememberMembers(rpc.snapshot().members || []); push(); });
   rpc.on('speaking', (id, speaking) => srv.broadcast('speaking', { id, speaking }));
   rpc.on('error', (e) => log.error('[discord] ' + e.message));
   rpc.on('warn', (e) => log.warn('[discord] ' + e.message));
@@ -255,6 +256,7 @@ async function onAction(name, b) {
     case 'open-logs': shell.openPath(log.dir); return;
     case 'open-url': if (/^https:\/\//.test(b.url || '')) shell.openExternal(b.url); return;
     case 'twitch-test': twitch.simulate(b.kind); return;
+    case 'forget-member': store.forgetMember(String(b.id || '')); push(); return;
     case 'clear-viewers': store.clearViewers(); srv.broadcast('viewers-reset', {}); push(); return;
     case 'export-config': {
       const r = await dialog.showSaveDialog(panelWin, { defaultPath: 'puppet-overlay-backup.json' });

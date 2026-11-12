@@ -12,6 +12,7 @@
     <button class="tab active" data-tab="status">Status</button>
     <button class="tab" data-tab="overlay">Overlay</button>
     <button class="tab" data-tab="avatars">Avatars</button>
+    <button class="tab" data-tab="members">Members</button>
     <button class="tab" data-tab="twitch">Twitch</button>
     <button class="tab" data-tab="obs">OBS / Streamlabs</button>
     <button class="tab" data-tab="general">Settings</button>
@@ -110,6 +111,13 @@
       </div>
     </section>
 
+    <!-- MEMBERS -->
+    <section data-panel="members">
+      <h1>Members</h1>
+      <p class="muted">Everyone you've shared a voice channel with. Hide someone, give them a nickname, change their size or the order they stand in. Settings are kept even when they're offline.</p>
+      <div id="memberList" class="member-list" data-no-i18n></div>
+    </section>
+
     <!-- TWITCH -->
     <section data-panel="twitch">
       <h1>Twitch viewers</h1>
@@ -179,7 +187,9 @@
       <div class="card grid">
         <label>Language
           <select data-key="app.language"><option value="auto">Auto (system)</option><option value="en">English</option><option value="fr">Français</option></select></label>
-        <div></div>
+        <label>Performance
+          <select data-key="app.performance"><option value="performance">Performance (smoothest)</option><option value="normal">Normal</option><option value="eco">Eco (lighter on your PC)</option></select></label>
+        <p class="muted wide">Performance: full frame rate and sharpness. Normal: 60 fps. Eco: 30 fps, lower resolution, fewer effects — and the overlay sleeps when nobody is on screen (all modes pause when empty).</p>
         <label class="check"><input type="checkbox" data-key="app.launchAtStartup"> Launch with Windows (starts hidden in the tray)</label>
         <label class="check"><input type="checkbox" data-key="app.autoUpdate"> Check for updates automatically</label>
       </div>

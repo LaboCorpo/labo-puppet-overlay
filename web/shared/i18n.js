@@ -140,6 +140,35 @@
     'Drag a group to move it  ·  Mouse wheel to resize  ·  Esc or click Done to finish': 'Fais glisser un groupe pour le déplacer  ·  Molette pour redimensionner  ·  Échap ou Terminé pour finir',
     'Discord voice': 'Vocal Discord', 'Puppet Overlay app not reachable — retrying…': 'App Puppet Overlay injoignable — nouvelle tentative…',
 
+    // ----- v0.4: creator tabs, sliders, new parts -----
+    'Head': 'Tête', 'Accessories': 'Accessoires', 'Head size': 'Taille de la tête', 'Eye size': 'Taille des yeux', 'Eye spacing': 'Écart des yeux',
+    'Eye height': 'Hauteur des yeux', 'Glasses': 'Lunettes', 'Glasses colour': 'Couleur des lunettes', 'Pattern': 'Motif', 'Body width': 'Largeur du corps',
+    'Body height': 'Hauteur du corps', 'Neckwear': 'Au cou', 'Neckwear colour': 'Couleur (cou)', 'In hand': 'Dans la main', 'Nose': 'Nez', 'Cheeks': 'Joues', 'Teeth': 'Dents',
+    'This tab': 'Cet onglet', 'Randomize only this tab': 'Tirer au hasard uniquement cet onglet', 'Double-click to reset': 'Double-clic pour réinitialiser',
+    'Rotation': 'Rotation', 'Brightness': 'Luminosité', 'Contrast': 'Contraste', 'Saturation': 'Saturation', 'Mirror': 'Miroir', 'Cartoon effect': 'Effet cartoon',
+    'Black & white': 'Noir et blanc', 'Undo (Ctrl+Z)': 'Annuler (Ctrl+Z)', 'Redo (Ctrl+Y)': 'Rétablir (Ctrl+Y)',
+    'Egg': 'Œuf', 'Wide': 'Large', 'Tall': 'Haute', 'Happy': 'Joyeux', 'Cute': 'Mignons', 'Wink': 'Clin d’œil', 'Dizzy': 'Étourdi', 'Hearts': 'Cœurs',
+    'Worried': 'Inquiets', 'Unibrow': 'Monosourcil', 'Sunglasses': 'Lunettes de soleil', 'Monocle': 'Monocle', 'Goggles': 'Masque', 'Dot': 'Point',
+    'Pointy': 'Pointu', 'Pig': 'Groin', 'Button': 'Clown', 'Blush': 'Rougissantes', 'Freckles': 'Taches de rousseur', 'Scar': 'Cicatrice', 'Mole': 'Grain de beauté',
+    'Bandage': 'Pansement', 'Buck': 'Dents du bonheur', 'Fangs': 'Crocs', 'Gap': 'Une dent', 'Curly': 'Bouclés', 'Pigtails': 'Couettes', 'Ponytail': 'Queue de cheval',
+    'Sidepart': 'Raie sur le côté', 'Stubble': 'Barbe de 3 jours', 'Full': 'Barbe fournie', 'Chinstrap': 'Collier', 'Handlebar': 'Moustache guidon',
+    'Cowboy': 'Cowboy', 'Wizard': 'Sorcier', 'Beret': 'Béret', 'Bandana': 'Bandana', 'Horns': 'Cornes', 'Halo': 'Auréole', 'Propeller': 'Hélice',
+    'Hoodie': 'Sweat à capuche', 'Tshirt': 'T-shirt', 'Overalls': 'Salopette', 'Hawaiian': 'Hawaïenne', 'Labcoat': 'Blouse', 'Cape': 'Cape',
+    'Stripes': 'Rayures', 'Checks': 'Carreaux', 'Scarf': 'Écharpe', 'Bowtie': 'Nœud papillon', 'Tie': 'Cravate', 'Necklace': 'Collier', 'Medal': 'Médaille',
+    'Mug': 'Tasse', 'Controller': 'Manette', 'Sword': 'Épée', 'Flower': 'Fleur', 'Phone': 'Téléphone', 'Pizza': 'Pizza', 'Balloon': 'Ballon',
+    'eyes stars / hearts…': 'yeux stars / hearts…', 'glasses sunglasses…': 'lunettes sunglasses…', 'item pizza / sword…': 'objet pizza / sword…',
+    'neck scarf / medal…': 'cou scarf / medal…', 'pattern stripes…': 'motif stripes…',
+
+    // ----- v0.4: members & performance -----
+    'Members': 'Membres',
+    "Everyone you've shared a voice channel with. Hide someone, give them a nickname, change their size or the order they stand in. Settings are kept even when they're offline.": 'Toutes les personnes avec qui tu as partagé un salon vocal. Masque quelqu’un, donne-lui un surnom, change sa taille ou sa place dans la rangée. Les réglages sont conservés même quand la personne est hors ligne.',
+    'just now': 'à l’instant', '{n} min ago': 'il y a {n} min', '{n} h ago': 'il y a {n} h', '{n} days ago': 'il y a {n} jours',
+    'Nobody yet — members appear here once you have joined a voice channel with them.': 'Personne pour l’instant — les membres apparaissent ici dès que tu as été en vocal avec eux.',
+    'in the channel': 'dans le salon', 'Nickname': 'Surnom', 'Hidden': 'Masqué', 'Move left': 'Vers la gauche', 'Move right': 'Vers la droite', 'Forget': 'Oublier',
+    'Forget {name} and their settings?': 'Oublier {name} et ses réglages ?',
+    'Performance': 'Performance', 'Performance (smoothest)': 'Performance (le plus fluide)', 'Normal': 'Normal', 'Eco (lighter on your PC)': 'Éco (plus léger pour ton PC)',
+    'Performance: full frame rate and sharpness. Normal: 60 fps. Eco: 30 fps, lower resolution, fewer effects — and the overlay sleeps when nobody is on screen (all modes pause when empty).': 'Performance : fluidité et netteté maximales. Normal : 60 i/s. Éco : 30 i/s, résolution réduite, moins d’effets — et l’overlay se met en veille quand personne n’est à l’écran (tous les modes se mettent en pause quand c’est vide).',
+
     // ----- tray / notifications (main process) -----
     'Discord: {s}': 'Discord : {s}', 'Open panel': 'Ouvrir le panneau', 'Show overlay': 'Afficher l’overlay', 'Reconnect Discord': 'Reconnecter Discord',
     'Restart to update (v{v})': 'Redémarrer pour mettre à jour (v{v})', 'Download v{v}': 'Télécharger la v{v}', 'Quit': 'Quitter',
