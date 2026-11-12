@@ -1,8 +1,8 @@
 <!doctype html>
-<html lang="fr">
+<html lang="en">
 <head>
 <meta charset="utf-8">
-<title>Créateur d’avatar — Puppet Overlay</title>
+<title>Avatar Creator — Puppet Overlay</title>
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <link rel="stylesheet" href="shared/ui.css">
 <style>
@@ -37,51 +37,51 @@
   <div class="stage">
     <div class="view"><canvas id="view" width="760" height="840"></canvas></div>
     <div class="btns">
-      <button id="talk" class="ghost">🗣 Parler (maintenir)</button>
-      <label class="check"><input type="checkbox" id="autoTalk" checked> Animation auto</label>
+      <button id="talk" class="ghost">🗣 Hold to talk</button>
+      <label class="check"><input type="checkbox" id="autoTalk" checked> Auto animation</label>
     </div>
     <div class="card" style="margin-top:14px">
       <div class="two">
-        <label>Pseudo affiché <input id="name" maxlength="32" placeholder="Timo"></label>
-        <label>ID Discord <input id="discordId" inputmode="numeric" placeholder="17 à 20 chiffres"></label>
+        <label>Display name <input id="name" maxlength="32" placeholder="Timo"></label>
+        <label>Discord user ID <input id="discordId" inputmode="numeric" placeholder="17–20 digits"></label>
       </div>
-      <details class="muted" style="margin-top:8px"><summary>Où trouver mon ID Discord ?</summary>
-        Paramètres Discord → Avancés → active le <b>Mode développeur</b>. Ensuite clic droit sur ton pseudo → <b>Copier l’identifiant de l’utilisateur</b>.
+      <details class="muted" style="margin-top:8px"><summary>Where do I find my Discord ID?</summary>
+        Discord Settings → Advanced → turn on <b>Developer Mode</b>. Then right-click your name → <b>Copy User ID</b>.
       </details>
       <div class="btns">
-        <button id="sendApp" class="hidden">✔ Enregistrer dans mon overlay</button>
-        <button id="dlFile">⬇ Fichier .puppet</button>
-        <button id="copyCode" class="ghost">Copier le code</button>
+        <button id="sendApp" class="hidden">✔ Save to my overlay</button>
+        <button id="dlFile">⬇ .puppet file</button>
+        <button id="copyCode" class="ghost">Copy code</button>
       </div>
       <div id="msg" class="muted" style="margin-top:8px"></div>
-      <details style="margin-top:10px"><summary class="muted">Ouvrir un avatar existant (code ou fichier)</summary>
+      <details style="margin-top:10px"><summary class="muted">Open an existing avatar (code or file)</summary>
         <textarea id="loadCode" placeholder="PUP1.…"></textarea>
-        <div class="btns"><button id="loadBtn" class="ghost">Charger le code</button><label class="button ghost">Charger un fichier<input type="file" id="loadFile" accept=".puppet,.json" hidden></label></div>
+        <div class="btns"><button id="loadBtn" class="ghost">Load code</button><label class="button ghost">Load a file<input type="file" id="loadFile" accept=".puppet,.json" hidden></label></div>
       </details>
     </div>
   </div>
 
   <div>
-    <h1>Créateur d’avatar</h1>
+    <h1>Avatar creator</h1>
     <div class="modes">
-      <button data-mode="drawn" class="on">✏️ De zéro</button>
-      <button data-mode="photo">📷 À partir d’une photo</button>
-      <button id="random" class="ghost" style="flex:0 0 auto">🎲 Aléatoire</button>
+      <button data-mode="drawn" class="on">✏️ From scratch</button>
+      <button data-mode="photo">📷 From a photo</button>
+      <button id="random" class="ghost" style="flex:0 0 auto">🎲 Random</button>
     </div>
 
     <div id="photoPanel" class="card hidden">
       <div class="btns" style="margin-top:0">
-        <label class="button">Choisir une photo<input type="file" id="photoFile" accept="image/*" hidden></label>
-        <span class="muted">Fais glisser pour placer le visage, molette ou curseur pour zoomer.</span>
+        <label class="button">Choose a photo<input type="file" id="photoFile" accept="image/*" hidden></label>
+        <span class="muted">Drag to position the face, use the wheel or slider to zoom.</span>
       </div>
       <div style="display:flex; gap:18px; flex-wrap:wrap; margin-top:12px">
         <div id="cropBox"><canvas id="crop" width="640" height="640"></canvas></div>
         <div style="flex:1; min-width:220px; display:flex; flex-direction:column; gap:12px">
           <label>Zoom <input type="range" id="zoom" min="0.2" max="4" step="0.01" value="1"></label>
-          <label>Ligne de la bouche (là où la tête s’ouvre) <input type="range" id="split" min="0.35" max="0.85" step="0.01" value="0.6"></label>
-          <label>Forme de la tête
-            <select id="photoShape"><option value="rond">Ronde</option><option value="carré">Carrée</option></select></label>
-          <p class="muted">Astuce : cadre le visage dans le cercle, puis place la ligne orange au niveau de la bouche.</p>
+          <label>Mouth line (where the head opens) <input type="range" id="split" min="0.35" max="0.85" step="0.01" value="0.6"></label>
+          <label>Head shape
+            <select id="photoShape"><option value="round">Round</option><option value="square">Square</option></select></label>
+          <p class="muted">Tip: frame the face inside the oval, then move the orange line to the mouth.</p>
         </div>
       </div>
     </div>

@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="fr">
+<html lang="en">
 <head>
 <meta charset="utf-8">
 <title>Puppet Overlay</title>
@@ -9,148 +9,220 @@
 <div class="app">
   <nav class="side">
     <div class="brand"><canvas id="logo" width="56" height="56"></canvas><span>Puppet<br>Overlay</span></div>
-    <button class="tab active" data-tab="status">Statut</button>
+    <button class="tab active" data-tab="status">Status</button>
     <button class="tab" data-tab="overlay">Overlay</button>
     <button class="tab" data-tab="avatars">Avatars</button>
     <button class="tab" data-tab="twitch">Twitch</button>
     <button class="tab" data-tab="obs">OBS / Streamlabs</button>
-    <button class="tab" data-tab="discord">Config Discord</button>
+    <button class="tab" data-tab="general">Settings</button>
+    <button class="tab" data-tab="discord">Discord setup</button>
     <div class="grow"></div>
     <div class="status-pill" id="pill">…</div>
+    <div class="version" id="version"></div>
   </nav>
 
   <main>
+    <div id="updateBanner" class="banner hidden"><span id="updateText"></span><button id="updateBtn">Restart now</button></div>
+    <div id="offline" class="banner err hidden">Lost contact with the app — reconnecting…</div>
+
     <!-- STATUS -->
     <section data-panel="status" class="active">
-      <h1>Statut</h1>
+      <h1>Status</h1>
+      <div id="onboarding" class="card onboarding hidden">
+        <h2 style="margin-top:0">Getting started</h2>
+        <ol id="steps"></ol>
+      </div>
       <div class="card">
         <div class="row"><b>Discord</b><span id="dStatus">—</span></div>
         <div class="muted" id="dDetail"></div>
-        <div class="row"><b>Compte</b><span id="dMe">—</span></div>
-        <div class="row"><b>Salon vocal</b><span id="dChannel">aucun</span></div>
-        <div class="btns"><button id="reconnect" class="ghost">Reconnecter / réautoriser</button></div>
+        <div class="row"><b>Account</b><span id="dMe">—</span></div>
+        <div class="row"><b>Voice channel</b><span id="dChannel">none</span></div>
+        <div class="row"><b>Twitch chat</b><span id="tStatus">off</span></div>
+        <div class="btns">
+          <button id="reconnect" class="ghost">Reconnect / re-authorize Discord</button>
+          <button class="ghost" data-placement>Move puppets…</button>
+        </div>
       </div>
-      <h2>Dans le salon</h2>
+      <h2>In the channel</h2>
       <div id="members" class="members"></div>
-      <h2>Aperçu en direct</h2>
+      <h2>Live preview</h2>
       <div class="preview checker"><iframe id="preview" src="overlay.html?scene=all&test=1"></iframe></div>
-      <p class="muted">L’aperçu ajoute des faux membres et de faux messages Twitch pour tester les réglages.</p>
+      <p class="muted">The preview adds fake members and fake Twitch chat when there is nothing live, so you can tune settings.</p>
     </section>
 
     <!-- OVERLAY -->
     <section data-panel="overlay">
-      <h1>Overlay bureau</h1>
+      <h1>Desktop overlay</h1>
       <div class="card grid">
-        <label class="check"><input type="checkbox" data-key="overlay.enabled"> Afficher l’overlay sur le bureau</label>
+        <label class="check"><input type="checkbox" data-key="overlay.enabled"> Show the overlay on my desktop</label>
+        <div class="btns" style="margin:0"><button data-placement>Move puppets with the mouse…</button></div>
         <label>Position
           <select data-key="overlay.anchor">
-            <option value="bottom-left">Bas gauche</option><option value="bottom-center">Bas centre</option><option value="bottom-right">Bas droite</option>
-            <option value="top-left">Haut gauche</option><option value="top-center">Haut centre</option><option value="top-right">Haut droite</option>
+            <option value="bottom-left">Bottom left</option><option value="bottom-center">Bottom center</option><option value="bottom-right">Bottom right</option>
+            <option value="top-left">Top left</option><option value="top-center">Top center</option><option value="top-right">Top right</option>
+            <option value="custom">Custom (placement mode)</option>
           </select></label>
-        <label>Taille <input type="range" min="0.3" max="1.6" step="0.05" data-key="overlay.scale"><output></output></label>
-        <label>Espacement <input type="range" min="70" max="260" step="5" data-key="overlay.spacing"><output></output></label>
-        <label>Marge du bord <input type="range" min="0" max="200" step="5" data-key="overlay.margin"><output></output></label>
-        <label>Max affichés <input type="number" min="1" max="30" data-key="overlay.maxVisible"></label>
-        <label>Écran (0 = principal) <input type="number" min="0" max="8" data-key="overlay.display"></label>
-        <label class="check"><input type="checkbox" data-key="overlay.showNames"> Afficher les pseudos</label>
-        <label class="check"><input type="checkbox" data-key="overlay.showSelf"> M’afficher moi-même</label>
-        <label class="check"><input type="checkbox" data-key="overlay.hideIdle"> N’afficher que ceux qui parlent</label>
-        <label class="check"><input type="checkbox" data-key="overlay.glow"> Halo vert quand on parle</label>
-        <label class="check"><input type="checkbox" data-key="twitch.showOnDesktop"> Montrer aussi les spectateurs Twitch sur le bureau</label>
+        <label>Screen <select data-key="overlay.display" data-number id="displaySelect"></select></label>
+        <label>Size <input type="range" min="0.3" max="1.6" step="0.05" data-key="overlay.scale"><output></output></label>
+        <label>Spacing <input type="range" min="70" max="260" step="5" data-key="overlay.spacing"><output></output></label>
+        <label>Edge margin <input type="range" min="0" max="200" step="5" data-key="overlay.margin"><output></output></label>
+        <label>Max puppets <input type="number" min="1" max="30" data-key="overlay.maxVisible"></label>
       </div>
-      <p class="muted">L’overlay laisse passer les clics et reste au-dessus des fenêtres. Les jeux en <b>plein écran exclusif</b> le masquent : passe le jeu en « fenêtré sans bordure ».</p>
+      <h2>Behaviour</h2>
+      <div class="card grid">
+        <label>Entrance
+          <select data-key="overlay.entrance"><option value="random">Random</option><option value="walk">Walk in</option><option value="drop">Drop from the sky</option><option value="pop">Pop</option><option value="none">None</option></select></label>
+        <label>Mute / deafen display
+          <select data-key="overlay.statusStyle"><option value="props">Tape &amp; earmuffs</option><option value="badges">Red badges</option><option value="both">Both</option></select></label>
+        <label>Fall asleep after (minutes, 0 = never) <input type="number" min="0" max="120" step="1" data-key="overlay.sleepMinutes"></label>
+        <label class="check"><input type="checkbox" data-key="overlay.lookAtSpeaker"> Puppets look at whoever is speaking</label>
+        <label class="check"><input type="checkbox" data-key="overlay.showNames"> Show names</label>
+        <label class="check"><input type="checkbox" data-key="overlay.showSelf"> Show myself</label>
+        <label class="check"><input type="checkbox" data-key="overlay.hideIdle"> Only show people while they speak</label>
+        <label class="check"><input type="checkbox" data-key="overlay.glow"> Green ring while speaking</label>
+        <label class="check"><input type="checkbox" data-key="twitch.showOnDesktop"> Also show Twitch viewers on my desktop</label>
+      </div>
+      <p class="muted">The overlay lets clicks through and stays on top. Games in <b>exclusive fullscreen</b> hide it — switch them to <b>borderless windowed</b>.</p>
     </section>
 
     <!-- AVATARS -->
     <section data-panel="avatars">
-      <h1>Avatars de la bande</h1>
+      <h1>Your crew's avatars</h1>
       <div class="card">
-        <div class="btns">
-          <button id="openCreator">Créer / modifier mon avatar</button>
-          <label class="button ghost">Importer un fichier .puppet<input type="file" id="importFile" accept=".puppet,.json" multiple hidden></label>
+        <div class="btns" style="margin-top:0">
+          <button id="openCreator">Create / edit my avatar</button>
+          <label class="button ghost">Import .puppet files<input type="file" id="importFile" accept=".puppet,.json" multiple hidden></label>
         </div>
         <div class="paste">
-          <input id="importCode" placeholder="…ou colle un code PUP1.xxxx reçu d’un pote">
-          <button id="importCodeBtn">Importer</button>
+          <input id="importCode" placeholder="…or paste a PUP1.xxxx code from a friend">
+          <button id="importCodeBtn">Import</button>
         </div>
         <div id="importMsg" class="muted"></div>
-        <div class="drop" id="drop">Dépose ici les fichiers .puppet</div>
+        <div class="drop" id="drop">Drop .puppet files anywhere in this window</div>
       </div>
       <div id="avatarList" class="avatar-grid"></div>
-      <p class="muted">Sans avatar importé, un membre apparaît avec sa photo de profil Discord découpée en marionnette.</p>
-      <h2>Synchro partagée (bêta)</h2>
+      <p class="muted">Members without an imported avatar appear with their Discord profile picture cut into a puppet.</p>
+      <h2>Shared sync (beta)</h2>
       <div class="card grid">
-        <label class="wide">URL d’un JSON partagé (ex. lien « Raw » d’un GitHub Gist)
+        <label class="wide">URL of a shared JSON (e.g. the “Raw” link of a GitHub Gist)
           <input data-key="sync.url" placeholder="https://gist.githubusercontent.com/…/avatars.json"></label>
-        <p class="muted wide">Le JSON contient la liste des avatars exportés. Chaque app le relit toutes les 2 minutes. Les avatars importés à la main restent prioritaires.</p>
+        <p class="muted wide">The JSON holds a list of exported avatars; every app re-reads it every 2 minutes. Avatars you import by hand take priority.</p>
       </div>
     </section>
 
     <!-- TWITCH -->
     <section data-panel="twitch">
-      <h1>Spectateurs Twitch</h1>
+      <h1>Twitch viewers</h1>
       <div class="card grid">
-        <label class="check"><input type="checkbox" data-key="twitch.enabled"> Activer</label>
-        <label>Chaîne Twitch <input data-key="twitch.channel" placeholder="nom_de_ta_chaine"></label>
-        <label>Taille <input type="range" min="0.25" max="1" step="0.05" data-key="twitch.scale"><output></output></label>
-        <label>Spectateurs max <input type="number" min="1" max="80" data-key="twitch.maxViewers"></label>
-        <label>Durée des bulles (s) <input type="number" min="2" max="30" data-key="twitch.bubbleSeconds"></label>
-        <label>Départ après inactivité (min) <input type="number" min="1" max="120" data-key="twitch.idleMinutes"></label>
-        <label>Côté
-          <select data-key="twitch.anchor"><option value="bottom-right">Bas droite</option><option value="bottom-left">Bas gauche</option></select></label>
-        <label>Largeur occupée <input type="range" min="0.2" max="1" step="0.05" data-key="twitch.widthRatio"><output></output></label>
+        <label class="check"><input type="checkbox" data-key="twitch.enabled"> Enable</label>
+        <label>Twitch channel <input data-key="twitch.channel" placeholder="your_channel" spellcheck="false"></label>
+        <label>Size <input type="range" min="0.25" max="1" step="0.05" data-key="twitch.scale"><output></output></label>
+        <label>Max viewers on screen <input type="number" min="1" max="80" data-key="twitch.maxViewers"></label>
+        <label>Bubble duration (s) <input type="number" min="2" max="30" data-key="twitch.bubbleSeconds"></label>
+        <label>Leave after inactivity (min) <input type="number" min="1" max="120" data-key="twitch.idleMinutes"></label>
+        <label>Side
+          <select data-key="twitch.anchor"><option value="bottom-right">Bottom right</option><option value="bottom-left">Bottom left</option><option value="custom">Custom (placement mode)</option></select></label>
+        <label>Width used <input type="range" min="0.2" max="1" step="0.05" data-key="twitch.widthRatio"><output></output></label>
       </div>
-      <h2>Style des spectateurs</h2>
+      <div class="btns"><span class="muted" style="align-self:center">Test:</span>
+        <button class="ghost" data-test="chat">Chat message</button><button class="ghost" data-test="command">Command</button>
+        <button class="ghost" data-test="sub">Sub</button><button class="ghost" data-test="bits">Bits</button><button class="ghost" data-test="raid">Raid</button>
+      </div>
+      <h2>Viewer style</h2>
       <div class="card grid">
-        <label>Palette des vêtements
-          <select data-key="twitch.palette"><option value="vif">Vive</option><option value="pastel">Pastel</option><option value="mono">Monochrome</option><option value="custom">Mes couleurs</option></select></label>
-        <label>Mes couleurs (séparées par des virgules) <input id="customColors" placeholder="#9146ff, #ffffff, #00f593"></label>
-        <label class="check"><input type="checkbox" data-key="twitch.hats"> Chapeaux</label>
-        <label class="check"><input type="checkbox" data-key="twitch.beards"> Barbes et moustaches</label>
-        <label class="check"><input type="checkbox" data-key="twitch.showNames"> Pseudos</label>
-        <label class="check"><input type="checkbox" data-key="twitch.useChatColor"> Pseudo dans la couleur du chat</label>
-        <label>Fond des bulles <input type="color" data-key="twitch.bubbleBg"></label>
-        <label>Texte des bulles <input type="color" data-key="twitch.bubbleFg"></label>
-        <label class="wide">Comptes ignorés (bots) <input data-key="twitch.ignore"></label>
+        <label>Clothes palette
+          <select data-key="twitch.palette"><option value="vivid">Vivid</option><option value="pastel">Pastel</option><option value="mono">Monochrome</option><option value="custom">My colours</option></select></label>
+        <label>My colours (comma separated) <input id="customColors" placeholder="#9146ff, #ffffff, #00f593"></label>
+        <label class="check"><input type="checkbox" data-key="twitch.hats"> Hats</label>
+        <label class="check"><input type="checkbox" data-key="twitch.beards"> Beards &amp; moustaches</label>
+        <label class="check"><input type="checkbox" data-key="twitch.showNames"> Names</label>
+        <label class="check"><input type="checkbox" data-key="twitch.useChatColor"> Names in their chat colour</label>
+        <label>Bubble background <input type="color" data-key="twitch.bubbleBg"></label>
+        <label>Bubble text <input type="color" data-key="twitch.bubbleFg"></label>
+        <label class="wide">Ignored accounts (bots) <input data-key="twitch.ignore"></label>
       </div>
-      <p class="muted">Chaque spectateur garde le même personnage d’un live à l’autre : il est calculé à partir de son pseudo. Lecture du chat anonyme, sans connexion à Twitch.</p>
+      <h2>Chat commands</h2>
+      <div class="card grid">
+        <label class="check"><input type="checkbox" data-key="twitch.commandsEnabled"> Viewers can use commands</label>
+        <label class="check"><input type="checkbox" data-key="twitch.hideCommands"> Don't show commands in bubbles</label>
+        <label>Prefix <input data-key="twitch.commandPrefix" maxlength="3" style="width:80px"></label>
+        <label>Action cooldown per viewer (s) <input type="number" min="0" max="120" data-key="twitch.actionCooldown"></label>
+        <label>Style cooldown per viewer (s) <input type="number" min="0" max="300" data-key="twitch.styleCooldown"></label>
+        <div class="wide" id="cmdList"></div>
+        <div class="wide btns" style="margin:0"><button class="danger" id="clearViewers">Reset all viewer customisations</button></div>
+      </div>
+      <h2>Events</h2>
+      <div class="card grid">
+        <label class="check"><input type="checkbox" data-key="twitch.raidEffects"> Raids: a crowd walks in</label>
+        <label>Max raiders on screen <input type="number" min="1" max="40" data-key="twitch.raidMax"></label>
+        <label class="check"><input type="checkbox" data-key="twitch.subEffects"> Subs: confetti &amp; celebration</label>
+        <label class="check"><input type="checkbox" data-key="twitch.bitsEffects"> Bits: confetti</label>
+      </div>
+      <p class="muted">Each viewer keeps the same character across streams (it's generated from their username) until they customise it with commands. Chat is read anonymously — no Twitch login needed.</p>
     </section>
 
     <!-- OBS -->
     <section data-panel="obs">
       <h1>OBS / Streamlabs</h1>
       <div class="card">
-        <p>Ajoute une <b>Source Navigateur</b> avec une de ces URL (largeur 1920, hauteur 1080). Le fond est transparent.</p>
-        <div class="url"><code id="urlAll"></code><button data-copy="urlAll">Copier</button><span class="muted">Discord + Twitch</span></div>
-        <div class="url"><code id="urlDiscord"></code><button data-copy="urlDiscord">Copier</button><span class="muted">Discord seul</span></div>
-        <div class="url"><code id="urlTwitch"></code><button data-copy="urlTwitch">Copier</button><span class="muted">Twitch seul</span></div>
-        <p class="muted">L’app doit rester lancée pendant le stream. Les réglages faits ici s’appliquent en direct dans OBS.</p>
+        <p>Add a <b>Browser Source</b> with one of these URLs (width 1920, height 1080). The background is transparent.</p>
+        <div class="url"><code id="urlAll"></code><button data-copy="urlAll">Copy</button><span class="muted">Discord + Twitch</span></div>
+        <div class="url"><code id="urlDiscord"></code><button data-copy="urlDiscord">Copy</button><span class="muted">Discord only</span></div>
+        <div class="url"><code id="urlTwitch"></code><button data-copy="urlTwitch">Copy</button><span class="muted">Twitch only</span></div>
+        <p class="muted">Keep the app running while streaming. Changes you make here apply live in OBS. Positions are relative, so they match whatever canvas size you use.</p>
+      </div>
+    </section>
+
+    <!-- GENERAL -->
+    <section data-panel="general">
+      <h1>Settings</h1>
+      <div class="card grid">
+        <label class="check"><input type="checkbox" data-key="app.launchAtStartup"> Launch with Windows (starts hidden in the tray)</label>
+        <label class="check"><input type="checkbox" data-key="app.autoUpdate"> Check for updates automatically</label>
+      </div>
+      <h2>Keyboard shortcuts</h2>
+      <div class="card grid">
+        <label>Show / hide overlay <input class="hotkey" data-key="app.hotkeys.toggleOverlay" readonly placeholder="Click, then press keys"><span class="err" id="hk-toggleOverlay"></span></label>
+        <label>Move puppets (placement mode) <input class="hotkey" data-key="app.hotkeys.placement" readonly placeholder="Click, then press keys"><span class="err" id="hk-placement"></span></label>
+        <p class="muted wide">Click a field and press your combination (e.g. Ctrl+Shift+O). Backspace clears it.</p>
+      </div>
+      <h2>Updates</h2>
+      <div class="card">
+        <div class="row"><b>Version</b><span id="appVersion">—</span></div>
+        <div class="row"><b>Status</b><span id="updStatus">—</span></div>
+        <div class="btns"><button class="ghost" id="checkUpdate">Check now</button></div>
+      </div>
+      <h2>Troubleshooting</h2>
+      <div class="card btns" style="margin-top:0">
+        <button class="ghost" id="openLogs">Open logs folder</button>
+        <button class="ghost" id="exportConfig">Back up settings &amp; avatars…</button>
       </div>
     </section>
 
     <!-- DISCORD CONFIG -->
     <section data-panel="discord">
-      <h1>Configuration Discord</h1>
+      <h1>Discord setup</h1>
       <div class="card grid">
-        <label class="wide">Client ID de l’application Discord <input data-key="discord.clientId" placeholder="123456789012345678"></label>
-        <label class="wide">Redirect URI <input data-key="discord.redirectUri"></label>
-        <details class="wide"><summary>Avancé : Client Secret (seulement si « Public Client » est désactivé)</summary>
-          <input type="password" data-key="discord.clientSecret" placeholder="laisser vide si Public Client est activé">
+        <label class="wide">Discord Application ID <input data-key="discord.clientId" placeholder="123456789012345678" spellcheck="false"></label>
+        <label class="wide">Redirect URI <input data-key="discord.redirectUri" spellcheck="false"></label>
+        <details class="wide"><summary>Advanced: Client Secret (only if “Public Client” is off)</summary>
+          <input type="password" data-key="discord.clientSecret" placeholder="leave empty when Public Client is on">
         </details>
       </div>
       <div class="card">
-        <h2>Mise en place, une seule fois (par la personne qui gère l’app)</h2>
+        <h2 style="margin-top:0">One-time setup (done by whoever manages the app)</h2>
         <ol>
-          <li>Va sur <a href="https://discord.com/developers/applications" target="_blank">discord.com/developers/applications</a> → <b>New Application</b>.</li>
-          <li>Onglet <b>OAuth2</b> : ajoute la Redirect URI <code>http://localhost</code> et active <b>Public Client</b>.</li>
-          <li>Onglet <b>App Testers</b> : invite chaque pote (50 max). Chacun doit <b>accepter l’invitation</b> (lien reçu par e-mail ou dans Discord).</li>
-          <li>Copie l’<b>Application ID</b> et colle-le ci-dessus (ou intègre-le au build).</li>
+          <li>Open <a href="https://discord.com/developers/applications" target="_blank">discord.com/developers/applications</a> → <b>New Application</b>.</li>
+          <li><b>OAuth2</b> tab: add the redirect <code>http://localhost</code> and turn on <b>Public Client</b>.</li>
+          <li><b>App Testers</b> tab: invite everyone who will <i>run</i> the app (max 50). Each must <b>accept the invite</b>. Friends who only appear in your channel don't need anything.</li>
+          <li>Copy the <b>Application ID</b> above (or bake it into the build via the <code>DISCORD_CLIENT_ID</code> repo variable).</li>
         </ol>
-        <p class="muted">Au premier lancement, Discord affiche une fenêtre d’autorisation : clique « Autoriser ». Les mises à jour suivantes se font sans rien demander.</p>
+        <p class="muted">On first connection Discord shows an authorization popup: click “Authorize”. It won't ask again.</p>
       </div>
     </section>
   </main>
 </div>
+<div id="toast" class="toast"></div>
 <script src="shared/puppet.js"></script>
 <script src="panel.js"></script>
 </body>

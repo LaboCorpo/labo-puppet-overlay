@@ -58,3 +58,19 @@ button:hover, .button:hover { filter: brightness(1.1); }
 ol li { margin: 6px 0; line-height: 1.5; }
 details summary { cursor: pointer; margin-bottom: 8px; }
 .ok { color: var(--ok); } .warn { color: var(--warn); } .err { color: var(--err); }
+.version { font-size: 11px; color: var(--muted); text-align: center; margin-top: 6px; }
+.hidden { display: none !important; }
+.banner { display: flex; align-items: center; justify-content: space-between; gap: 12px; background: #2b3a2f; border: 1px solid #43b58166; color: var(--text); padding: 10px 14px; border-radius: 10px; margin-bottom: 16px; max-width: 980px; }
+.banner.err { background: #3a2526; border-color: #ed424566; }
+.onboarding { border-color: #ff7a4566; }
+.onboarding li { color: var(--muted); }
+.onboarding li.done { color: var(--ok); text-decoration: line-through; }
+.onboarding li.todo b { color: var(--text); }
+.toast { position: fixed; bottom: 18px; left: 50%; transform: translateX(-50%) translateY(30px); background: #2a2633; border: 1px solid var(--line); padding: 10px 16px; border-radius: 10px; opacity: 0; transition: .2s; pointer-events: none; z-index: 10; }
+.toast.show { opacity: 1; transform: translateX(-50%); }
+.hotkey { cursor: pointer; font-family: Consolas, monospace; }
+.hotkey:focus { border-color: var(--accent); outline: none; }
+.cmd-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 6px 16px; }
+.cmd-grid label { font-weight: 400; }
+.cmd-grid code { color: #ffb08a; }
+input:focus-visible, select:focus-visible, button:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }

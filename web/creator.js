@@ -1,4 +1,4 @@
-/* Avatar creator: drawn ("de zéro") or photo puppet. Works standalone (file://) or served by the app. */
+/* Avatar creator: drawn ("from scratch") or photo puppet. Works standalone (file://) or served by the app. */
 (function () {
   'use strict';
   const $ = (s) => document.querySelector(s);
@@ -13,10 +13,10 @@
   let photoDirty = false;
 
   // ---------- Option UI ----------
-  const LABELS = { headShape: 'Forme de tête', eyes: 'Yeux', brows: 'Sourcils', hair: 'Cheveux', hat: 'Chapeau', beard: 'Pilosité', outfit: 'Tenue' };
+  const LABELS = { headShape: 'Head shape', eyes: 'Eyes', brows: 'Eyebrows', hair: 'Hair', hat: 'Hat', beard: 'Facial hair', outfit: 'Outfit' };
   const COLORS = [
-    ['skin', 'Peau', P.PALETTES.skin], ['eyeColor', 'Couleur des yeux', P.PALETTES.eye], ['hairColor', 'Cheveux / barbe', P.PALETTES.hair],
-    ['hatColor', 'Chapeau', P.PALETTES.cloth], ['clothColor', 'Vêtement', P.PALETTES.cloth], ['accentColor', 'Détails', P.PALETTES.cloth],
+    ['skin', 'Skin', P.PALETTES.skin], ['eyeColor', 'Eye colour', P.PALETTES.eye], ['hairColor', 'Hair / beard', P.PALETTES.hair],
+    ['hatColor', 'Hat', P.PALETTES.cloth], ['clothColor', 'Clothes', P.PALETTES.cloth], ['accentColor', 'Details', P.PALETTES.cloth],
   ];
   const PHOTO_KEYS = ['hat', 'outfit', 'hatColor', 'clothColor', 'accentColor'];
 
@@ -28,7 +28,7 @@
       const row = document.createElement('div'); row.className = 'opt-row';
       row.innerHTML = `<div class="lbl">${LABELS[key]}</div><div class="chips"></div>`;
       P.OPTIONS[key].forEach((v) => {
-        const b = document.createElement('button'); b.className = 'chip' + (av[key] === v ? ' on' : ''); b.textContent = v;
+        const b = document.createElement('button'); b.className = 'chip' + (av[key] === v ? ' on' : ''); b.textContent = P.prettyLabel(v);
         b.onclick = () => { av[key] = v; buildOptions(); };
         row.lastChild.appendChild(b);
       });
@@ -44,7 +44,7 @@
         b.onclick = () => { av[key] = c; buildOptions(); };
         row.lastChild.appendChild(b);
       });
-      const custom = document.createElement('input'); custom.type = 'color'; custom.value = av[key] || '#ffffff'; custom.title = 'Couleur perso';
+      const custom = document.createElement('input'); custom.type = 'color'; custom.value = av[key] || '#ffffff'; custom.title = 'Custom colour';
       custom.oninput = () => { av[key] = custom.value; };
       custom.onchange = buildOptions;
       row.lastChild.appendChild(custom);
@@ -77,7 +77,7 @@
     if (!photoImg) {
       cctx.fillStyle = '#26222e'; cctx.fillRect(0, 0, W, W);
       cctx.fillStyle = '#a49cb3'; cctx.font = '28px Segoe UI, sans-serif'; cctx.textAlign = 'center';
-      cctx.fillText('Choisis une photo', W / 2, W / 2);
+      cctx.fillText('Choose a photo', W / 2, W / 2);
       return;
     }
     const s = baseScale() * crop.zoom;
@@ -96,7 +96,7 @@
     cctx.beginPath(); cctx.moveTo(W / 2 - CROP.rx, y); cctx.lineTo(W / 2 + CROP.rx, y); cctx.stroke(); cctx.setLineDash([]);
   }
   function maskPath(ctx, cx, cy, rx, ry, sub) {
-    if ($('#photoShape').value === 'carré') {
+    if ($('#photoShape').value === 'square') {
       const x = cx - rx, y = cy - ry, w = rx * 2, h = ry * 2, r = 22 * (rx / 60);
       if (sub) { ctx.moveTo(x + r, y); ctx.arcTo(x, y, x, y + h, r); ctx.arcTo(x, y + h, x + w, y + h, r); ctx.arcTo(x + w, y + h, x + w, y, r); ctx.arcTo(x + w, y, x, y, r); ctx.closePath(); }
       else { ctx.moveTo(x + r, y); ctx.arcTo(x + w, y, x + w, y + h, r); ctx.arcTo(x + w, y + h, x, y + h, r); ctx.arcTo(x, y + h, x, y, r); ctx.arcTo(x, y, x + w, y, r); ctx.closePath(); }
@@ -149,7 +149,7 @@
     anim.update(dt, t);
     vctx.clearRect(0, 0, vc.width, vc.height);
     const show = mode === 'photo' && !av.photo ? Object.assign({}, av, { kind: 'drawn' }) : av;
-    P.draw(vctx, show, anim.state(t), { x: vc.width / 2, y: vc.height - 70, scale: 2.7, name: av.name || null });
+    P.draw(vctx, show, anim.state(t), { x: vc.width / 2, y: vc.height - 100, scale: 2.6, name: av.name || null });
     requestAnimationFrame(frame);
   }
   requestAnimationFrame(frame);
@@ -162,8 +162,8 @@
   // ---------- Export ----------
   const msg = (html) => ($('#msg').innerHTML = html);
   function finalAvatar() {
-    if (mode === 'photo') { if (photoDirty) bakePhoto(); if (!av.photo) throw new Error('Choisis d’abord une photo.'); }
-    if (!/^\d{15,22}$/.test(av.id)) throw new Error('Renseigne ton ID Discord (17 à 20 chiffres) pour que tes potes te reconnaissent.');
+    if (mode === 'photo') { if (photoDirty) bakePhoto(); if (!av.photo) throw new Error('Choose a photo first.'); }
+    if (!/^\d{15,22}$/.test(av.id)) throw new Error('Enter your Discord user ID (17–20 digits) so your friends’ apps can recognise you.');
     const out = Object.assign({}, av, { kind: mode });
     if (mode !== 'photo') delete out.photo;
     return out;
@@ -176,16 +176,16 @@
       link.href = URL.createObjectURL(blob);
       link.download = (a.name || a.id).replace(/[^\w\-]+/g, '_') + '.puppet';
       link.click();
-      msg('<span class="ok">✔ Fichier téléchargé : envoie-le à tes potes, ils le glissent dans leur panneau Avatars.</span>');
+      msg('<span class="ok">✔ File downloaded — send it to your friends; they drop it into their Avatars tab.</span>');
     } catch (e) { msg(`<span class="err">✖ ${e.message}</span>`); }
   };
   $('#copyCode').onclick = async () => {
     try {
       const a = finalAvatar();
-      if (a.kind === 'photo') throw new Error('Un avatar photo est trop lourd pour un code : utilise le fichier .puppet.');
+      if (a.kind === 'photo') throw new Error('Photo avatars are too large for a code — use the .puppet file.');
       const code = P.encodeCode(a);
       await navigator.clipboard.writeText(code);
-      msg(`<span class="ok">✔ Code copié (${code.length} caractères). Colle-le dans Discord à tes potes.</span>`);
+      msg(`<span class="ok">✔ Code copied (${code.length} characters). Paste it to your friends on Discord.</span>`);
     } catch (e) { msg(`<span class="err">✖ ${e.message}</span>`); }
   };
   $('#sendApp').onclick = async () => {
@@ -193,7 +193,7 @@
       const a = finalAvatar();
       const r = await fetch('/api/avatars', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(a) });
       const j = await r.json(); if (!j.ok) throw new Error(j.error);
-      msg('<span class="ok">✔ Enregistré dans ton overlay. Pense aussi à partager le fichier ou le code avec tes potes.</span>');
+      msg('<span class="ok">✔ Saved to your overlay. Remember to share the file or code with your friends too.</span>');
     } catch (e) { msg(`<span class="err">✖ ${e.message}</span>`); }
   };
 
@@ -206,15 +206,15 @@
       img.onload = () => {
         photoImg = img; crop.ox = 0; crop.oy = 0;
         crop.zoom = (CROP.rx * 2) / (img.width * baseScale());
-        $('#zoom').value = crop.zoom; $('#split').value = av.photoSplit || 0.6; $('#photoShape').value = av.headShape === 'carré' ? 'carré' : 'rond';
+        $('#zoom').value = crop.zoom; $('#split').value = av.photoSplit || 0.6; $('#photoShape').value = av.headShape === 'square' ? 'square' : 'round';
         drawCrop();
       };
       img.src = av.photo;
     }
     setMode(av.kind === 'photo' ? 'photo' : 'drawn');
   }
-  $('#loadBtn').onclick = () => { try { load(P.decodeAny($('#loadCode').value)); msg('<span class="ok">✔ Avatar chargé.</span>'); } catch (e) { msg('<span class="err">✖ Code illisible.</span>'); } };
-  $('#loadFile').onchange = (e) => { const f = e.target.files[0]; if (f) f.text().then((t) => { try { load(P.decodeAny(t)); } catch (err) { msg('<span class="err">✖ Fichier illisible.</span>'); } }); };
+  $('#loadBtn').onclick = () => { try { load(P.decodeAny($('#loadCode').value)); msg('<span class="ok">✔ Avatar loaded.</span>'); } catch (e) { msg('<span class="err">✖ Unreadable code.</span>'); } };
+  $('#loadFile').onchange = (e) => { const f = e.target.files[0]; if (f) f.text().then((t) => { try { load(P.decodeAny(t)); } catch (err) { msg('<span class="err">✖ Unreadable file.</span>'); } }); };
 
   // ---------- Boot ----------
   const qid = new URLSearchParams(location.search).get('id') || '';

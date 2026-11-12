@@ -1,71 +1,92 @@
 # Puppet Overlay
 
-Overlay Discord vocal où chaque membre est une marionnette en papier découpé : le haut de la tête s'ouvre quand la personne parle. Inclut un créateur d'avatar (dessiné ou à partir d'une photo) et les spectateurs Twitch avec bulles de chat. Fonctionne sur Windows.
+A Discord voice overlay where everyone in your call is a cut-paper puppet: the top of the head flaps open when they talk. It comes with an avatar creator (draw one from scratch or start from a photo) and Twitch viewers who show up as their own puppets, with speech bubbles and chat commands. Windows only.
 
-| Livrable | Fichier |
+| What | Where |
 |---|---|
-| App overlay + panneau (zone de notification) | `PuppetOverlay-x.y.z-portable.exe` (sans installation) ou `-setup.exe` |
-| Créateur d'avatar | dans l'app (Avatars → Créer), ou `web/creator.html` à ouvrir dans un navigateur |
-| Intégration OBS / Streamlabs | Source Navigateur `http://localhost:47800/overlay.html` |
+| App (tray icon + settings panel + desktop overlay) | `PuppetOverlay-x.y.z-setup.exe` (recommended, **auto-updates**) or `-portable.exe` |
+| Avatar creator | Inside the app (Avatars → Create), or open `web/creator.html` in any browser |
+| OBS / Streamlabs | Browser Source → `http://localhost:47800/overlay.html` |
+
+## Features
+- **Lively puppets**
+  - entrances (walk in, drop from the sky, pop) and a puff of smoke when someone leaves
+  - tape over the mouth when muted, earmuffs when deafened
+  - puppets fall asleep (Zzz) after a configurable idle time
+  - everyone turns to look at whoever is speaking
+  - the longer someone talks, the more animated they get
+- **Placement mode**: drag the Discord and Twitch groups with the mouse and use the scroll wheel to resize them. Positions are relative, so they carry over to OBS.
+- **Global shortcuts** (configurable): `Ctrl+Shift+O` shows or hides the overlay, `Ctrl+Shift+P` turns placement mode on and off.
+- **Launch with Windows**: off by default. When on, the app starts hidden in the tray.
+- **Auto-update** from GitHub Releases. The installed version updates itself; the portable version tells you when a new release is out.
+- **Twitch viewers**
+  - each viewer gets a stable random puppet, with chat bubbles
+  - raids bring in a crowd; subs and bits trigger confetti
+  - chat commands:
+    - actions: `!jump`, `!dance`, `!wave`
+    - customisation: `!hat`, `!hair`, `!outfit`, `!eyes`, `!color`, `!hatcolor`, `!reroll`, `!reset`
+    - help: `!puppet` lists the commands
+    - each command has a per-viewer cooldown and can be turned off individually
+    - customisations are remembered across streams
 
 ---
 
-## 1. Mise en place unique (la personne qui gère le projet)
+## 1. One-time setup (whoever manages the project)
 
-L'accès au vocal Discord passe par le RPC local de Discord. Il est réservé aux **testeurs** déclarés d'une application Discord (50 max), ce qui suffit pour une bande de potes.
+Voice data comes from Discord's local RPC. It only works for **testers** of a Discord application (up to 50).
+Only people who **run** the app need to be testers. Friends who only appear in your channel don't need to do anything.
 
-1. https://discord.com/developers/applications → **New Application** (nom au choix, par ex. « Puppet Overlay »).
-2. **OAuth2** : ajoute la Redirect URI `http://localhost` et active **Public Client**. Aucun secret ne sera intégré à l'exe.
-3. **App Testers** : invite chaque pote. Chacun doit **accepter l'invitation**, sinon Discord refuse la connexion.
-4. Copie l'**Application ID**, puis :
-   - dans ce dépôt GitHub : *Settings → Secrets and variables → Actions → Variables* → crée `DISCORD_CLIENT_ID` avec cette valeur. Les prochains builds l'intègrent automatiquement.
-   - ou bien chaque utilisateur le colle dans *Config Discord* du panneau.
+1. Go to https://discord.com/developers/applications and click **New Application**.
+2. On the **OAuth2** tab, add the redirect `http://localhost` and turn on **Public Client**. That way no secret ships in the exe.
+3. On the **App Testers** tab, invite everyone who will run the app. Each person must **accept the invite**.
+4. Copy the **Application ID**, then do one of the following:
+   - Recommended: in this GitHub repo, go to *Settings → Secrets and variables → Actions → Variables* and create `DISCORD_CLIENT_ID`. Every build will then include it.
+   - Or: each user pastes it in the app under **Discord setup**.
 
-## 2. Récupérer l'exécutable
+## 2. Getting the app
 
-Chaque push sur `main` compile l'app sur GitHub (onglet **Actions → Build Windows → Artifacts**).
-Pour une version à partager : crée un tag `v0.1.0`. L'exe apparaît alors dans **Releases**, avec un lien direct à envoyer aux potes.
+Every push to `main` builds the app (under **Actions → Build Windows → Artifacts**).
+To publish a release, push a tag like `v0.2.0`. The installers then appear under **Releases**.
 
-> Windows SmartScreen peut afficher « Éditeur inconnu » : clique *Informations complémentaires → Exécuter quand même*. L'exe n'est pas signé.
+> **The repository must be public** for friends to download releases and for auto-update to work.
+> Windows SmartScreen may say "Unknown publisher" because the exe isn't code-signed. Click *More info → Run anyway*.
 
-## 3. Utilisation
-
-- Lance l'exe : une icône apparaît dans la zone de notification. Un clic ouvre le panneau, un clic droit affiche le menu (masquer l'overlay, reconnecter, quitter).
-- Au premier lancement, Discord demande d'**autoriser** l'app : clique « Autoriser ».
-- Rejoins un salon vocal : les marionnettes apparaissent en bas de l'écran. L'overlay laisse passer les clics.
-- Les jeux en plein écran exclusif masquent l'overlay : passe-les en **fenêtré sans bordure**.
+## 3. Using it
+- The app lives in the system tray. Click the icon to open the panel; right-click it to show/hide the overlay, enter placement mode, reconnect Discord, install an update, or quit.
+- The first time you connect, Discord shows an authorization popup. Click **Authorize**.
+- Games in exclusive fullscreen hide the overlay. Switch them to **borderless windowed**.
 
 ### Avatars
-- **Créer** : panneau → Avatars → *Créer / modifier mon avatar*. Choisis « De zéro » ou « À partir d'une photo » (cadrage, puis ligne de la bouche).
-- **Partager** : *Fichier .puppet* (marche pour tout) ou *Copier le code* `PUP1.…` (avatars dessinés seulement, à coller dans Discord).
-- **Recevoir** : glisse les `.puppet` dans le panneau Avatars, ou colle le code.
-- Un membre sans avatar apparaît avec sa photo de profil Discord découpée en marionnette.
-- **Synchro partagée (bêta)** : crée un Gist GitHub avec un fichier `avatars.json` (`{"avatars": [ …contenu des .puppet… ]}`) et colle son lien « Raw » dans le panneau. Chaque app le relit toutes les 2 minutes.
-
-### Twitch
-Panneau → Twitch : active l'option, saisis le nom de ta chaîne et règle le style. Le chat est lu de façon anonyme, sans connexion à un compte. Chaque spectateur garde le même personnage d'un live à l'autre, car il est calculé à partir de son pseudo.
+- **Create**: panel → Avatars → *Create / edit my avatar*. You can build one from scratch or start from a photo: frame the face, then move the mouth line.
+- **Share**: export a `.puppet` file (works for any avatar) or a `PUP1.…` code (drawn avatars only; easy to paste into Discord).
+- **Receive**: drop `.puppet` files anywhere in the panel, or paste a code.
+- If someone has no custom avatar, their Discord profile picture is cut into a puppet.
+- **Shared sync (beta)**: put `{"avatars": [ …contents of .puppet files… ]}` in a GitHub Gist and paste its *Raw* URL in the panel.
 
 ### OBS / Streamlabs
-Ajoute une **Source Navigateur** de 1920×1080 :
-- `http://localhost:47800/overlay.html` : Discord et Twitch
-- `…/overlay.html?scene=discord` ou `?scene=twitch` : une seule des deux scènes
+Add a 1920×1080 **Browser Source** with one of these URLs:
+- `http://localhost:47800/overlay.html` shows Discord and Twitch.
+- `…/overlay.html?scene=discord` shows Discord only.
+- `…/overlay.html?scene=twitch` shows Twitch only.
 
 ---
 
-## Développement
-
+## Development
 ```bash
 npm install
-npm start          # lance l'app
-npm run dist       # build Windows (sur Windows)
+npm start          # run the app
+npm run dist       # Windows build (run on Windows)
 ```
-Aperçu sans Discord : ouvre `web/overlay.html?demo=1`.
+To preview without Discord, open `web/overlay.html?demo=1`.
 
-Architecture :
-- `electron/main.js` : fenêtres (overlay transparent, panneau), icône de notification, cycle de vie
-- `electron/discord-rpc.js` : client RPC (pipe nommé `discord-ipc-N`, AUTHORIZE en PKCE, événements vocaux)
-- `electron/server.js` : serveur local (127.0.0.1) qui sert `web/` et l'API `/api/*`, avec l'état poussé en SSE
-- `web/shared/puppet.js` : moteur de rendu des marionnettes (canvas), partagé par l'overlay, OBS et le créateur
-- `web/overlay.*` · `web/panel.*` · `web/creator.*`
+| File | Role |
+|---|---|
+| `electron/main.js` | windows, tray, hotkeys, startup, placement, actions |
+| `electron/discord-rpc.js` | Discord RPC client (named pipe, PKCE authorize, voice events) |
+| `electron/twitch.js` | anonymous Twitch IRC, commands, raids/subs/bits |
+| `electron/updater.js` | GitHub Releases updates |
+| `electron/server.js` | local server (127.0.0.1): static `web/` + `/api/*`, pushed via SSE |
+| `web/shared/puppet.js` | puppet renderer + animator, shared by every page |
+| `web/overlay.*`, `web/panel.*`, `web/creator.*` | overlay, panel, creator |
 
-Les réglages et avatars sont stockés dans `%APPDATA%/Puppet Overlay/config.json`.
+Settings, avatars and viewer customisations are stored in `%APPDATA%/Puppet Overlay/config.json`. Logs are in `%APPDATA%/Puppet Overlay/logs/`.

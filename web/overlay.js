@@ -1,46 +1,53 @@
 /*
  * Overlay scene: Discord voice puppets + Twitch viewer crowd.
  * Same page is used by the desktop overlay window and by OBS/Streamlabs (Browser Source).
- * URL params: ?scene=all|discord|twitch  &demo=1 (fake data, no server needed)
+ * URL params:
+ *   scene=all|discord|twitch   which groups to draw
+ *   host=desktop               enables placement mode (drag/scroll) in the app's overlay window
+ *   test=1                     live settings + fake members/chat when there is nothing real (panel preview)
+ *   demo=1                     fully offline demo, no server
  */
 (function () {
   'use strict';
+  const P = Puppet;
   const params = new URLSearchParams(location.search);
   const SCENE = params.get('scene') || 'all';
   const DEMO = params.get('demo') === '1';
-  const TEST = params.get('test') === '1'; // live settings + fake members/chat (panel preview)
+  const TEST = params.get('test') === '1';
+  const DESKTOP = params.get('host') === 'desktop';
   const canvas = document.getElementById('c');
   const ctx = canvas.getContext('2d');
   const hint = document.getElementById('hint');
 
   let settings = null;
-  let members = [];            // [{id,name,avatarHash,speaking,mute,deaf,self}]
-  let avatars = {};            // discordId -> avatar
-  const animators = new Map(); // key -> Animator
-  const viewers = new Map();   // login -> viewer
+  let members = [];           // live Discord members
+  let avatars = {};           // discordId -> avatar
+  let overrides = {};         // twitch login -> customisation from chat commands
+  let placement = false;
+  let fakeMembers = null;
+  const dEnts = new Map();    // discord puppets on screen
+  const viewers = new Map();  // twitch viewers on screen
+  const particles = [];
+  let W = innerWidth, H = innerHeight;
 
   // ---------- Canvas sizing ----------
   function resize() {
+    W = innerWidth; H = innerHeight;
     const dpr = window.devicePixelRatio || 1;
-    canvas.width = Math.round(innerWidth * dpr);
-    canvas.height = Math.round(innerHeight * dpr);
+    canvas.width = Math.round(W * dpr);
+    canvas.height = Math.round(H * dpr);
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
   }
   addEventListener('resize', resize); resize();
 
-  function anim(key) {
-    let a = animators.get(key);
-    if (!a) { a = new Puppet.Animator(key); animators.set(key, a); }
-    return a;
-  }
-
   // ---------- Server link (SSE) ----------
   function applyState(s) {
-    if (s.settings) settings = s.settings;
+    if (s.settings) { const restyle = !settings || styleKey(s.settings.twitch) !== styleKey(settings.twitch); settings = s.settings; if (restyle) restyleAll(); }
     if (s.avatars) avatars = s.avatars;
+    if (s.viewers) { overrides = s.viewers; restyleAll(); }
     if (s.discord) members = s.discord.members || [];
-    for (const m of members) anim('d:' + m.id).talking = !!m.speaking;
-    if (settings) setupTwitch(settings.twitch);
+    placement = DESKTOP && !!(s.app && s.app.placement);
+    document.body.classList.toggle('placing', placement);
   }
   function connect() {
     const es = new EventSource('/api/events');
@@ -49,105 +56,47 @@
       const d = JSON.parse(e.data);
       const m = members.find((x) => x.id === d.id);
       if (m) m.speaking = d.speaking;
-      anim('d:' + d.id).talking = d.speaking;
     });
-    es.onerror = () => { hint.style.display = 'block'; hint.textContent = 'Overlay : app Puppet Overlay injoignable, nouvelle tentative…'; };
+    es.addEventListener('chat', (e) => onChat(JSON.parse(e.data)));
+    es.addEventListener('twitch-event', (e) => onTwitchEvent(JSON.parse(e.data)));
+    es.addEventListener('viewer', (e) => { const d = JSON.parse(e.data); if (d.override) overrides[d.login] = d.override; else delete overrides[d.login]; restyle(d.login); });
+    es.addEventListener('viewers-reset', () => { overrides = {}; restyleAll(); });
+    es.onerror = () => { if (!DESKTOP) return; hint.style.display = 'block'; hint.textContent = 'Puppet Overlay app not reachable — retrying…'; };
     es.onopen = () => { hint.style.display = 'none'; };
   }
 
-  // ---------- Demo data ----------
-  let fakeMembers = null;
-  function startDemo(fakeSettings) {
-    if (fakeSettings) settings = {
-      overlay: { anchor: 'bottom-left', scale: 0.8, spacing: 120, margin: 30, showNames: true, hideIdle: false, glow: true, maxVisible: 12 },
-      twitch: { enabled: true, channel: '', scale: 0.5, maxViewers: 20, bubbleSeconds: 7, idleMinutes: 10, palette: 'vif', hats: true, beards: true, showNames: true, bubbleBg: '#ffffff', bubbleFg: '#1d1a1f' },
-    };
+  // ---------- Fake data (demo / preview / placement) ----------
+  function makeFakeMembers() {
     fakeMembers = [
-      { id: '1', name: 'Timo', speaking: false, demoAvatar: Object.assign(Puppet.randomAvatar('Timo'), { hat: 'casque audio' }) },
-      { id: '2', name: 'Léa', speaking: false, mute: true, demoAvatar: Puppet.randomAvatar('Léa') },
-      { id: '3', name: 'Max', speaking: false, demoAvatar: Puppet.randomAvatar('Max') },
+      { id: 'f1', name: 'Timo', demoAvatar: Object.assign(P.randomAvatar('Timo'), { hat: 'headphones' }) },
+      { id: 'f2', name: 'Lea', mute: true, demoAvatar: P.randomAvatar('Lea') },
+      { id: 'f3', name: 'Max', demoAvatar: P.randomAvatar('Max') },
+      { id: 'f4', name: 'Sam', deaf: true, mute: true, demoAvatar: P.randomAvatar('Sammy') },
     ];
-    setInterval(() => {
-      for (const m of fakeMembers) { m.speaking = !m.mute && Math.random() < 0.4; }
-    }, 1200);
-    const names = ['pixelcat', 'Bobby_42', 'xXnoobXx', 'MamieGaming', 'kiwi', 'ZeroCool', 'tartiflette'];
-    const msgs = ['salut !', 'GG', 'trop drôle la tête qui s’ouvre 😂', 'first', 'tu joues à quoi ce soir ?', 'lol', 'on veut la suite !!'];
-    setInterval(() => {
-      const n = names[Math.floor(Math.random() * names.length)];
-      onChat(n.toLowerCase(), n, msgs[Math.floor(Math.random() * msgs.length)], null);
-    }, 1600);
+    setInterval(() => { for (const m of fakeMembers) m.speaking = !m.mute && Math.random() < 0.35; }, 1300);
   }
-
-  // ---------- Twitch (anonymous IRC over WebSocket, read-only) ----------
-  let tw = { ws: null, channel: '' };
-  function setupTwitch(cfg) {
-    if (SCENE === 'discord') return;
-    const want = cfg && cfg.enabled && cfg.channel ? cfg.channel.toLowerCase().replace(/^#/, '').trim() : '';
-    if (want === tw.channel) return;
-    if (tw.ws) { try { tw.ws.close(); } catch (e) {} tw.ws = null; }
-    tw.channel = want;
-    viewers.clear();
-    if (!want) return;
-    const open = () => {
-      if (tw.channel !== want) return;
-      const ws = new WebSocket('wss://irc-ws.chat.twitch.tv:443');
-      tw.ws = ws;
-      ws.onopen = () => {
-        ws.send('CAP REQ :twitch.tv/tags twitch.tv/commands');
-        ws.send('PASS SCHMOOPIIE');
-        ws.send('NICK justinfan' + Math.floor(10000 + Math.random() * 80000));
-        ws.send('JOIN #' + want);
-      };
-      ws.onmessage = (ev) => String(ev.data).split('\r\n').forEach(handleIrc);
-      ws.onclose = () => { if (tw.ws === ws) setTimeout(open, 4000); };
+  const FAKE_NAMES = ['pixelcat', 'Bobby_42', 'xXnoobXx', 'MamieGaming', 'kiwi', 'ZeroCool', 'tartiflette'];
+  const FAKE_MSGS = ['hi everyone!', 'GG', 'the head flap is killing me 😂', 'first', 'what are we playing tonight?', 'lol', 'more please!!'];
+  let lastRealChat = 0;
+  function fakeChatLoop() {
+    setInterval(() => {
+      if (performance.now() - lastRealChat < 15000) return;
+      const n = FAKE_NAMES[Math.floor(Math.random() * FAKE_NAMES.length)];
+      const r = Math.random();
+      if (r < 0.15) onTwitchEvent({ type: 'action', action: ['jump', 'dance', 'wave'][Math.floor(Math.random() * 3)], login: n.toLowerCase(), display: n });
+      else onChat({ login: n.toLowerCase(), display: n, text: FAKE_MSGS[Math.floor(Math.random() * FAKE_MSGS.length)], fake: true });
+    }, 1800);
+  }
+  function startDemo() {
+    settings = {
+      overlay: { enabled: true, anchor: 'bottom-left', scale: 0.8, spacing: 120, margin: 30, showNames: true, entrance: 'random', statusStyle: 'props', sleepMinutes: 0.3, lookAtSpeaker: true, maxVisible: 12 },
+      twitch: { enabled: true, scale: 0.5, maxViewers: 20, bubbleSeconds: 7, idleMinutes: 10, palette: 'vivid', hats: true, beards: true, showNames: true, anchor: 'bottom-right', widthRatio: 0.55, raidEffects: true, raidMax: 15, subEffects: true, bitsEffects: true },
     };
-    open();
-  }
-  function handleIrc(line) {
-    if (!line) return;
-    if (line.startsWith('PING')) { tw.ws && tw.ws.send('PONG :tmi.twitch.tv'); return; }
-    // @tags :login!login@login.tmi.twitch.tv PRIVMSG #chan :message
-    const m = line.match(/^(?:@(\S+) )?:(\w+)!\S+ PRIVMSG #\S+ :(.*)$/);
-    if (!m) return;
-    const tags = {};
-    (m[1] || '').split(';').forEach((kv) => { const i = kv.indexOf('='); if (i > 0) tags[kv.slice(0, i)] = kv.slice(i + 1); });
-    let text = m[3];
-    if (text.startsWith('\u0001ACTION ')) text = text.slice(8, -1);
-    onChat(m[2], tags['display-name'] || m[2], text, tags.color || null);
-  }
-  function onChat(login, display, text, color) {
-    const cfg = (settings && settings.twitch) || {};
-    const ignore = String(cfg.ignore || '').toLowerCase().split(/[\s,]+/).filter(Boolean);
-    if (ignore.includes(login)) return;
-    let v = viewers.get(login);
-    if (!v) {
-      v = { login, display, color, avatar: Puppet.randomAvatar(login, { palette: cfg.palette, hats: cfg.hats, beards: cfg.beards, colors: cfg.colors }), enter: 0, x: null };
-      viewers.set(login, v);
-      // Drop the oldest-silent viewer if over capacity.
-      const max = cfg.maxViewers || 20;
-      if (viewers.size > max) {
-        const oldest = [...viewers.values()].sort((a, b) => a.lastMsg - b.lastMsg)[0];
-        viewers.delete(oldest.login);
-      }
-    }
-    v.lastMsg = performance.now() / 1000;
-    v.msg = text.slice(0, 200);
-    v.msgUntil = v.lastMsg + (cfg.bubbleSeconds || 7);
-    const a = anim('t:' + login);
-    a.hop = 1;
-    a.talkUntil = v.lastMsg + Math.min(3.5, 0.6 + text.length * 0.05);
-  }
-  // Viewer avatars must be regenerated when style settings change.
-  let lastStyleKey = '';
-  function refreshViewerStyles() {
-    const cfg = (settings && settings.twitch) || {};
-    const key = [cfg.palette, cfg.hats, cfg.beards, (cfg.colors || []).join()].join('|');
-    if (key === lastStyleKey) return;
-    lastStyleKey = key;
-    for (const v of viewers.values()) v.avatar = Puppet.randomAvatar(v.login, { palette: cfg.palette, hats: cfg.hats, beards: cfg.beards, colors: cfg.colors });
+    makeFakeMembers(); fakeChatLoop();
+    setTimeout(() => onTwitchEvent({ type: 'sub', login: 'kiwi', display: 'kiwi', text: 'Thanks for the sub!' }), 4000);
   }
 
-  // ---------- Layout ----------
+  // ---------- Discord puppets ----------
   function discordAvatarUrl(m) {
     if (m.avatarHash) return `https://cdn.discordapp.com/avatars/${m.id}/${m.avatarHash}.png?size=128`;
     let idx = 0;
@@ -155,83 +104,347 @@
     return `https://cdn.discordapp.com/embed/avatars/${idx}.png`;
   }
 
-  function layoutRow(count, cfg, W, H, unitH) {
+  // Group origin: either a corner anchor or a custom position (ratios of the screen) set in placement mode.
+  function discordLayout(count) {
+    const cfg = settings.overlay;
     const s = cfg.scale || 0.8, gap = (cfg.spacing || 120) * s / 0.8, margin = cfg.margin || 30;
+    const total = Math.max(0, count - 1) * gap;
     const anchor = cfg.anchor || 'bottom-left';
-    const total = (count - 1) * gap;
-    let x0;
-    if (anchor.endsWith('left')) x0 = margin + 60 * s;
-    else if (anchor.endsWith('right')) x0 = W - margin - 60 * s - total;
-    else x0 = W / 2 - total / 2;
-    const y = anchor.startsWith('top') ? margin + unitH * s : H - margin - 30 * s;
+    let x0, y;
+    if (anchor === 'custom' && cfg.pos) { x0 = cfg.pos.x * W - total / 2; y = cfg.pos.y * H; }
+    else {
+      if (anchor.endsWith('left')) x0 = margin + 60 * s;
+      else if (anchor.endsWith('right')) x0 = W - margin - 60 * s - total;
+      else x0 = W / 2 - total / 2;
+      y = anchor.startsWith('top') ? margin + 230 * s : H - margin - 30 * s;
+    }
     return { x0, gap, y, s };
   }
+
+  function updateDiscord(dt, t) {
+    const cfg = settings.overlay;
+    const real = members.length > 0;
+    const src = real ? members : (fakeMembers && (TEST || DEMO || placement) ? fakeMembers : []);
+    let list = src.filter((m) => !(cfg.showSelf === false && m.self));
+    if (cfg.hideIdle && !placement) list = list.filter((m) => m.speaking || (dEnts.get(m.id) && dEnts.get(m.id).anim.hangover > 0));
+    list = list.slice(0, cfg.maxVisible || 12);
+    const L = discordLayout(list.length);
+    const ids = new Set(list.map((m) => m.id));
+
+    list.forEach((m, i) => {
+      let e = dEnts.get(m.id);
+      const tx = L.x0 + i * L.gap;
+      if (!e) {
+        e = { id: m.id, anim: new P.Animator(m.id), x: tx, y: L.y, vy: 0, enter: pickEntrance(cfg.entrance), age: 0, leaving: -1 };
+        if (e.enter === 'walk') e.x = tx < W / 2 ? -120 : W + 120;
+        if (e.enter === 'drop') e.y = -260 * L.s;
+        dEnts.set(m.id, e);
+      }
+      e.member = m; e.tx = tx; e.ty = L.y; e.s = L.s;
+      if (e.leaving >= 0) { e.leaving = -1; e.scaleMul = 1; }
+    });
+    for (const e of dEnts.values()) if (!ids.has(e.id) && e.leaving < 0) e.leaving = 0;
+
+    // who is speaking, for the "look at speaker" behaviour
+    const speakers = [...dEnts.values()].filter((e) => e.leaving < 0 && e.member.speaking && !e.member.mute);
+    for (const e of dEnts.values()) {
+      const a = e.anim;
+      e.age += dt;
+      a.talking = !!e.member.speaking && !e.member.mute;
+      a.sleepAfter = (cfg.sleepMinutes || 0) * 60;
+      if (cfg.lookAtSpeaker !== false && !a.talking && speakers.length) {
+        let best = null; for (const sp of speakers) if (sp !== e && (!best || Math.abs(sp.x - e.x) < Math.abs(best.x - e.x))) best = sp;
+        a.lookTarget = best ? Math.max(-1, Math.min(1, (best.x - e.x) / 120)) : 0;
+      } else a.lookTarget = 0;
+      a.update(dt, t);
+      // movement: walk/slide to target, drop with a bounce
+      if (e.enter === 'drop' && e.y < e.ty - 0.5 || Math.abs(e.vy) > 30) {
+        e.vy += 2600 * dt; e.y += e.vy * dt;
+        if (e.y >= e.ty) { e.y = e.ty; e.vy = -e.vy * 0.35; if (Math.abs(e.vy) < 120) { e.vy = 0; e.enter = 'done'; } }
+      } else e.y += (e.ty - e.y) * Math.min(1, dt * 8);
+      const dx = e.tx - e.x;
+      e.walking = Math.abs(dx) > 4;
+      e.x += Math.sign(dx) * Math.min(Math.abs(dx), (e.enter === 'walk' ? 520 : 900) * dt * (Math.abs(dx) > 40 ? 1 : 0.5));
+      if (e.enter === 'pop') { const p = Math.min(1, e.age / 0.45); e.scaleMul = p < 1 ? 1.15 * Math.sin(p * Math.PI * 0.62) / Math.sin(Math.PI * 0.62) : 1; }
+      if (e.leaving >= 0) {
+        e.leaving += dt;
+        e.scaleMul = Math.max(0, 1 - e.leaving / 0.22);
+        if (e.leaving > 0.7) dEnts.delete(e.id);
+      }
+    }
+  }
+
+  function drawDiscord(t) {
+    const cfg = settings.overlay;
+    const ents = [...dEnts.values()].sort((a, b) => a.x - b.x);
+    for (const e of ents) {
+      const m = e.member;
+      const st = e.anim.state(t);
+      if (e.walking) st.bob -= Math.abs(Math.sin(t * 13 + e.x * 0.01)) * 9;
+      st.scaleMul = e.scaleMul == null ? 1 : e.scaleMul;
+      const av = avatars[m.id] || m.demoAvatar || { ...P.defaultAvatar(), kind: 'discord', photoSplit: 0.6, clothColor: '#5865f2', accentColor: '#ffffff' };
+      P.draw(ctx, av, st, {
+        x: e.x, y: e.y, scale: e.s,
+        name: cfg.showNames !== false && e.leaving < 0 ? m.name : null,
+        muted: m.mute, deaf: m.deaf, glow: cfg.glow && m.speaking && !m.mute, statusStyle: cfg.statusStyle,
+        flip: e.walking && e.tx > e.x, // puppets face left by default
+        discordAvatarUrl: discordAvatarUrl(m),
+      });
+      if (e.leaving >= 0) P.drawPoof(ctx, e.x, e.y - 120 * e.s, e.s, Math.min(1, e.leaving / 0.7));
+    }
+  }
+
+  function pickEntrance(mode) {
+    if (mode === 'walk' || mode === 'drop' || mode === 'pop') return mode;
+    if (mode === 'none') return 'done';
+    return ['walk', 'drop', 'pop'][Math.floor(Math.random() * 3)];
+  }
+
+  // ---------- Twitch viewers ----------
+  function styleKey(cfg) { cfg = cfg || {}; return [cfg.palette, cfg.hats, cfg.beards, (cfg.colors || []).join()].join('|'); }
+  function viewerAvatar(login) {
+    const cfg = (settings && settings.twitch) || {};
+    const ov = overrides[login] || {};
+    const a = P.randomAvatar(ov.seed || login, { palette: cfg.palette, hats: cfg.hats, beards: cfg.beards, colors: cfg.colors });
+    for (const k of ['hat', 'hair', 'outfit', 'eyes', 'clothColor', 'hatColor']) if (ov[k]) a[k] = ov[k];
+    return a;
+  }
+  function restyle(login) { const v = viewers.get(login); if (v && !v.temp) v.avatar = viewerAvatar(login); }
+  function restyleAll() { for (const v of viewers.values()) if (!v.temp) v.avatar = viewerAvatar(v.login); }
+
+  function ensureViewer(login, display, color) {
+    const cfg = settings.twitch || {};
+    let v = viewers.get(login);
+    if (!v || v.leaving >= 0) {
+      if (v) viewers.delete(login);
+      v = { login, display, color, avatar: viewerAvatar(login), anim: new P.Animator('t:' + login), x: null, y: null, joined: performance.now(), leaving: -1 };
+      viewers.set(login, v);
+      const regular = [...viewers.values()].filter((x) => !x.temp && x.leaving < 0);
+      if (regular.length > (cfg.maxViewers || 20)) {
+        const oldest = regular.filter((x) => x !== v).sort((a, b) => (a.lastMsg || 0) - (b.lastMsg || 0))[0];
+        if (oldest) oldest.leaving = 0;
+      }
+    }
+    v.display = display || v.display; v.color = color || v.color;
+    v.lastMsg = performance.now() / 1000;
+    return v;
+  }
+
+  function onChat(m) {
+    if (!settings || SCENE === 'discord') return;
+    if (!m.fake) lastRealChat = performance.now();
+    const cfg = settings.twitch || {};
+    const v = ensureViewer(m.login, m.display, m.color);
+    if (m.text) {
+      v.msg = String(m.text).slice(0, 220);
+      v.system = !!m.system;
+      v.msgUntil = v.lastMsg + (cfg.bubbleSeconds || 7);
+      v.anim.jump(10);
+      v.anim.talkUntil = v.lastMsg + Math.min(3.5, 0.6 + v.msg.length * 0.05);
+    }
+  }
+
+  function onTwitchEvent(e) {
+    if (!settings || SCENE === 'discord') return;
+    const cfg = settings.twitch || {};
+    if (e.type === 'action') {
+      const v = ensureViewer(e.login, e.display, e.color);
+      if (e.action === 'jump') v.anim.jump(46);
+      if (e.action === 'dance') v.anim.dance(3.5);
+      if (e.action === 'wave') v.anim.wave(2.5);
+    } else if (e.type === 'restyle') {
+      const v = ensureViewer(e.login, e.display, e.color);
+      v.avatar = viewerAvatar(e.login); v.pop = 0; v.anim.jump(20);
+    } else if (e.type === 'sub' && cfg.subEffects !== false) {
+      const v = ensureViewer(e.login, e.display, e.color);
+      v.anim.jump(40); v.anim.wave(2.5); v.celebrate = performance.now() / 1000 + 3;
+      if (e.text) { v.msg = e.text; v.system = true; v.msgUntil = v.lastMsg + Math.max(6, cfg.bubbleSeconds || 7); }
+      burst(v, 70);
+    } else if (e.type === 'bits' && cfg.bitsEffects !== false) {
+      const v = ensureViewer(e.login, e.display, e.color);
+      v.anim.jump(30); v.anim.dance(2); burst(v, Math.min(120, 20 + (e.amount || 0) / 5));
+    } else if (e.type === 'raid' && cfg.raidEffects !== false) {
+      const leader = ensureViewer(e.login, e.display, e.color);
+      leader.msg = `RAID! ×${e.count}`; leader.system = true; leader.msgUntil = leader.lastMsg + 8; leader.anim.wave(4);
+      const n = Math.min(cfg.raidMax || 15, e.count || 1);
+      const now = performance.now() / 1000;
+      for (let i = 0; i < n; i++) {
+        const login = `raid:${e.login}:${i}:${Math.floor(now)}`;
+        viewers.set(login, { login, display: '', temp: true, expires: now + 40 + Math.random() * 10, avatar: P.randomAvatar(login, { palette: cfg.palette, hats: cfg.hats, beards: cfg.beards, colors: cfg.colors }), anim: new P.Animator(login), x: null, y: null, joined: performance.now() + i * 120, leaving: -1, delay: i * 0.12, lastMsg: now });
+      }
+      setTimeout(() => burst(leader, 90), 300);
+    }
+  }
+
+  function burst(v, n) {
+    const cols = ['#ff7a45', '#f5c518', '#43b581', '#5865f2', '#ff6fa8', '#00cec9', '#ffffff'];
+    for (let i = 0; i < n; i++) {
+      particles.push({ follow: v, x: 0, y: 0, vx: (Math.random() - 0.5) * 520, vy: -250 - Math.random() * 520, rot: Math.random() * 6, vr: (Math.random() - 0.5) * 14, c: cols[i % cols.length], life: 2 + Math.random() * 1.2, w: 6 + Math.random() * 6, h: 4 + Math.random() * 4, init: false });
+    }
+  }
+
+  function twitchLayout() {
+    const cfg = settings.twitch;
+    const s = cfg.scale || 0.5;
+    const gap = 95 * s / 0.5;
+    const areaW = W * (cfg.widthRatio || 0.55);
+    const anchor = cfg.anchor || 'bottom-right';
+    let left, baseY, fromRight = anchor !== 'bottom-left';
+    if (anchor === 'custom' && cfg.pos) { left = cfg.pos.x * W - areaW / 2; baseY = cfg.pos.y * H; }
+    else { left = fromRight ? W - 20 - areaW : 20; baseY = H - 20 - 20 * s; }
+    return { s, gap, areaW, left, baseY, fromRight, perRow: Math.max(1, Math.floor(areaW / gap)) };
+  }
+
+  function updateTwitch(dt, t) {
+    const cfg = settings.twitch;
+    const now = performance.now() / 1000;
+    const idle = (cfg.idleMinutes || 10) * 60;
+    const L = twitchLayout();
+    const list = [...viewers.values()].filter((v) => v.leaving < 0).sort((a, b) => a.joined - b.joined);
+    list.forEach((v, i) => {
+      if ((v.temp && now > v.expires) || (!v.temp && now - v.lastMsg > idle)) { v.leaving = 0; return; }
+      const row = Math.floor(i / L.perRow), col = i % L.perRow;
+      const off = col * L.gap + (row % 2) * L.gap / 2 + 50 * L.s;
+      v.tx = L.fromRight ? L.left + L.areaW - off : L.left + off;
+      v.ty = L.baseY - row * 120 * L.s;
+      v.col = col;
+      if (v.x == null) { v.x = L.fromRight ? W + 80 : -80; v.y = v.ty; }
+    });
+    for (const v of [...viewers.values()]) {
+      const a = v.anim;
+      if (v.delay > 0) { v.delay -= dt; continue; }
+      a.talking = now < (a.talkUntil || 0);
+      a.update(dt, t);
+      if (v.tx != null) {
+        const dx = v.tx - v.x;
+        v.walking = Math.abs(dx) > 4;
+        v.x += Math.sign(dx) * Math.min(Math.abs(dx), (v.temp ? 700 : 450) * dt);
+        v.y += (v.ty - v.y) * Math.min(1, dt * 6);
+      }
+      if (v.pop != null) { v.pop += dt; if (v.pop > 0.5) v.pop = null; }
+      if (v.leaving >= 0) { v.leaving += dt; if (v.leaving > 0.7) viewers.delete(v.login); }
+    }
+  }
+
+  function drawTwitch(t) {
+    const cfg = settings.twitch;
+    const L = twitchLayout();
+    const now = performance.now() / 1000;
+    const list = [...viewers.values()].filter((v) => v.x != null && !(v.delay > 0)).sort((a, b) => a.ty - b.ty);
+    for (const v of list) {
+      const st = v.anim.state(t);
+      if (v.walking) st.bob -= Math.abs(Math.sin(t * 14 + v.x * 0.01)) * 7;
+      st.scaleMul = v.leaving >= 0 ? Math.max(0, 1 - v.leaving / 0.22) : (v.pop != null ? 1 + Math.sin(v.pop / 0.5 * Math.PI) * 0.18 : 1);
+      P.draw(ctx, v.avatar, st, { x: v.x, y: v.y, scale: L.s, flip: v.walking ? v.tx > v.x : v.x < W / 2, name: cfg.showNames !== false && v.display && v.leaving < 0 ? v.display : null, labelColor: cfg.useChatColor ? v.color : null });
+      if (v.leaving >= 0) P.drawPoof(ctx, v.x, v.y - 120 * L.s, L.s, Math.min(1, v.leaving / 0.7));
+      if (v.msg && now < v.msgUntil && v.leaving < 0) {
+        const alpha = Math.min(1, (v.msgUntil - now) / 0.5);
+        const headTop = v.y + st.bob * L.s + (P.HEAD.cy - P.HEAD.ry) * L.s - (v.col % 2) * 46 * L.s;
+        Puppet.drawBubble(ctx, v.msg, v.x, headTop, Math.max(0.75, L.s * 1.4), { alpha, bg: v.system ? '#2b2633' : cfg.bubbleBg, fg: v.system ? '#ffd166' : cfg.bubbleFg, viewW: W, maxLines: v.system ? 4 : 3 });
+      }
+    }
+  }
+
+  function drawParticles(dt) {
+    for (let i = particles.length - 1; i >= 0; i--) {
+      const p = particles[i];
+      if (!p.init) { const v = p.follow; const s = settings.twitch.scale || 0.5; p.x = v.x || W / 2; p.y = (v.y || H) - 170 * s; p.init = true; p.follow = null; }
+      p.vy += 900 * dt; p.vx *= 0.99; p.x += p.vx * dt; p.y += p.vy * dt; p.rot += p.vr * dt; p.life -= dt;
+      if (p.life <= 0 || p.y > H + 40) { particles.splice(i, 1); continue; }
+      ctx.save(); ctx.globalAlpha = Math.min(1, p.life * 2); ctx.translate(p.x, p.y); ctx.rotate(p.rot); ctx.fillStyle = p.c; ctx.fillRect(-p.w / 2, -p.h / 2, p.w, p.h); ctx.restore();
+    }
+  }
+
+  // ---------- Placement mode (desktop overlay only) ----------
+  const groups = { discord: null, twitch: null };
+  function groupRects() {
+    const ds = [...dEnts.values()].filter((e) => e.leaving < 0);
+    if (ds.length && SCENE !== 'twitch') {
+      const s = ds[0].s; const xs = ds.map((e) => e.tx);
+      groups.discord = { x: Math.min(...xs) - 75 * s, y: ds[0].ty - 270 * s, w: Math.max(...xs) - Math.min(...xs) + 150 * s, h: 310 * s };
+    } else groups.discord = null;
+    if (SCENE !== 'discord' && settings.twitch && (settings.twitch.enabled || settings.twitch.showOnDesktop)) {
+      const L = twitchLayout();
+      groups.twitch = { x: L.left, y: L.baseY - 210 * L.s, w: L.areaW, h: 250 * L.s };
+    } else groups.twitch = null;
+  }
+  function drawPlacement() {
+    ctx.save();
+    ctx.fillStyle = 'rgba(12,10,16,0.45)'; ctx.fillRect(0, 0, W, H);
+    for (const [k, r] of Object.entries(groups)) {
+      if (!r) continue;
+      ctx.setLineDash([10, 8]); ctx.lineWidth = 3; ctx.strokeStyle = drag && drag.key === k ? '#ffffff' : '#ff7a45';
+      ctx.strokeRect(r.x, r.y, r.w, r.h); ctx.setLineDash([]);
+      ctx.font = '700 14px "Segoe UI", sans-serif'; ctx.fillStyle = '#ff7a45'; ctx.fillText(k === 'discord' ? 'Discord voice' : 'Twitch viewers', r.x + 6, r.y - 8);
+    }
+    const msg = 'Drag a group to move it  ·  Mouse wheel to resize  ·  Esc or click Done to finish';
+    ctx.font = '600 16px "Segoe UI", sans-serif';
+    const w = ctx.measureText(msg).width + 150;
+    ctx.fillStyle = '#211e28'; ctx.fillRect(W / 2 - w / 2, 24, w, 48); ctx.strokeStyle = '#3a3545'; ctx.lineWidth = 1; ctx.strokeRect(W / 2 - w / 2, 24, w, 48);
+    ctx.fillStyle = '#f2eef7'; ctx.textBaseline = 'middle'; ctx.fillText(msg, W / 2 - w / 2 + 16, 48);
+    doneBtn = { x: W / 2 + w / 2 - 100, y: 32, w: 84, h: 32 };
+    ctx.fillStyle = '#ff7a45'; ctx.fillRect(doneBtn.x, doneBtn.y, doneBtn.w, doneBtn.h);
+    ctx.fillStyle = '#1b1015'; ctx.textAlign = 'center'; ctx.fillText('Done', doneBtn.x + doneBtn.w / 2, doneBtn.y + 17);
+    ctx.restore();
+  }
+  let drag = null, doneBtn = null;
+  const inside = (r, x, y) => r && x >= r.x && x <= r.x + r.w && y >= r.y && y <= r.y + r.h;
+  function finishPlacement() { fetch('/api/action', { method: 'POST', body: JSON.stringify({ name: 'placement', on: false }) }); }
+  function saveSettings(patch) { fetch('/api/settings', { method: 'POST', body: JSON.stringify(patch) }); }
+  canvas.addEventListener('mousedown', (e) => {
+    if (!placement) return;
+    if (inside(doneBtn, e.clientX, e.clientY)) return finishPlacement();
+    const key = inside(groups.discord, e.clientX, e.clientY) ? 'discord' : inside(groups.twitch, e.clientX, e.clientY) ? 'twitch' : null;
+    if (!key) return;
+    const cfg = key === 'discord' ? settings.overlay : settings.twitch;
+    const r = groups[key];
+    // Switch to a custom anchor at the group's current centre/baseline so the drag starts from where it is.
+    if (cfg.anchor !== 'custom') {
+      cfg.anchor = 'custom';
+      cfg.pos = key === 'discord' ? { x: (r.x + r.w / 2) / W, y: dEnts.size ? [...dEnts.values()][0].ty / H : 0.9 } : { x: (r.x + r.w / 2) / W, y: twitchLayout().baseY / H };
+    }
+    drag = { key, sx: e.clientX, sy: e.clientY, px: cfg.pos.x, py: cfg.pos.y };
+  });
+  addEventListener('mousemove', (e) => {
+    if (!drag) return;
+    const cfg = drag.key === 'discord' ? settings.overlay : settings.twitch;
+    cfg.pos = { x: Math.max(0.02, Math.min(0.98, drag.px + (e.clientX - drag.sx) / W)), y: Math.max(0.1, Math.min(1, drag.py + (e.clientY - drag.sy) / H)) };
+  });
+  addEventListener('mouseup', () => {
+    if (!drag) return;
+    const k = drag.key === 'discord' ? 'overlay' : 'twitch';
+    saveSettings({ [k]: { anchor: 'custom', pos: settings[k].pos } });
+    drag = null;
+  });
+  let wheelTimer = null;
+  canvas.addEventListener('wheel', (e) => {
+    if (!placement) return;
+    const key = inside(groups.discord, e.clientX, e.clientY) ? 'overlay' : inside(groups.twitch, e.clientX, e.clientY) ? 'twitch' : null;
+    if (!key) return;
+    const cfg = settings[key];
+    const [min, max] = key === 'overlay' ? [0.3, 1.6] : [0.25, 1];
+    cfg.scale = Math.round(Math.max(min, Math.min(max, (cfg.scale || 0.8) * (e.deltaY < 0 ? 1.06 : 0.94))) * 100) / 100;
+    clearTimeout(wheelTimer); wheelTimer = setTimeout(() => saveSettings({ [key]: { scale: cfg.scale } }), 250);
+  }, { passive: true });
+  addEventListener('keydown', (e) => { if (placement && e.key === 'Escape') finishPlacement(); });
 
   // ---------- Render loop ----------
   let last = performance.now();
   function frame(now) {
     const dt = Math.min(0.05, (now - last) / 1000); last = now;
     const t = now / 1000;
-    const W = innerWidth, H = innerHeight;
     ctx.clearRect(0, 0, W, H);
     if (settings) {
-      if (SCENE !== 'twitch') drawDiscord(dt, t, W, H);
-      if (SCENE !== 'discord') drawTwitch(dt, t, W, H);
+      const showDiscord = SCENE !== 'twitch' && (settings.overlay.enabled !== false || placement || !DESKTOP);
+      const showTwitch = SCENE !== 'discord' && (settings.twitch.enabled || DEMO || TEST);
+      if (placement) { groupRects(); drawPlacement(); }
+      if (showDiscord) { updateDiscord(dt, t); drawDiscord(t); }
+      if (showTwitch) { updateTwitch(dt, t); drawTwitch(t); drawParticles(dt); }
     }
     requestAnimationFrame(frame);
   }
 
-  function drawDiscord(dt, t, W, H) {
-    const cfg = settings.overlay || {};
-    if (cfg.enabled === false) return;
-    const src = members.length || !fakeMembers ? members : fakeMembers;
-    let list = src.filter((m) => !(cfg.showSelf === false && m.self));
-    if (cfg.hideIdle) list = list.filter((m) => m.speaking || anim('d:' + m.id).open > 0.05);
-    list = list.slice(0, cfg.maxVisible || 12);
-    const L = layoutRow(list.length, cfg, W, H, 230);
-    list.forEach((m, i) => {
-      const a = anim('d:' + m.id); a.talking = !!m.speaking && !m.mute; a.update(dt, t);
-      const av = avatars[m.id] || m.demoAvatar || { ...Puppet.defaultAvatar(), kind: 'discord', photoSplit: 0.6, clothColor: '#5865f2', accentColor: '#ffffff' };
-      Puppet.draw(ctx, av, a.state(t), {
-        x: L.x0 + i * L.gap, y: L.y, scale: L.s,
-        name: cfg.showNames !== false ? (av.name && avatars[m.id] && cfg.preferAvatarName ? av.name : m.name) : null,
-        muted: m.mute, deaf: m.deaf, glow: cfg.glow && m.speaking,
-        discordAvatarUrl: discordAvatarUrl(m),
-      });
-    });
-  }
-
-  function drawTwitch(dt, t, W, H) {
-    const cfg = settings.twitch || {};
-    if (!cfg.enabled && !DEMO && !TEST) return;
-    refreshViewerStyles();
-    const now = performance.now() / 1000;
-    const idle = (cfg.idleMinutes || 10) * 60;
-    for (const v of [...viewers.values()]) if (now - v.lastMsg > idle) viewers.delete(v.login);
-    const list = [...viewers.values()];
-    const s = cfg.scale || 0.5;
-    const gap = 95 * s / 0.5;
-    const margin = 20;
-    // Viewers fill the bottom edge from the right (or left), wrapping into a second row.
-    const fromRight = (cfg.anchor || 'bottom-right') !== 'bottom-left';
-    const perRow = Math.max(1, Math.floor((W * (cfg.widthRatio || 0.55)) / gap));
-    list.forEach((v, i) => {
-      const row = Math.floor(i / perRow), col = i % perRow;
-      const tx = fromRight ? W - margin - 50 * s - col * gap - (row % 2) * gap / 2 : margin + 50 * s + col * gap + (row % 2) * gap / 2;
-      if (v.x == null) v.x = fromRight ? W + 80 : -80; // walk in from the edge
-      v.x += (tx - v.x) * Math.min(1, dt * 4);
-      const y = H - margin - 20 * s - row * 150 * s;
-      const a = anim('t:' + v.login); a.talking = now < (a.talkUntil || 0); a.update(dt, t);
-      const st = a.state(t);
-      Puppet.draw(ctx, v.avatar, st, { x: v.x, y, scale: s, flip: !fromRight ? false : true, name: cfg.showNames !== false ? v.display : null, labelColor: cfg.useChatColor ? v.color : null });
-      if (v.msg && now < v.msgUntil) {
-        const alpha = Math.min(1, (v.msgUntil - now) / 0.5);
-        const headTop = y + st.bob * s + (Puppet.HEAD.cy - Puppet.HEAD.ry) * s - (col % 2) * 46 * s;
-        Puppet.drawBubble(ctx, v.msg, v.x, headTop, Math.max(0.75, s * 1.4), { alpha, bg: cfg.bubbleBg, fg: cfg.bubbleFg, viewW: W });
-      }
-    });
-  }
-
-  if (DEMO) startDemo(true); else { connect(); if (TEST) startDemo(false); }
+  if (DEMO) startDemo();
+  else { connect(); makeFakeMembers(); if (TEST) fakeChatLoop(); }
   requestAnimationFrame(frame);
 })();

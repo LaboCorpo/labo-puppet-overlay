@@ -38,7 +38,7 @@ class DiscordVoiceRPC extends EventEmitter {
     this.sock = null;
     this.buf = Buffer.alloc(0);
     this.pending = new Map();
-    this.status = 'déconnecté';
+    this.status = 'disconnected';
     this.channel = null;          // {id, name, guild_id}
     this.members = new Map();     // userId -> member
     this.me = null;
@@ -48,7 +48,7 @@ class DiscordVoiceRPC extends EventEmitter {
 
   setStatus(s, detail) { this.status = s; this.statusDetail = detail || ''; this.emit('status', s, detail); }
 
-  start() { this.stopped = false; this._connect(0); }
+  start() { this.stopped = false; this.halted = false; this._connect(0); }
   stop() {
     this.stopped = true;
     clearTimeout(this.retryTimer);
@@ -65,14 +65,14 @@ class DiscordVoiceRPC extends EventEmitter {
 
   _connect(i) {
     if (this.stopped) return;
-    if (!this.o.clientId) { this.setStatus('configuration requise', 'Renseigne le Client ID Discord dans les réglages.'); return; }
-    if (i > 9) { this.setStatus('Discord introuvable', 'Lance l’application Discord (pas la version navigateur).'); return this._retry(5000); }
+    if (!this.o.clientId) { this.setStatus('setup required', 'Enter your Discord Application ID in Setup.'); return; }
+    if (i > 9) { this.setStatus('Discord not found', 'Start the Discord desktop app (the browser version is not supported).'); return this._retry(5000); }
     const sock = net.createConnection(pipePath(i));
     let opened = false;
     sock.once('connect', () => {
       opened = true;
       this.sock = sock; this.buf = Buffer.alloc(0);
-      this.setStatus('connexion…');
+      this.setStatus('connecting');
       sock.write(encode(OP.HANDSHAKE, { v: 1, client_id: this.o.clientId }));
     });
     sock.on('data', (d) => this._onData(d));
@@ -80,10 +80,12 @@ class DiscordVoiceRPC extends EventEmitter {
     sock.on('close', () => {
       if (!opened) return;
       if (this.sock === sock) this.sock = null;
-      for (const p of this.pending.values()) p.reject(new Error('RPC fermé'));
+      for (const p of this.pending.values()) p.reject(new Error('RPC closed'));
       this.pending.clear();
       this.members.clear(); this.channel = null; this.emit('channel');
-      this.setStatus('déconnecté', 'Discord fermé ou connexion perdue, nouvelle tentative…');
+      // After an auth failure we stop here: retrying would spam the Discord popup. The user clicks Reconnect.
+      if (this.halted) return;
+      this.setStatus('disconnected', 'Discord closed or connection lost — retrying…');
       this._retry(5000);
     });
   }
@@ -96,7 +98,7 @@ class DiscordVoiceRPC extends EventEmitter {
       const payload = JSON.parse(this.buf.slice(8, 8 + len).toString('utf8'));
       this.buf = this.buf.slice(8 + len);
       if (op === OP.PING) { this.sock.write(encode(OP.PONG, payload)); continue; }
-      if (op === OP.CLOSE) { this.setStatus('refusé', payload.message || 'Discord a fermé la connexion'); this.sock && this.sock.destroy(); continue; }
+      if (op === OP.CLOSE) { this.setStatus('refused', payload.message || 'Discord closed the connection'); this.sock && this.sock.destroy(); continue; }
       this._onFrame(payload);
     }
   }
@@ -116,9 +118,9 @@ class DiscordVoiceRPC extends EventEmitter {
 
   request(cmd, args, evt, timeoutMs) {
     return new Promise((resolve, reject) => {
-      if (!this.sock) return reject(new Error('RPC non connecté'));
+      if (!this.sock) return reject(new Error('RPC not connected'));
       const nonce = crypto.randomUUID();
-      const timer = setTimeout(() => { if (this.pending.delete(nonce)) reject(new Error('Délai dépassé: ' + cmd)); }, timeoutMs || 15000);
+      const timer = setTimeout(() => { if (this.pending.delete(nonce)) reject(new Error('Timed out: ' + cmd)); }, timeoutMs || 15000);
       this.pending.set(nonce, { resolve: (d) => { clearTimeout(timer); resolve(d); }, reject: (e) => { clearTimeout(timer); reject(e); } });
       const frame = { cmd, args: args || {}, nonce };
       if (evt) frame.evt = evt;
@@ -132,19 +134,20 @@ class DiscordVoiceRPC extends EventEmitter {
     if (this.o.clientSecret) body.set('client_secret', this.o.clientSecret);
     const res = await fetch(API + '/oauth2/token', { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body });
     const json = await res.json().catch(() => ({}));
-    if (!res.ok) throw new Error('Échange de jeton refusé: ' + (json.error_description || json.error || res.status));
+    if (!res.ok) throw new Error('Token exchange refused: ' + (json.error_description || json.error || res.status));
     const tok = { access_token: json.access_token, refresh_token: json.refresh_token, expires_at: Date.now() + (json.expires_in || 0) * 1000 };
     this.o.saveToken(tok);
     return tok;
   }
 
-  async _auth() {
+  async _auth(retried) {
     let tok = this.o.getToken();
+    const stored = !!(tok && tok.access_token);
     if (tok && tok.refresh_token && tok.expires_at < Date.now() + 60_000) {
       try { tok = await this._tokenRequest({ grant_type: 'refresh_token', refresh_token: tok.refresh_token }); } catch (e) { tok = null; }
     }
     if (!tok || !tok.access_token) {
-      this.setStatus('autorisation', 'Accepte la fenêtre d’autorisation dans Discord.');
+      this.setStatus('authorizing', 'Click “Authorize” in the Discord popup.');
       const verifier = crypto.randomBytes(48).toString('base64url');
       const challenge = crypto.createHash('sha256').update(verifier).digest('base64url');
       const args = { client_id: this.o.clientId, scopes: ['rpc', 'rpc.voice.read', 'identify'] };
@@ -158,10 +161,11 @@ class DiscordVoiceRPC extends EventEmitter {
       const auth = await this.request('AUTHENTICATE', { access_token: tok.access_token });
       this.me = auth.user || this.me;
     } catch (e) {
-      this.o.saveToken(null); // stale token: forget it and retry once from scratch
+      this.o.saveToken(null); // stale token: forget it and authorize again once
+      if (stored && !retried) return this._auth(true);
       throw e;
     }
-    this.setStatus('connecté');
+    this.setStatus('connected');
     await this.request('SUBSCRIBE', {}, 'VOICE_CHANNEL_SELECT');
     const ch = await this.request('GET_SELECTED_VOICE_CHANNEL', {});
     await this._setChannel(ch);
@@ -170,9 +174,10 @@ class DiscordVoiceRPC extends EventEmitter {
   _authFailed(e) {
     const msg = String(e && e.message || e);
     let hint = msg;
-    if (/not.*tester|4000|Not authenticated|Invalid client/i.test(msg)) hint = msg + ' — vérifie que ton compte est bien Testeur de l’app Discord.';
-    if (/cancel|5000|denied/i.test(msg)) hint = 'Autorisation refusée dans Discord.';
-    this.setStatus('erreur', hint);
+    if (/not.*tester|4000|Not authenticated|Invalid client/i.test(msg)) hint = msg + ' — make sure your account is an accepted App Tester of the Discord application.';
+    if (/cancel|5000|denied/i.test(msg)) hint = 'Authorization was declined in Discord.';
+    this.halted = true;
+    this.setStatus('error', hint);
     this.emit('error', e);
     if (this.sock) this.sock.destroy();
   }
@@ -202,7 +207,7 @@ class DiscordVoiceRPC extends EventEmitter {
     const old = this.members.get(u.id) || {};
     this.members.set(u.id, {
       id: u.id,
-      name: vs.nick || u.global_name || u.username || 'Inconnu',
+      name: vs.nick || u.global_name || u.username || 'Unknown',
       avatarHash: u.avatar || null,
       mute: !!(st.mute || st.self_mute || st.suppress),
       deaf: !!(st.deaf || st.self_deaf),
