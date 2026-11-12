@@ -5,6 +5,7 @@ const path = require('path');
 const DEFAULTS = {
   port: 47800,
   app: {
+    language: 'auto', // 'auto' follows Windows, or 'en' / 'fr'
     launchAtStartup: false,
     autoUpdate: true,
     hotkeys: { toggleOverlay: 'CommandOrControl+Shift+O', placement: 'CommandOrControl+Shift+P' },

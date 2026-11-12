@@ -4,6 +4,7 @@
   const $ = (s) => document.querySelector(s);
   const $$ = (s) => [...document.querySelectorAll(s)];
   const P = Puppet;
+  const t = I18N.t;
 
   let av = P.defaultAvatar();
   let mode = 'drawn';
@@ -26,9 +27,9 @@
     Object.keys(P.OPTIONS).forEach((key) => {
       if (mode === 'photo' && !PHOTO_KEYS.includes(key)) return;
       const row = document.createElement('div'); row.className = 'opt-row';
-      row.innerHTML = `<div class="lbl">${LABELS[key]}</div><div class="chips"></div>`;
+      row.innerHTML = `<div class="lbl">${t(LABELS[key])}</div><div class="chips"></div>`;
       P.OPTIONS[key].forEach((v) => {
-        const b = document.createElement('button'); b.className = 'chip' + (av[key] === v ? ' on' : ''); b.textContent = P.prettyLabel(v);
+        const b = document.createElement('button'); b.className = 'chip' + (av[key] === v ? ' on' : ''); b.textContent = t(P.prettyLabel(v));
         b.onclick = () => { av[key] = v; buildOptions(); };
         row.lastChild.appendChild(b);
       });
@@ -37,14 +38,14 @@
     COLORS.forEach(([key, label, pal]) => {
       if (mode === 'photo' && !PHOTO_KEYS.includes(key)) return;
       const row = document.createElement('div'); row.className = 'opt-row';
-      row.innerHTML = `<div class="lbl">${label}</div><div class="sw"></div>`;
+      row.innerHTML = `<div class="lbl">${t(label)}</div><div class="sw"></div>`;
       pal.forEach((c) => {
         const b = document.createElement('button'); b.style.background = c; b.title = c;
         if ((av[key] || '').toLowerCase() === c.toLowerCase()) b.className = 'on';
         b.onclick = () => { av[key] = c; buildOptions(); };
         row.lastChild.appendChild(b);
       });
-      const custom = document.createElement('input'); custom.type = 'color'; custom.value = av[key] || '#ffffff'; custom.title = 'Custom colour';
+      const custom = document.createElement('input'); custom.type = 'color'; custom.value = av[key] || '#ffffff'; custom.title = t('Custom colour');
       custom.oninput = () => { av[key] = custom.value; };
       custom.onchange = buildOptions;
       row.lastChild.appendChild(custom);
@@ -77,7 +78,7 @@
     if (!photoImg) {
       cctx.fillStyle = '#26222e'; cctx.fillRect(0, 0, W, W);
       cctx.fillStyle = '#a49cb3'; cctx.font = '28px Segoe UI, sans-serif'; cctx.textAlign = 'center';
-      cctx.fillText('Choose a photo', W / 2, W / 2);
+      cctx.fillText(t('Choose a photo'), W / 2, W / 2);
       return;
     }
     const s = baseScale() * crop.zoom;
@@ -162,8 +163,8 @@
   // ---------- Export ----------
   const msg = (html) => ($('#msg').innerHTML = html);
   function finalAvatar() {
-    if (mode === 'photo') { if (photoDirty) bakePhoto(); if (!av.photo) throw new Error('Choose a photo first.'); }
-    if (!/^\d{15,22}$/.test(av.id)) throw new Error('Enter your Discord user ID (17–20 digits) so your friends’ apps can recognise you.');
+    if (mode === 'photo') { if (photoDirty) bakePhoto(); if (!av.photo) throw new Error(t('Choose a photo first.')); }
+    if (!/^\d{15,22}$/.test(av.id)) throw new Error(t('Enter your Discord user ID (17–20 digits) so your friends’ apps can recognise you.'));
     const out = Object.assign({}, av, { kind: mode });
     if (mode !== 'photo') delete out.photo;
     return out;
@@ -176,25 +177,25 @@
       link.href = URL.createObjectURL(blob);
       link.download = (a.name || a.id).replace(/[^\w\-]+/g, '_') + '.puppet';
       link.click();
-      msg('<span class="ok">✔ File downloaded — send it to your friends; they drop it into their Avatars tab.</span>');
-    } catch (e) { msg(`<span class="err">✖ ${e.message}</span>`); }
+      msg(`<span class="ok">${t('✔ File downloaded — send it to your friends; they drop it into their Avatars tab.')}</span>`);
+    } catch (e) { msg(`<span class="err">✖ ${t(e.message)}</span>`); }
   };
   $('#copyCode').onclick = async () => {
     try {
       const a = finalAvatar();
-      if (a.kind === 'photo') throw new Error('Photo avatars are too large for a code — use the .puppet file.');
+      if (a.kind === 'photo') throw new Error(t('Photo avatars are too large for a code — use the .puppet file.'));
       const code = P.encodeCode(a);
       await navigator.clipboard.writeText(code);
-      msg(`<span class="ok">✔ Code copied (${code.length} characters). Paste it to your friends on Discord.</span>`);
-    } catch (e) { msg(`<span class="err">✖ ${e.message}</span>`); }
+      msg(`<span class="ok">${t('✔ Code copied ({n} characters). Paste it to your friends on Discord.', { n: code.length })}</span>`);
+    } catch (e) { msg(`<span class="err">✖ ${t(e.message)}</span>`); }
   };
   $('#sendApp').onclick = async () => {
     try {
       const a = finalAvatar();
       const r = await fetch('/api/avatars', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(a) });
       const j = await r.json(); if (!j.ok) throw new Error(j.error);
-      msg('<span class="ok">✔ Saved to your overlay. Remember to share the file or code with your friends too.</span>');
-    } catch (e) { msg(`<span class="err">✖ ${e.message}</span>`); }
+      msg(`<span class="ok">${t('✔ Saved to your overlay. Remember to share the file or code with your friends too.')}</span>`);
+    } catch (e) { msg(`<span class="err">✖ ${t(e.message)}</span>`); }
   };
 
   // ---------- Load existing ----------
@@ -213,17 +214,38 @@
     }
     setMode(av.kind === 'photo' ? 'photo' : 'drawn');
   }
-  $('#loadBtn').onclick = () => { try { load(P.decodeAny($('#loadCode').value)); msg('<span class="ok">✔ Avatar loaded.</span>'); } catch (e) { msg('<span class="err">✖ Unreadable code.</span>'); } };
-  $('#loadFile').onchange = (e) => { const f = e.target.files[0]; if (f) f.text().then((t) => { try { load(P.decodeAny(t)); } catch (err) { msg('<span class="err">✖ Unreadable file.</span>'); } }); };
+  $('#loadBtn').onclick = () => { try { load(P.decodeAny($('#loadCode').value)); msg(`<span class="ok">${t('✔ Avatar loaded.')}</span>`); } catch (e) { msg(`<span class="err">${t('✖ Unreadable code.')}</span>`); } };
+  $('#loadFile').onchange = (e) => { const f = e.target.files[0]; if (f) f.text().then((t) => { try { load(P.decodeAny(t)); } catch (err) { msg(`<span class="err">${t('✖ Unreadable file.')}</span>`); } }); };
+
+  // ---------- Language ----------
+  // Served by the app: follow (and change) the app setting. Standalone file: remember locally.
+  const served = location.protocol.startsWith('http');
+  let langPref = 'auto';
+  try { langPref = localStorage.getItem('lang') || 'auto'; } catch (e) {}
+  function applyLang(pref) {
+    langPref = pref || 'auto';
+    $('#lang').value = langPref;
+    I18N.setLang(I18N.resolve(langPref));
+    I18N.apply(document.body);
+    buildOptions(); drawCrop();
+  }
+  $('#lang').onchange = () => {
+    const v = $('#lang').value;
+    try { localStorage.setItem('lang', v); } catch (e) {}
+    if (served) fetch('/api/settings', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ app: { language: v } }) }).catch(() => {});
+    applyLang(v);
+  };
 
   // ---------- Boot ----------
   const qid = new URLSearchParams(location.search).get('id') || '';
   av.id = qid;
   syncFields();
   setMode('drawn');
-  if (location.protocol.startsWith('http')) {
+  applyLang(langPref);
+  if (served) {
     fetch('/api/state').then((r) => r.json()).then((s) => {
       $('#sendApp').classList.remove('hidden');
+      if (s.settings && s.settings.app) applyLang(s.settings.app.language || 'auto');
       const existing = qid && s.avatars && s.avatars[qid];
       if (existing) load(existing);
       else if (!av.name && s.discord && s.discord.me && s.discord.me.id === qid) { av.name = s.discord.me.name; syncFields(); }

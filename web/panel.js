@@ -3,6 +3,7 @@
   'use strict';
   const $ = (s, r) => (r || document).querySelector(s);
   const $$ = (s, r) => [...(r || document).querySelectorAll(s)];
+  const t = I18N.t;
   let state = { settings: null, avatars: {}, discord: { members: [] }, app: {} };
 
   const api = (path, body, method) => fetch(path, { method: method || 'POST', headers: { 'Content-Type': 'application/json' }, body: body ? JSON.stringify(body) : undefined }).then((r) => r.json()).catch(() => ({ ok: false }));
@@ -68,7 +69,7 @@
       const map = { ' ': 'Space', ArrowUp: 'Up', ArrowDown: 'Down', ArrowLeft: 'Left', ArrowRight: 'Right', Escape: null };
       if (key in map) key = map[key];
       if (!key) { el.blur(); return; }
-      if (!parts.length && !/^F\d{1,2}$/.test(key)) { toast('Use at least one modifier (Ctrl, Alt or Shift)'); return; }
+      if (!parts.length && !/^F\d{1,2}$/.test(key)) { toast(t('Use at least one modifier (Ctrl, Alt or Shift)')); return; }
       const acc = [...parts, key].join('+');
       el.value = acc.replace('CommandOrControl', 'Ctrl');
       save(el.dataset.key, acc);
@@ -81,24 +82,24 @@
   function renderStatus() {
     const d = state.discord || {};
     const cls = STATUS_CLASS[d.status] || 'warn';
-    $('#dStatus').innerHTML = `<span class="${cls}">● ${escapeHtml(d.status || '—')}</span>`;
-    $('#dDetail').textContent = d.detail || '';
+    $('#dStatus').innerHTML = `<span class="${cls}">● ${escapeHtml(t(d.status || '—'))}</span>`;
+    $('#dDetail').textContent = d.detail ? d.detail.split(' — ').map((x) => t(x)).join(' — ') : '';
     $('#dMe').textContent = d.me ? d.me.name : '—';
-    $('#dChannel').textContent = d.channel ? d.channel.name || 'Private call' : 'none';
+    $('#dChannel').textContent = d.channel ? d.channel.name || t('Private call') : t('none');
     const tw = state.twitchStatus || {};
     const tcls = tw.status === 'connected' ? 'ok' : tw.status === 'error' ? 'err' : tw.status === 'off' ? '' : 'warn';
-    $('#tStatus').innerHTML = `<span class="${tcls}">● ${escapeHtml(tw.status || 'off')}</span> ${escapeHtml(tw.detail || '')}`;
-    $('#pill').innerHTML = `<span class="${cls}">●</span> ${escapeHtml(d.channel ? (d.channel.name || 'Call') : d.status || '')}`;
+    $('#tStatus').innerHTML = `<span class="${tcls}">● ${escapeHtml(t(tw.status || 'off'))}</span> ${escapeHtml(t(tw.detail || ''))}`;
+    $('#pill').innerHTML = `<span class="${cls}">●</span> ${escapeHtml(d.channel ? (d.channel.name || t('Call')) : t(d.status || ''))}`;
     const box = $('#members'); box.innerHTML = '';
     (d.members || []).forEach((m) => {
       const div = document.createElement('div');
       div.className = 'member' + (m.speaking ? ' speaking' : ''); div.dataset.id = m.id;
-      const custom = state.avatars[m.id] ? '<span class="tag">custom avatar</span>' : '<span class="tag">Discord picture</span>';
-      div.innerHTML = `<span class="dot"></span><span></span>${m.mute ? '<span class="tag">muted</span>' : ''}${m.deaf ? '<span class="tag">deafened</span>' : ''}${custom}`;
+      const custom = `<span class="tag">${t(state.avatars[m.id] ? 'custom avatar' : 'Discord picture')}</span>`;
+      div.innerHTML = `<span class="dot"></span><span></span>${m.mute ? `<span class="tag">${t('muted')}</span>` : ''}${m.deaf ? `<span class="tag">${t('deafened')}</span>` : ''}${custom}`;
       div.children[1].textContent = m.name;
       box.appendChild(div);
     });
-    if (!(d.members || []).length) box.innerHTML = '<span class="muted">Nobody yet — join a voice channel in Discord.</span>';
+    if (!(d.members || []).length) box.innerHTML = `<span class="muted">${t('Nobody yet — join a voice channel in Discord.')}</span>`;
     renderOnboarding();
   }
 
@@ -111,7 +112,7 @@
     ];
     const show = steps.some((x) => !x.done);
     $('#onboarding').classList.toggle('hidden', !show);
-    $('#steps').innerHTML = steps.map((x) => `<li class="${x.done ? 'done' : 'todo'}">${x.html}</li>`).join('');
+    $('#steps').innerHTML = steps.map((x) => `<li class="${x.done ? 'done' : 'todo'}">${t(x.html)}</li>`).join('');
     $$('[data-goto]').forEach((a) => (a.onclick = (e) => { e.preventDefault(); showTab(a.dataset.goto); }));
   }
 
@@ -119,25 +120,25 @@
   const UPD = { idle: '—', dev: 'Development build (updates disabled)', checking: 'Checking…', 'up-to-date': 'Up to date', downloading: 'Downloading', ready: 'Ready — restart to install', available: 'New version available', error: 'Error' };
   function renderApp() {
     const a = state.app || {};
-    $('#version').textContent = a.version ? 'v' + a.version + (a.portable ? ' · portable' : '') : '';
-    $('#appVersion').textContent = a.version ? 'v' + a.version + (a.portable ? ' (portable)' : ' (installed)') : '—';
+    $('#version').textContent = a.version ? 'v' + a.version + (a.portable ? ' · ' + t('portable') : '') : '';
+    $('#appVersion').textContent = a.version ? 'v' + a.version + ' ' + t(a.portable ? '(portable)' : '(installed)') : '—';
     const u = a.update || {};
-    let txt = UPD[u.status] || u.status || '—';
+    let txt = t(UPD[u.status] || u.status || '—');
     if (u.status === 'downloading') txt += ` v${u.latest} — ${u.progress || 0}%`;
     if (u.status === 'available' || u.status === 'ready') txt += ` (v${u.latest})`;
-    if (u.status === 'error') txt += ': ' + (u.error || '');
+    if (u.status === 'error') txt += ': ' + t(u.error || '');
     $('#updStatus').textContent = txt;
     const banner = $('#updateBanner');
     if (u.status === 'ready' || u.status === 'available') {
       banner.classList.remove('hidden');
-      $('#updateText').textContent = u.status === 'ready' ? `Version ${u.latest} is downloaded and ready.` : `Version ${u.latest} is available. The portable build can't update itself — grab the new .exe.`;
-      $('#updateBtn').textContent = u.status === 'ready' ? 'Restart & update' : 'Download';
+      $('#updateText').textContent = u.status === 'ready' ? t('Version {v} is downloaded and ready.', { v: u.latest }) : t("Version {v} is available. The portable build can't update itself — grab the new .exe.", { v: u.latest });
+      $('#updateBtn').textContent = t(u.status === 'ready' ? 'Restart & update' : 'Download');
     } else banner.classList.add('hidden');
-    for (const k of ['toggleOverlay', 'placement']) $('#hk-' + k).textContent = (a.hotkeyErrors || {})[k] || '';
+    for (const k of ['toggleOverlay', 'placement']) $('#hk-' + k).textContent = t((a.hotkeyErrors || {})[k] || '');
     const sel = $('#displaySelect');
-    const opts = (a.displays || []).map((d) => `<option value="${d.index}">${escapeHtml(d.label)}</option>`).join('');
+    const opts = (a.displays || []).map((d) => `<option value="${d.index}">${escapeHtml(d.label.replace('Primary', t('Primary')))}</option>`).join('');
     if (sel.dataset.opts !== opts) { sel.innerHTML = opts; sel.dataset.opts = opts; sel.value = state.settings.overlay.display; }
-    $$('[data-placement]').forEach((b) => (b.textContent = a.placement ? 'Finish placement' : b.dataset.label));
+    $$('[data-placement]').forEach((b) => (b.textContent = t(a.placement ? 'Finish placement' : b.dataset.label)));
   }
   $('#updateBtn').onclick = () => action('update-install');
   $('#checkUpdate').onclick = () => action('update-check');
@@ -157,17 +158,17 @@
   function renderAvatars() {
     const box = $('#avatarList'); box.innerHTML = '';
     const entries = Object.values(state.avatars || {}).sort((a, b) => String(a.name).localeCompare(String(b.name)));
-    if (!entries.length) { box.innerHTML = '<span class="muted">No avatars imported yet.</span>'; return; }
+    if (!entries.length) { box.innerHTML = `<span class="muted">${t('No avatars imported yet.')}</span>`; return; }
     entries.forEach((av) => {
       const card = document.createElement('div'); card.className = 'avatar-card';
       card.appendChild(previewCanvas(av));
-      const name = document.createElement('div'); name.textContent = av.name || '(no name)'; name.style.fontWeight = '700';
+      const name = document.createElement('div'); name.textContent = av.name || t('(no name)'); name.style.fontWeight = '700';
       const id = document.createElement('div'); id.className = 'id'; id.textContent = av.id;
       const btns = document.createElement('div'); btns.className = 'btns'; btns.style.justifyContent = 'center';
-      const edit = document.createElement('button'); edit.className = 'ghost'; edit.textContent = 'Edit';
+      const edit = document.createElement('button'); edit.className = 'ghost'; edit.textContent = t('Edit');
       edit.onclick = () => action('open-creator', { id: av.id });
-      const del = document.createElement('button'); del.className = 'danger'; del.textContent = 'Delete';
-      del.onclick = () => { if (confirm('Delete ' + (av.name || av.id) + '’s avatar?')) api('/api/avatars/' + encodeURIComponent(av.id), null, 'DELETE'); };
+      const del = document.createElement('button'); del.className = 'danger'; del.textContent = t('Delete');
+      del.onclick = () => { if (confirm(t('Delete {name}’s avatar?', { name: av.name || av.id }))) api('/api/avatars/' + encodeURIComponent(av.id), null, 'DELETE'); };
       btns.append(edit, del);
       card.append(name, id, btns);
       box.appendChild(card);
@@ -179,8 +180,8 @@
       const av = Puppet.decodeAny(text);
       const j = await api('/api/avatars', av);
       if (!j.ok) throw new Error(j.error || 'Import failed');
-      msg.innerHTML = `<span class="ok">✔ Imported ${escapeHtml(av.name || av.id)}’s avatar.</span>`;
-    } catch (e) { msg.innerHTML = `<span class="err">✖ ${escapeHtml(e.message && !/JSON|token/i.test(e.message) ? e.message : 'Unreadable code or file')}</span>`; }
+      msg.innerHTML = `<span class="ok">${escapeHtml(t('✔ Imported {name}’s avatar.', { name: av.name || av.id }))}</span>`;
+    } catch (e) { msg.innerHTML = `<span class="err">✖ ${escapeHtml(t(e.message && !/JSON|token/i.test(e.message) ? e.message : 'Unreadable code or file'))}</span>`; }
   }
   $('#importCodeBtn').onclick = () => { importAvatar($('#importCode').value); $('#importCode').value = ''; };
   $('#importCode').addEventListener('keydown', (e) => { if (e.key === 'Enter') $('#importCodeBtn').click(); });
@@ -197,17 +198,17 @@
   function renderCommands() {
     const s = state.settings.twitch, p = s.commandPrefix || '!';
     const disabled = s.disabledCommands || [];
-    $('#cmdList').innerHTML = '<div class="cmd-grid">' + COMMANDS.map(([c, d]) => `<label class="check"><input type="checkbox" data-cmd="${c}" ${disabled.includes(c) ? '' : 'checked'}> <code>${escapeHtml(p + c)}</code> <span class="muted">${escapeHtml(d)}</span></label>`).join('') + '</div>';
+    $('#cmdList').innerHTML = '<div class="cmd-grid">' + COMMANDS.map(([c, d]) => `<label class="check"><input type="checkbox" data-cmd="${c}" ${disabled.includes(c) ? '' : 'checked'}> <code>${escapeHtml(p + c)}</code> <span class="muted">${escapeHtml(t(d))}</span></label>`).join('') + '</div>';
     $$('[data-cmd]').forEach((el) => el.onchange = () => {
       const off = $$('[data-cmd]').filter((x) => !x.checked).map((x) => x.dataset.cmd);
       save('twitch.disabledCommands', off);
     });
   }
   $$('[data-test]').forEach((b) => (b.onclick = () => {
-    if (!state.settings.twitch.enabled && !state.settings.twitch.showOnDesktop) toast('Tip: the effect shows in the Status preview and in OBS');
+    if (!state.settings.twitch.enabled && !state.settings.twitch.showOnDesktop) toast(t('Tip: the effect shows in the Status preview and in OBS'));
     action('twitch-test', { kind: b.dataset.test });
   }));
-  $('#clearViewers').onclick = () => { if (confirm('Reset every viewer back to their default look?')) action('clear-viewers').then(() => toast('Viewer customisations cleared')); };
+  $('#clearViewers').onclick = () => { if (confirm(t('Reset every viewer back to their default look?'))) action('clear-viewers').then(() => toast(t('Viewer customisations cleared'))); };
 
   // ---------- OBS ----------
   function renderUrls() {
@@ -217,8 +218,8 @@
     $('#urlTwitch').textContent = origin + '/overlay.html?scene=twitch';
   }
   renderUrls();
-  $$('[data-copy]').forEach((b) => b.onclick = () => { navigator.clipboard.writeText($('#' + b.dataset.copy).textContent); toast('Copied to clipboard'); });
-  $('#reconnect').onclick = () => { action('reconnect'); toast('Reconnecting to Discord…'); };
+  $$('[data-copy]').forEach((b) => b.onclick = () => { navigator.clipboard.writeText($('#' + b.dataset.copy).textContent); toast(t('Copied to clipboard')); });
+  $('#reconnect').onclick = () => { action('reconnect'); toast(t('Reconnecting to Discord…')); };
 
   // ---------- Logo ----------
   (function logo() {
@@ -229,16 +230,19 @@
   })();
 
   // ---------- Live updates ----------
-  let lastAvatars = '', lastCmdKey = '';
+  let lastAvatars = '', lastCmdKey = '', langApplied = false;
   function connect() {
     const es = new EventSource('/api/events');
     es.onopen = () => $('#offline').classList.add('hidden');
     es.onerror = () => $('#offline').classList.remove('hidden');
     es.addEventListener('state', (e) => {
       state = JSON.parse(e.data);
+      // Language: translate static text once per change, then force the dynamic parts to re-render.
+      const langChanged = I18N.setLang((state.app && state.app.lang) || 'en') || !langApplied;
+      if (langChanged) { langApplied = true; I18N.apply(document.body); lastAvatars = ''; lastCmdKey = ''; $('#displaySelect').dataset.opts = ''; }
       fillInputs(); renderStatus(); renderApp();
       const av = JSON.stringify(state.avatars); if (av !== lastAvatars) { lastAvatars = av; renderAvatars(); }
-      const ck = (state.settings.twitch.commandPrefix || '') + JSON.stringify(state.settings.twitch.disabledCommands || []);
+      const ck = I18N.lang + (state.settings.twitch.commandPrefix || '') + JSON.stringify(state.settings.twitch.disabledCommands || []);
       if (ck !== lastCmdKey) { lastCmdKey = ck; renderCommands(); }
     });
     es.addEventListener('speaking', (e) => {

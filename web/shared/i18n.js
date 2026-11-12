@@ -1,0 +1,202 @@
+/*
+ * Minimal i18n shared by the pages (window.I18N) and the main process (require).
+ * Keys are the English strings themselves: anything missing simply stays in English.
+ * - t(str, vars): translate + replace {placeholders}
+ * - apply(root): translates text nodes, placeholders/titles, and [data-i18n-html] blocks (rich text)
+ * To add a language: add an entry to DICT and an <option> in the language selects.
+ */
+(function (root) {
+  'use strict';
+
+  const FR = {
+    // ----- navigation & common -----
+    'Status': 'Statut', 'Overlay': 'Overlay', 'Avatars': 'Avatars', 'Twitch': 'Twitch', 'OBS / Streamlabs': 'OBS / Streamlabs',
+    'Settings': 'Réglages', 'Discord setup': 'Config Discord', 'Discord': 'Discord', 'Copy': 'Copier', 'Import': 'Importer',
+    'Edit': 'Modifier', 'Delete': 'Supprimer', 'Enable': 'Activer', 'Size': 'Taille', 'Position': 'Position', 'Screen': 'Écran',
+    'None': 'Aucun', 'none': 'aucun', 'off': 'désactivé', 'Random': 'Aléatoire', 'Both': 'Les deux', 'Done': 'Terminé',
+    'Restart now': 'Redémarrer', 'Lost contact with the app — reconnecting…': 'Connexion à l’app perdue — reconnexion…',
+    'Language': 'Langue', 'Auto (system)': 'Auto (système)',
+
+    // ----- status tab -----
+    'Getting started': 'Pour commencer', 'Account': 'Compte', 'Voice channel': 'Salon vocal', 'Twitch chat': 'Chat Twitch',
+    'Reconnect / re-authorize Discord': 'Reconnecter / réautoriser Discord', 'Move puppets…': 'Déplacer les marionnettes…',
+    'Finish placement': 'Terminer le placement', 'In the channel': 'Dans le salon', 'Live preview': 'Aperçu en direct',
+    'The preview adds fake members and fake Twitch chat when there is nothing live, so you can tune settings.': 'L’aperçu ajoute de faux membres et un faux chat Twitch quand rien n’est en direct, pour régler tranquillement.',
+    'Private call': 'Appel privé', 'Call': 'Appel', 'call': 'appel', 'custom avatar': 'avatar perso', 'Discord picture': 'photo Discord',
+    'muted': 'muet', 'deafened': 'sourdine', 'Nobody yet — join a voice channel in Discord.': 'Personne pour l’instant — rejoins un salon vocal sur Discord.',
+    'Create the Discord application and paste its <b>Application ID</b> in <a href="#" data-goto="discord">Discord setup</a>.': 'Crée l’application Discord et colle son <b>Application ID</b> dans <a href="#" data-goto="discord">Config Discord</a>.',
+    'Make sure the <b>Discord desktop app</b> is running and click <b>Authorize</b> in its popup.': 'Vérifie que l’<b>application Discord</b> (bureau) est lancée et clique sur <b>Autoriser</b> dans sa fenêtre.',
+    '<a href="#" data-goto="avatars">Create your avatar</a> and share the file with your friends.': '<a href="#" data-goto="avatars">Crée ton avatar</a> et partage le fichier avec tes potes.',
+
+    // discord / twitch statuses & details
+    'connected': 'connecté', 'connecting': 'connexion…', 'disconnected': 'déconnecté', 'setup required': 'configuration requise',
+    'Discord not found': 'Discord introuvable', 'authorizing': 'autorisation', 'error': 'erreur', 'refused': 'refusé', 'starting': 'démarrage',
+    'reconnecting': 'reconnexion', 'Connection lost': 'Connexion perdue', 'Invalid channel name': 'Nom de chaîne invalide',
+    'Enter your Discord Application ID in Setup.': 'Renseigne l’Application ID Discord dans Config Discord.',
+    'Start the Discord desktop app (the browser version is not supported).': 'Lance l’application Discord pour PC (la version navigateur n’est pas prise en charge).',
+    'Discord closed or connection lost — retrying…': 'Discord fermé ou connexion perdue — nouvelle tentative…',
+    'Click “Authorize” in the Discord popup.': 'Clique sur « Autoriser » dans la fenêtre Discord.',
+    'Authorization was declined in Discord.': 'Autorisation refusée dans Discord.',
+    'make sure your account is an accepted App Tester of the Discord application.': 'vérifie que ton compte est bien testeur (invitation acceptée) de l’application Discord.',
+
+    // ----- overlay tab -----
+    'Desktop overlay': 'Overlay bureau', 'Show the overlay on my desktop': 'Afficher l’overlay sur mon bureau',
+    'Move puppets with the mouse…': 'Déplacer les marionnettes à la souris…',
+    'Bottom left': 'Bas gauche', 'Bottom center': 'Bas centre', 'Bottom right': 'Bas droite', 'Top left': 'Haut gauche', 'Top center': 'Haut centre', 'Top right': 'Haut droite',
+    'Custom (placement mode)': 'Personnalisée (mode placement)', 'Spacing': 'Espacement', 'Edge margin': 'Marge du bord', 'Max puppets': 'Marionnettes max',
+    'Behaviour': 'Comportement', 'Entrance': 'Entrée en scène', 'Walk in': 'En marchant', 'Drop from the sky': 'Chute du ciel', 'Pop': 'Apparition',
+    'Mute / deafen display': 'Affichage muet / sourdine', 'Tape & earmuffs': 'Scotch et cache-oreilles', 'Red badges': 'Badges rouges',
+    'Fall asleep after (minutes, 0 = never)': 'S’endort après (minutes, 0 = jamais)', 'Puppets look at whoever is speaking': 'Les marionnettes regardent celui qui parle',
+    'Show names': 'Afficher les pseudos', 'Show myself': 'M’afficher moi-même', 'Only show people while they speak': 'N’afficher que ceux qui parlent',
+    'Green ring while speaking': 'Halo vert quand on parle', 'Also show Twitch viewers on my desktop': 'Montrer aussi les spectateurs Twitch sur mon bureau',
+    'The overlay lets clicks through and stays on top. Games in <b>exclusive fullscreen</b> hide it — switch them to <b>borderless windowed</b>.': 'L’overlay laisse passer les clics et reste au premier plan. Les jeux en <b>plein écran exclusif</b> le masquent : passe-les en <b>fenêtré sans bordure</b>.',
+    'Primary': 'Principal',
+
+    // ----- avatars tab -----
+    "Your crew's avatars": 'Les avatars de la bande', 'Create / edit my avatar': 'Créer / modifier mon avatar', 'Import .puppet files': 'Importer des fichiers .puppet',
+    '…or paste a PUP1.xxxx code from a friend': '…ou colle un code PUP1.xxxx reçu d’un pote', 'Drop .puppet files anywhere in this window': 'Dépose des fichiers .puppet n’importe où dans cette fenêtre',
+    'Members without an imported avatar appear with their Discord profile picture cut into a puppet.': 'Les membres sans avatar importé apparaissent avec leur photo de profil Discord découpée en marionnette.',
+    'Shared sync (beta)': 'Synchro partagée (bêta)', 'URL of a shared JSON (e.g. the “Raw” link of a GitHub Gist)': 'URL d’un JSON partagé (ex. le lien « Raw » d’un GitHub Gist)',
+    'The JSON holds a list of exported avatars; every app re-reads it every 2 minutes. Avatars you import by hand take priority.': 'Le JSON contient la liste des avatars exportés ; chaque app le relit toutes les 2 minutes. Les avatars importés à la main restent prioritaires.',
+    'No avatars imported yet.': 'Aucun avatar importé pour l’instant.', '(no name)': '(sans nom)', 'Delete {name}’s avatar?': 'Supprimer l’avatar de {name} ?',
+    '✔ Imported {name}’s avatar.': '✔ Avatar de {name} importé.', 'Unreadable code or file': 'Code ou fichier illisible', 'Import failed': 'Import échoué',
+    'Missing or invalid Discord ID (17–20 digits)': 'ID Discord manquant ou invalide (17 à 20 chiffres)', 'Invalid avatar': 'Avatar invalide', 'Invalid photo': 'Photo invalide',
+
+    // ----- twitch tab -----
+    'Twitch viewers': 'Spectateurs Twitch', 'Twitch channel': 'Chaîne Twitch', 'your_channel': 'ta_chaine', 'Max viewers on screen': 'Spectateurs max à l’écran',
+    'Bubble duration (s)': 'Durée des bulles (s)', 'Leave after inactivity (min)': 'Départ après inactivité (min)', 'Side': 'Côté', 'Width used': 'Largeur occupée',
+    'Test:': 'Tester :', 'Chat message': 'Message', 'Command': 'Commande', 'Sub': 'Sub', 'Bits': 'Bits', 'Raid': 'Raid',
+    'Viewer style': 'Style des spectateurs', 'Clothes palette': 'Palette des vêtements', 'Vivid': 'Vive', 'Pastel': 'Pastel', 'Monochrome': 'Monochrome', 'My colours': 'Mes couleurs',
+    'My colours (comma separated)': 'Mes couleurs (séparées par des virgules)', 'Hats': 'Chapeaux', 'Beards & moustaches': 'Barbes et moustaches', 'Names': 'Pseudos',
+    'Names in their chat colour': 'Pseudos dans leur couleur de chat', 'Bubble background': 'Fond des bulles', 'Bubble text': 'Texte des bulles', 'Ignored accounts (bots)': 'Comptes ignorés (bots)',
+    'Chat commands': 'Commandes du chat', 'Viewers can use commands': 'Les spectateurs peuvent utiliser des commandes', "Don't show commands in bubbles": 'Ne pas afficher les commandes dans les bulles',
+    'Prefix': 'Préfixe', 'Action cooldown per viewer (s)': 'Délai entre actions par spectateur (s)', 'Style cooldown per viewer (s)': 'Délai entre changements de look (s)',
+    'Reset all viewer customisations': 'Réinitialiser tous les looks des spectateurs', 'Events': 'Événements', 'Raids: a crowd walks in': 'Raids : une foule entre en scène',
+    'Max raiders on screen': 'Raiders max à l’écran', 'Subs: confetti & celebration': 'Subs : confettis et célébration', 'Bits: confetti': 'Bits : confettis',
+    "Each viewer keeps the same character across streams (it's generated from their username) until they customise it with commands. Chat is read anonymously — no Twitch login needed.": 'Chaque spectateur garde le même personnage d’un live à l’autre (il est généré à partir de son pseudo) tant qu’il ne le personnalise pas avec des commandes. Le chat est lu anonymement, sans connexion Twitch.',
+    'jump': 'sauter', 'dance': 'danser', 'wave hello': 'faire coucou', 'hat crown / cap / none…': 'chapeau crown / cap / none…', 'hair afro / long…': 'cheveux afro / long…',
+    'outfit suit / dress…': 'tenue suit / dress…', 'eyes stars / glasses…': 'yeux stars / glasses…', 'color pink / #ff00aa': 'couleur pink / #ff00aa', 'hatcolor gold': 'couleur du chapeau gold',
+    'new random look': 'nouveau look au hasard', 'back to default look': 'retour au look d’origine', 'list commands': 'liste des commandes',
+    'Tip: the effect shows in the Status preview and in OBS': 'Astuce : l’effet s’affiche dans l’aperçu de Statut et dans OBS',
+    'Reset every viewer back to their default look?': 'Remettre tous les spectateurs à leur look d’origine ?', 'Viewer customisations cleared': 'Looks des spectateurs réinitialisés',
+
+    // ----- OBS tab -----
+    'Add a <b>Browser Source</b> with one of these URLs (width 1920, height 1080). The background is transparent.': 'Ajoute une <b>Source Navigateur</b> avec une de ces URL (largeur 1920, hauteur 1080). Le fond est transparent.',
+    'Discord + Twitch': 'Discord + Twitch', 'Discord only': 'Discord seul', 'Twitch only': 'Twitch seul',
+    'Keep the app running while streaming. Changes you make here apply live in OBS. Positions are relative, so they match whatever canvas size you use.': 'Garde l’app lancée pendant le stream. Les réglages faits ici s’appliquent en direct dans OBS. Les positions sont relatives : elles s’adaptent à la taille de ta scène.',
+    'Copied to clipboard': 'Copié dans le presse-papiers', 'Reconnecting to Discord…': 'Reconnexion à Discord…',
+
+    // ----- settings tab -----
+    'Launch with Windows (starts hidden in the tray)': 'Lancer avec Windows (démarre caché dans la zone de notification)', 'Check for updates automatically': 'Rechercher les mises à jour automatiquement',
+    'Keyboard shortcuts': 'Raccourcis clavier', 'Show / hide overlay': 'Afficher / masquer l’overlay', 'Move puppets (placement mode)': 'Déplacer les marionnettes (mode placement)',
+    'Click, then press keys': 'Clique, puis appuie sur les touches', 'Click a field and press your combination (e.g. Ctrl+Shift+O). Backspace clears it.': 'Clique sur un champ et tape ta combinaison (ex. Ctrl+Shift+O). Retour arrière l’efface.',
+    'Use at least one modifier (Ctrl, Alt or Shift)': 'Utilise au moins une touche Ctrl, Alt ou Shift', 'Already used by another app': 'Déjà utilisé par une autre app', 'Invalid shortcut': 'Raccourci invalide',
+    'Updates': 'Mises à jour', 'Version': 'Version', 'Check now': 'Vérifier maintenant', 'Troubleshooting': 'Dépannage', 'Open logs folder': 'Ouvrir le dossier des logs',
+    'Back up settings & avatars…': 'Sauvegarder réglages et avatars…', '(portable)': '(portable)', '(installed)': '(installée)', 'portable': 'portable',
+    'Development build (updates disabled)': 'Version de développement (mises à jour désactivées)', 'Checking…': 'Vérification…', 'Up to date': 'À jour', 'Downloading': 'Téléchargement',
+    'Ready — restart to install': 'Prête — redémarre pour installer', 'New version available': 'Nouvelle version disponible', 'Error': 'Erreur',
+    'Version {v} is downloaded and ready.': 'La version {v} est téléchargée et prête.',
+    "Version {v} is available. The portable build can't update itself — grab the new .exe.": 'La version {v} est disponible. La version portable ne peut pas se mettre à jour seule : télécharge le nouvel .exe.',
+    'Restart & update': 'Redémarrer et mettre à jour', 'Download': 'Télécharger',
+    'No published update found yet (the GitHub repository must be public).': 'Aucune mise à jour publiée pour l’instant (le dépôt GitHub doit être public).',
+    'Offline — will retry later.': 'Hors ligne — nouvel essai plus tard.', 'No public release found (is the GitHub repository public?)': 'Aucune release publique trouvée (le dépôt GitHub est-il public ?)',
+
+    // ----- discord setup tab -----
+    'Discord Application ID': 'Application ID Discord', 'Redirect URI': 'Redirect URI', 'Advanced: Client Secret (only if “Public Client” is off)': 'Avancé : Client Secret (seulement si « Public Client » est désactivé)',
+    'leave empty when Public Client is on': 'laisser vide si Public Client est activé', 'One-time setup (done by whoever manages the app)': 'Mise en place unique (par la personne qui gère l’app)',
+    'Open <a href="https://discord.com/developers/applications" target="_blank">discord.com/developers/applications</a> → <b>New Application</b>.': 'Ouvre <a href="https://discord.com/developers/applications" target="_blank">discord.com/developers/applications</a> → <b>New Application</b>.',
+    '<b>OAuth2</b> tab: add the redirect <code>http://localhost</code> and turn on <b>Public Client</b>.': 'Onglet <b>OAuth2</b> : ajoute la redirection <code>http://localhost</code> et active <b>Public Client</b>.',
+    "<b>App Testers</b> tab: invite everyone who will <i>run</i> the app (max 50). Each must <b>accept the invite</b>. Friends who only appear in your channel don't need anything.": 'Onglet <b>App Testers</b> : invite chaque personne qui <i>lancera</i> l’app (50 max). Chacune doit <b>accepter l’invitation</b>. Les potes qui apparaissent seulement dans ton salon n’ont rien à faire.',
+    'Copy the <b>Application ID</b> above (or bake it into the build via the <code>DISCORD_CLIENT_ID</code> repo variable).': 'Copie l’<b>Application ID</b> ci-dessus (ou intègre-le au build via la variable <code>DISCORD_CLIENT_ID</code> du dépôt).',
+    "On first connection Discord shows an authorization popup: click “Authorize”. It won't ask again.": 'À la première connexion, Discord affiche une fenêtre d’autorisation : clique sur « Autoriser ». Il ne le redemandera plus.',
+
+    // ----- creator -----
+    'Avatar Creator — Puppet Overlay': 'Créateur d’avatar — Puppet Overlay', 'Avatar creator': 'Créateur d’avatar', 'Avatar Creator': 'Créateur d’avatar',
+    '🗣 Hold to talk': '🗣 Maintenir pour parler', 'Auto animation': 'Animation auto', 'Display name': 'Pseudo affiché', 'Discord user ID': 'ID Discord', '17–20 digits': '17 à 20 chiffres',
+    'Where do I find my Discord ID?': 'Où trouver mon ID Discord ?',
+    'Discord Settings → Advanced → turn on <b>Developer Mode</b>. Then right-click your name → <b>Copy User ID</b>.': 'Paramètres Discord → Avancés → active le <b>Mode développeur</b>. Ensuite, clic droit sur ton pseudo → <b>Copier l’identifiant de l’utilisateur</b>.',
+    '✔ Save to my overlay': '✔ Enregistrer dans mon overlay', '⬇ .puppet file': '⬇ Fichier .puppet', 'Copy code': 'Copier le code',
+    'Open an existing avatar (code or file)': 'Ouvrir un avatar existant (code ou fichier)', 'Load code': 'Charger le code', 'Load a file': 'Charger un fichier',
+    '✏️ From scratch': '✏️ De zéro', '📷 From a photo': '📷 À partir d’une photo', '🎲 Random': '🎲 Aléatoire', 'Choose a photo': 'Choisir une photo',
+    'Drag to position the face, use the wheel or slider to zoom.': 'Fais glisser pour placer le visage, molette ou curseur pour zoomer.', 'Zoom': 'Zoom',
+    'Mouth line (where the head opens)': 'Ligne de la bouche (là où la tête s’ouvre)', 'Head shape': 'Forme de la tête',
+    'Tip: frame the face inside the oval, then move the orange line to the mouth.': 'Astuce : cadre le visage dans l’ovale, puis place la ligne orange au niveau de la bouche.',
+    'Eyes': 'Yeux', 'Eyebrows': 'Sourcils', 'Hair': 'Cheveux', 'Hat': 'Chapeau', 'Facial hair': 'Pilosité', 'Outfit': 'Tenue', 'Skin': 'Peau', 'Eye colour': 'Couleur des yeux',
+    'Hair / beard': 'Cheveux / barbe', 'Clothes': 'Vêtements', 'Details': 'Détails', 'Custom colour': 'Couleur perso',
+    'Round': 'Rond', 'Oval': 'Ovale', 'Square': 'Carré', 'Pear': 'Poire', 'Dots': 'Points', 'Sleepy': 'Endormis', 'Stars': 'Étoiles', 'Glasses': 'Lunettes', 'Angry': 'Colère',
+    'Thin': 'Fins', 'Thick': 'Épais', 'Frown': 'Froncés', 'Surprised': 'Surpris', 'Short': 'Court', 'Spiky': 'Pointes', 'Bowl': 'Bol', 'Long': 'Long', 'Bun': 'Chignon',
+    'Mohawk': 'Crête', 'Afro': 'Afro', 'Beanie': 'Bonnet', 'Cap': 'Casquette', 'Crown': 'Couronne', 'Headphones': 'Casque audio', 'Tophat': 'Haut-de-forme',
+    'Beard': 'Barbe', 'Goatee': 'Bouc', 'Mustache': 'Moustache', 'Jacket': 'Veste', 'Sweater': 'Pull', 'Dress': 'Robe', 'Suit': 'Costume',
+    'Choose a photo first.': 'Choisis d’abord une photo.',
+    'Enter your Discord user ID (17–20 digits) so your friends’ apps can recognise you.': 'Renseigne ton ID Discord (17 à 20 chiffres) pour que les apps de tes potes te reconnaissent.',
+    '✔ File downloaded — send it to your friends; they drop it into their Avatars tab.': '✔ Fichier téléchargé : envoie-le à tes potes, ils le déposent dans leur onglet Avatars.',
+    'Photo avatars are too large for a code — use the .puppet file.': 'Un avatar photo est trop lourd pour un code : utilise le fichier .puppet.',
+    'Photo avatars are too large for a code — share the .puppet file instead.': 'Un avatar photo est trop lourd pour un code : partage plutôt le fichier .puppet.',
+    '✔ Code copied ({n} characters). Paste it to your friends on Discord.': '✔ Code copié ({n} caractères). Colle-le à tes potes sur Discord.',
+    '✔ Saved to your overlay. Remember to share the file or code with your friends too.': '✔ Enregistré dans ton overlay. Pense aussi à partager le fichier ou le code avec tes potes.',
+    '✔ Avatar loaded.': '✔ Avatar chargé.', '✖ Unreadable code.': '✖ Code illisible.', '✖ Unreadable file.': '✖ Fichier illisible.',
+
+    // ----- overlay -----
+    'Drag a group to move it  ·  Mouse wheel to resize  ·  Esc or click Done to finish': 'Fais glisser un groupe pour le déplacer  ·  Molette pour redimensionner  ·  Échap ou Terminé pour finir',
+    'Discord voice': 'Vocal Discord', 'Puppet Overlay app not reachable — retrying…': 'App Puppet Overlay injoignable — nouvelle tentative…',
+
+    // ----- tray / notifications (main process) -----
+    'Discord: {s}': 'Discord : {s}', 'Open panel': 'Ouvrir le panneau', 'Show overlay': 'Afficher l’overlay', 'Reconnect Discord': 'Reconnecter Discord',
+    'Restart to update (v{v})': 'Redémarrer pour mettre à jour (v{v})', 'Download v{v}': 'Télécharger la v{v}', 'Quit': 'Quitter',
+    'Puppet Overlay is still running': 'Puppet Overlay tourne toujours', 'It lives in the system tray. Right-click the icon to quit.': 'L’app reste dans la zone de notification. Clic droit sur l’icône pour quitter.',
+    'Update ready': 'Mise à jour prête', 'Puppet Overlay {v} will install when you restart the app.': 'Puppet Overlay {v} s’installera au prochain redémarrage de l’app.',
+  };
+
+  const DICT = { en: {}, fr: FR };
+  const LANGS = [{ code: 'en', label: 'English' }, { code: 'fr', label: 'Français' }];
+  let lang = 'en';
+
+  const norm = (s) => String(s).replace(/\s+/g, ' ').trim();
+  function resolve(pref, systemLocale) {
+    if (pref && pref !== 'auto' && DICT[pref]) return pref;
+    const sys = String(systemLocale || (typeof navigator !== 'undefined' ? navigator.language : 'en') || 'en').slice(0, 2).toLowerCase();
+    return DICT[sys] ? sys : 'en';
+  }
+  function setLang(l) { const changed = l !== lang; lang = DICT[l] ? l : 'en'; return changed; }
+  function t(str, vars) {
+    let out = (DICT[lang] && DICT[lang][str]) || (DICT[lang] && DICT[lang][norm(str)]) || str;
+    if (vars) out = out.replace(/\{(\w+)\}/g, (m, k) => (vars[k] != null ? vars[k] : m));
+    return out;
+  }
+
+  // ---- DOM application (pages only). Originals are remembered so switching back works. ----
+  const textSrc = typeof WeakMap !== 'undefined' ? new WeakMap() : null;
+  function apply(rootEl) {
+    if (typeof document === 'undefined') return;
+    rootEl = rootEl || document.body;
+    rootEl.querySelectorAll('[data-i18n-html]').forEach((el) => {
+      if (el.dataset.i18nSrc == null) el.dataset.i18nSrc = norm(el.innerHTML);
+      el.innerHTML = t(el.dataset.i18nSrc);
+    });
+    const walker = document.createTreeWalker(rootEl, NodeFilter.SHOW_TEXT, {
+      acceptNode: (n) => (n.parentElement && (n.parentElement.closest('[data-i18n-html],script,style,code,[data-no-i18n]')) ? NodeFilter.FILTER_REJECT : NodeFilter.FILTER_ACCEPT),
+    });
+    const nodes = []; while (walker.nextNode()) nodes.push(walker.currentNode);
+    for (const n of nodes) {
+      if (!textSrc.has(n)) { if (!norm(n.nodeValue)) continue; textSrc.set(n, n.nodeValue); }
+      const src = textSrc.get(n);
+      const key = norm(src);
+      const lead = src.match(/^\s*/)[0], trail = src.match(/\s*$/)[0];
+      n.nodeValue = lead + t(key) + trail;
+    }
+    rootEl.querySelectorAll('[placeholder],[title]').forEach((el) => {
+      for (const attr of ['placeholder', 'title']) {
+        if (!el.hasAttribute(attr)) continue;
+        const k = 'i18n' + attr;
+        if (el.dataset[k] == null) el.dataset[k] = el.getAttribute(attr);
+        el.setAttribute(attr, t(el.dataset[k]));
+      }
+    });
+    if (document.title) { if (!document.documentElement.dataset.i18nTitle) document.documentElement.dataset.i18nTitle = document.title; document.title = t(document.documentElement.dataset.i18nTitle); }
+    document.documentElement.lang = lang;
+  }
+
+  const api = { t, apply, setLang, resolve, LANGS, get lang() { return lang; } };
+  if (typeof module !== 'undefined' && module.exports) module.exports = api;
+  else root.I18N = api;
+})(typeof window !== 'undefined' ? window : globalThis);

@@ -46,14 +46,14 @@
         <label>Discord user ID <input id="discordId" inputmode="numeric" placeholder="17–20 digits"></label>
       </div>
       <details class="muted" style="margin-top:8px"><summary>Where do I find my Discord ID?</summary>
-        Discord Settings → Advanced → turn on <b>Developer Mode</b>. Then right-click your name → <b>Copy User ID</b>.
+        <span data-i18n-html>Discord Settings → Advanced → turn on <b>Developer Mode</b>. Then right-click your name → <b>Copy User ID</b>.</span>
       </details>
       <div class="btns">
         <button id="sendApp" class="hidden">✔ Save to my overlay</button>
         <button id="dlFile">⬇ .puppet file</button>
         <button id="copyCode" class="ghost">Copy code</button>
       </div>
-      <div id="msg" class="muted" style="margin-top:8px"></div>
+      <div id="msg" data-no-i18n class="muted" style="margin-top:8px"></div>
       <details style="margin-top:10px"><summary class="muted">Open an existing avatar (code or file)</summary>
         <textarea id="loadCode" placeholder="PUP1.…"></textarea>
         <div class="btns"><button id="loadBtn" class="ghost">Load code</button><label class="button ghost">Load a file<input type="file" id="loadFile" accept=".puppet,.json" hidden></label></div>
@@ -62,7 +62,8 @@
   </div>
 
   <div>
-    <h1>Avatar creator</h1>
+    <div style="display:flex;align-items:center;justify-content:space-between;gap:12px"><h1>Avatar creator</h1>
+      <select id="lang" title="Language"><option value="auto">🌐 Auto</option><option value="en">English</option><option value="fr">Français</option></select></div>
     <div class="modes">
       <button data-mode="drawn" class="on">✏️ From scratch</button>
       <button data-mode="photo">📷 From a photo</button>
@@ -86,9 +87,10 @@
       </div>
     </div>
 
-    <div id="options"></div>
+    <div id="options" data-no-i18n></div>
   </div>
 </div>
+<script src="shared/i18n.js"></script>
 <script src="shared/puppet.js"></script>
 <script src="creator.js"></script>
 </body>

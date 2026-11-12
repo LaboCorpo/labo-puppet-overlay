@@ -17,12 +17,12 @@
     <button class="tab" data-tab="general">Settings</button>
     <button class="tab" data-tab="discord">Discord setup</button>
     <div class="grow"></div>
-    <div class="status-pill" id="pill">…</div>
-    <div class="version" id="version"></div>
+    <div class="status-pill" id="pill" data-no-i18n>…</div>
+    <div class="version" id="version" data-no-i18n></div>
   </nav>
 
   <main>
-    <div id="updateBanner" class="banner hidden"><span id="updateText"></span><button id="updateBtn">Restart now</button></div>
+    <div id="updateBanner" class="banner hidden"><span id="updateText" data-no-i18n></span><button id="updateBtn" data-no-i18n>Restart now</button></div>
     <div id="offline" class="banner err hidden">Lost contact with the app — reconnecting…</div>
 
     <!-- STATUS -->
@@ -30,21 +30,21 @@
       <h1>Status</h1>
       <div id="onboarding" class="card onboarding hidden">
         <h2 style="margin-top:0">Getting started</h2>
-        <ol id="steps"></ol>
+        <ol id="steps" data-no-i18n></ol>
       </div>
       <div class="card">
-        <div class="row"><b>Discord</b><span id="dStatus">—</span></div>
-        <div class="muted" id="dDetail"></div>
-        <div class="row"><b>Account</b><span id="dMe">—</span></div>
-        <div class="row"><b>Voice channel</b><span id="dChannel">none</span></div>
-        <div class="row"><b>Twitch chat</b><span id="tStatus">off</span></div>
+        <div class="row"><b>Discord</b><span id="dStatus" data-no-i18n>—</span></div>
+        <div class="muted" id="dDetail" data-no-i18n></div>
+        <div class="row"><b>Account</b><span id="dMe" data-no-i18n>—</span></div>
+        <div class="row"><b>Voice channel</b><span id="dChannel" data-no-i18n>none</span></div>
+        <div class="row"><b>Twitch chat</b><span id="tStatus" data-no-i18n>off</span></div>
         <div class="btns">
           <button id="reconnect" class="ghost">Reconnect / re-authorize Discord</button>
           <button class="ghost" data-placement>Move puppets…</button>
         </div>
       </div>
       <h2>In the channel</h2>
-      <div id="members" class="members"></div>
+      <div id="members" data-no-i18n class="members"></div>
       <h2>Live preview</h2>
       <div class="preview checker"><iframe id="preview" src="overlay.html?scene=all&test=1"></iframe></div>
       <p class="muted">The preview adds fake members and fake Twitch chat when there is nothing live, so you can tune settings.</p>
@@ -62,7 +62,7 @@
             <option value="top-left">Top left</option><option value="top-center">Top center</option><option value="top-right">Top right</option>
             <option value="custom">Custom (placement mode)</option>
           </select></label>
-        <label>Screen <select data-key="overlay.display" data-number id="displaySelect"></select></label>
+        <label>Screen <select data-key="overlay.display" data-number id="displaySelect" data-no-i18n></select></label>
         <label>Size <input type="range" min="0.3" max="1.6" step="0.05" data-key="overlay.scale"><output></output></label>
         <label>Spacing <input type="range" min="70" max="260" step="5" data-key="overlay.spacing"><output></output></label>
         <label>Edge margin <input type="range" min="0" max="200" step="5" data-key="overlay.margin"><output></output></label>
@@ -82,7 +82,7 @@
         <label class="check"><input type="checkbox" data-key="overlay.glow"> Green ring while speaking</label>
         <label class="check"><input type="checkbox" data-key="twitch.showOnDesktop"> Also show Twitch viewers on my desktop</label>
       </div>
-      <p class="muted">The overlay lets clicks through and stays on top. Games in <b>exclusive fullscreen</b> hide it — switch them to <b>borderless windowed</b>.</p>
+      <p class="muted" data-i18n-html>The overlay lets clicks through and stays on top. Games in <b>exclusive fullscreen</b> hide it — switch them to <b>borderless windowed</b>.</p>
     </section>
 
     <!-- AVATARS -->
@@ -97,10 +97,10 @@
           <input id="importCode" placeholder="…or paste a PUP1.xxxx code from a friend">
           <button id="importCodeBtn">Import</button>
         </div>
-        <div id="importMsg" class="muted"></div>
+        <div id="importMsg" data-no-i18n class="muted"></div>
         <div class="drop" id="drop">Drop .puppet files anywhere in this window</div>
       </div>
-      <div id="avatarList" class="avatar-grid"></div>
+      <div id="avatarList" data-no-i18n class="avatar-grid"></div>
       <p class="muted">Members without an imported avatar appear with their Discord profile picture cut into a puppet.</p>
       <h2>Shared sync (beta)</h2>
       <div class="card grid">
@@ -148,7 +148,7 @@
         <label>Prefix <input data-key="twitch.commandPrefix" maxlength="3" style="width:80px"></label>
         <label>Action cooldown per viewer (s) <input type="number" min="0" max="120" data-key="twitch.actionCooldown"></label>
         <label>Style cooldown per viewer (s) <input type="number" min="0" max="300" data-key="twitch.styleCooldown"></label>
-        <div class="wide" id="cmdList"></div>
+        <div class="wide" id="cmdList" data-no-i18n></div>
         <div class="wide btns" style="margin:0"><button class="danger" id="clearViewers">Reset all viewer customisations</button></div>
       </div>
       <h2>Events</h2>
@@ -165,7 +165,7 @@
     <section data-panel="obs">
       <h1>OBS / Streamlabs</h1>
       <div class="card">
-        <p>Add a <b>Browser Source</b> with one of these URLs (width 1920, height 1080). The background is transparent.</p>
+        <p data-i18n-html>Add a <b>Browser Source</b> with one of these URLs (width 1920, height 1080). The background is transparent.</p>
         <div class="url"><code id="urlAll"></code><button data-copy="urlAll">Copy</button><span class="muted">Discord + Twitch</span></div>
         <div class="url"><code id="urlDiscord"></code><button data-copy="urlDiscord">Copy</button><span class="muted">Discord only</span></div>
         <div class="url"><code id="urlTwitch"></code><button data-copy="urlTwitch">Copy</button><span class="muted">Twitch only</span></div>
@@ -177,6 +177,9 @@
     <section data-panel="general">
       <h1>Settings</h1>
       <div class="card grid">
+        <label>Language
+          <select data-key="app.language"><option value="auto">Auto (system)</option><option value="en">English</option><option value="fr">Français</option></select></label>
+        <div></div>
         <label class="check"><input type="checkbox" data-key="app.launchAtStartup"> Launch with Windows (starts hidden in the tray)</label>
         <label class="check"><input type="checkbox" data-key="app.autoUpdate"> Check for updates automatically</label>
       </div>
@@ -188,8 +191,8 @@
       </div>
       <h2>Updates</h2>
       <div class="card">
-        <div class="row"><b>Version</b><span id="appVersion">—</span></div>
-        <div class="row"><b>Status</b><span id="updStatus">—</span></div>
+        <div class="row"><b>Version</b><span id="appVersion" data-no-i18n>—</span></div>
+        <div class="row"><b>Status</b><span id="updStatus" data-no-i18n>—</span></div>
         <div class="btns"><button class="ghost" id="checkUpdate">Check now</button></div>
       </div>
       <h2>Troubleshooting</h2>
@@ -212,10 +215,10 @@
       <div class="card">
         <h2 style="margin-top:0">One-time setup (done by whoever manages the app)</h2>
         <ol>
-          <li>Open <a href="https://discord.com/developers/applications" target="_blank">discord.com/developers/applications</a> → <b>New Application</b>.</li>
-          <li><b>OAuth2</b> tab: add the redirect <code>http://localhost</code> and turn on <b>Public Client</b>.</li>
-          <li><b>App Testers</b> tab: invite everyone who will <i>run</i> the app (max 50). Each must <b>accept the invite</b>. Friends who only appear in your channel don't need anything.</li>
-          <li>Copy the <b>Application ID</b> above (or bake it into the build via the <code>DISCORD_CLIENT_ID</code> repo variable).</li>
+          <li data-i18n-html>Open <a href="https://discord.com/developers/applications" target="_blank">discord.com/developers/applications</a> → <b>New Application</b>.</li>
+          <li data-i18n-html><b>OAuth2</b> tab: add the redirect <code>http://localhost</code> and turn on <b>Public Client</b>.</li>
+          <li data-i18n-html><b>App Testers</b> tab: invite everyone who will <i>run</i> the app (max 50). Each must <b>accept the invite</b>. Friends who only appear in your channel don't need anything.</li>
+          <li data-i18n-html>Copy the <b>Application ID</b> above (or bake it into the build via the <code>DISCORD_CLIENT_ID</code> repo variable).</li>
         </ol>
         <p class="muted">On first connection Discord shows an authorization popup: click “Authorize”. It won't ask again.</p>
       </div>
@@ -223,6 +226,7 @@
   </main>
 </div>
 <div id="toast" class="toast"></div>
+<script src="shared/i18n.js"></script>
 <script src="shared/puppet.js"></script>
 <script src="panel.js"></script>
 </body>

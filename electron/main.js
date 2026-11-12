@@ -13,6 +13,8 @@ const { DiscordVoiceRPC } = require('./discord-rpc');
 const { TwitchChat } = require('./twitch');
 const { Updater } = require('./updater');
 const { createLogger } = require('./log');
+const I18N = require('../web/shared/i18n.js');
+const t = I18N.t;
 
 if (!app.requestSingleInstanceLock()) { app.quit(); process.exit(0); }
 
@@ -29,6 +31,7 @@ let placement = false;
 let hotkeyErrors = {};
 
 function base() { return `http://127.0.0.1:${port}`; }
+function syncLang() { I18N.setLang(I18N.resolve(store.settings.app.language, app.getLocale())); }
 
 process.on('uncaughtException', (e) => { if (log) log.error('uncaught: ' + (e && e.stack || e)); });
 process.on('unhandledRejection', (e) => { if (log) log.error('unhandled rejection: ' + (e && e.stack || e)); });
@@ -39,7 +42,7 @@ function appState() {
     discord: rpc ? rpc.snapshot() : { status: 'starting', members: [] },
     twitchStatus: twitch ? twitch.snapshot() : { status: 'off' },
     app: {
-      version: app.getVersion(), placement, hotkeyErrors,
+      version: app.getVersion(), placement, hotkeyErrors, lang: I18N.lang,
       update: updater ? updater.state : null,
       portable: !!process.env.PORTABLE_EXECUTABLE_FILE,
       displays: screen.getAllDisplays().map((d, i) => ({ index: i, label: `${i === 0 ? 'Primary — ' : ''}${d.size.width}×${d.size.height}`, primary: d.id === screen.getPrimaryDisplay().id })),
@@ -165,7 +168,7 @@ function openPanel() {
     e.preventDefault(); panelWin.hide();
     if (!store.settings.app.firstRunDone) {
       store.updateSettings({ app: { firstRunDone: true } });
-      if (Notification.isSupported()) new Notification({ title: 'Puppet Overlay is still running', body: 'It lives in the system tray. Right-click the icon to quit.', icon: ICON }).show();
+      if (Notification.isSupported()) new Notification({ title: t('Puppet Overlay is still running'), body: t('It lives in the system tray. Right-click the icon to quit.'), icon: ICON }).show();
     }
   });
 }
@@ -173,7 +176,7 @@ function openPanel() {
 function openCreator(url) {
   const target = url || `${base()}/creator.html`;
   if (creatorWin && !creatorWin.isDestroyed()) { creatorWin.loadURL(target); creatorWin.show(); creatorWin.focus(); return; }
-  creatorWin = new BrowserWindow({ width: 1200, height: 820, minWidth: 760, minHeight: 600, title: 'Avatar Creator', icon: ICON, autoHideMenuBar: true, backgroundColor: '#17151c', show: false });
+  creatorWin = new BrowserWindow({ width: 1200, height: 820, minWidth: 760, minHeight: 600, title: t('Avatar Creator'), icon: ICON, autoHideMenuBar: true, backgroundColor: '#17151c', show: false });
   creatorWin.loadURL(target);
   creatorWin.once('ready-to-show', () => creatorWin.show());
   creatorWin.webContents.setWindowOpenHandler(({ url: u }) => { if (/^https:\/\//.test(u)) shell.openExternal(u); return { action: 'deny' }; });
@@ -187,19 +190,20 @@ function updateTray() {
   const up = updater && updater.state;
   const hk = store.settings.app.hotkeys;
   const pretty = (a) => (a ? a.replace('CommandOrControl', 'Ctrl') : undefined);
-  tray.setToolTip(`Puppet Overlay ${app.getVersion()} — Discord: ${d.status}${d.channel ? ' · ' + (d.channel.name || 'call') : ''}`);
+  const dLine = t('Discord: {s}', { s: t(d.status) + (d.channel ? ' · ' + (d.channel.name || t('call')) : '') });
+  tray.setToolTip(`Puppet Overlay ${app.getVersion()} — ${dLine}`);
   const items = [
-    { label: `Discord: ${d.status}${d.channel ? ' · ' + (d.channel.name || 'call') : ''}`, enabled: false },
+    { label: dLine, enabled: false },
     { type: 'separator' },
-    { label: 'Open panel', click: openPanel },
-    { label: 'Avatar creator', click: () => openCreator() },
+    { label: t('Open panel'), click: openPanel },
+    { label: t('Avatar creator'), click: () => openCreator() },
     { type: 'separator' },
-    { label: 'Show overlay', type: 'checkbox', checked: ov, accelerator: pretty(hk.toggleOverlay), click: toggleOverlay },
-    { label: placement ? 'Finish placement' : 'Move puppets…', accelerator: pretty(hk.placement), click: () => setPlacement(!placement) },
-    { label: 'Reconnect Discord', click: () => rpc && rpc.restart() },
+    { label: t('Show overlay'), type: 'checkbox', checked: ov, accelerator: pretty(hk.toggleOverlay), click: toggleOverlay },
+    { label: t(placement ? 'Finish placement' : 'Move puppets…'), accelerator: pretty(hk.placement), click: () => setPlacement(!placement) },
+    { label: t('Reconnect Discord'), click: () => rpc && rpc.restart() },
   ];
-  if (up && (up.status === 'ready' || up.status === 'available')) items.push({ type: 'separator' }, { label: up.status === 'ready' ? `Restart to update (v${up.latest})` : `Download v${up.latest}`, click: () => updater.install() });
-  items.push({ type: 'separator' }, { label: 'Quit', click: () => { quitting = true; app.quit(); } });
+  if (up && (up.status === 'ready' || up.status === 'available')) items.push({ type: 'separator' }, { label: up.status === 'ready' ? t('Restart to update (v{v})', { v: up.latest }) : t('Download v{v}', { v: up.latest }), click: () => updater.install() });
+  items.push({ type: 'separator' }, { label: t('Quit'), click: () => { quitting = true; app.quit(); } });
   tray.setContextMenu(Menu.buildFromTemplate(items));
 }
 
@@ -237,6 +241,7 @@ function applySettings(patch) {
   if (changed('twitch')) twitch.sync();
   if (JSON.stringify(prev.app.hotkeys) !== JSON.stringify(s.app.hotkeys)) registerHotkeys();
   if (prev.app.launchAtStartup !== s.app.launchAtStartup) applyLoginItem();
+  if (prev.app.language !== s.app.language) syncLang();
   push();
 }
 
@@ -271,6 +276,7 @@ app.whenReady().then(async () => {
   log = createLogger(path.join(app.getPath('userData'), 'logs'));
   log.info(`Puppet Overlay ${app.getVersion()} starting${START_HIDDEN ? ' (hidden)' : ''}`);
   store = new Store(app.getPath('userData'), bundled);
+  syncLang();
   srv = createServer({ webDir: WEB_DIR, store, getState: appState, onSettings: applySettings, onAction });
 
   // Port: try the configured one, then the next few.
@@ -285,7 +291,7 @@ app.whenReady().then(async () => {
   updater = new Updater(log);
   updater.on('change', (st) => {
     push();
-    if (st.status === 'ready' && Notification.isSupported()) new Notification({ title: 'Update ready', body: `Puppet Overlay ${st.latest} will install when you restart the app.`, icon: ICON }).show();
+    if (st.status === 'ready' && Notification.isSupported()) new Notification({ title: t('Update ready'), body: t('Puppet Overlay {v} will install when you restart the app.', { v: st.latest }), icon: ICON }).show();
   });
   updater.start(4, () => store.settings.app.autoUpdate);
 

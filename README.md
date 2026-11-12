@@ -18,6 +18,7 @@ A Discord voice overlay where everyone in your call is a cut-paper puppet: the t
 - **Placement mode**: drag the Discord and Twitch groups with the mouse and use the scroll wheel to resize them. Positions are relative, so they carry over to OBS.
 - **Global shortcuts** (configurable): `Ctrl+Shift+O` shows or hides the overlay, `Ctrl+Shift+P` turns placement mode on and off.
 - **Launch with Windows**: off by default. When on, the app starts hidden in the tray.
+- **Languages**: English and French (Settings → Language). *Auto* follows the Windows language. To add a language, add a dictionary in `web/shared/i18n.js`.
 - **Auto-update** from GitHub Releases. The installed version updates itself; the portable version tells you when a new release is out.
 - **Twitch viewers**
   - each viewer gets a stable random puppet, with chat bubbles

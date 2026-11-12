@@ -10,6 +10,7 @@
 (function () {
   'use strict';
   const P = Puppet;
+  const t = I18N.t;
   const params = new URLSearchParams(location.search);
   const SCENE = params.get('scene') || 'all';
   const DEMO = params.get('demo') === '1';
@@ -46,6 +47,7 @@
     if (s.avatars) avatars = s.avatars;
     if (s.viewers) { overrides = s.viewers; restyleAll(); }
     if (s.discord) members = s.discord.members || [];
+    if (s.app && s.app.lang) I18N.setLang(s.app.lang);
     placement = DESKTOP && !!(s.app && s.app.placement);
     document.body.classList.toggle('placing', placement);
   }
@@ -61,7 +63,7 @@
     es.addEventListener('twitch-event', (e) => onTwitchEvent(JSON.parse(e.data)));
     es.addEventListener('viewer', (e) => { const d = JSON.parse(e.data); if (d.override) overrides[d.login] = d.override; else delete overrides[d.login]; restyle(d.login); });
     es.addEventListener('viewers-reset', () => { overrides = {}; restyleAll(); });
-    es.onerror = () => { if (!DESKTOP) return; hint.style.display = 'block'; hint.textContent = 'Puppet Overlay app not reachable — retrying…'; };
+    es.onerror = () => { if (!DESKTOP) return; hint.style.display = 'block'; hint.textContent = t('Puppet Overlay app not reachable — retrying…'); };
     es.onopen = () => { hint.style.display = 'none'; };
   }
 
@@ -375,16 +377,16 @@
       if (!r) continue;
       ctx.setLineDash([10, 8]); ctx.lineWidth = 3; ctx.strokeStyle = drag && drag.key === k ? '#ffffff' : '#ff7a45';
       ctx.strokeRect(r.x, r.y, r.w, r.h); ctx.setLineDash([]);
-      ctx.font = '700 14px "Segoe UI", sans-serif'; ctx.fillStyle = '#ff7a45'; ctx.fillText(k === 'discord' ? 'Discord voice' : 'Twitch viewers', r.x + 6, r.y - 8);
+      ctx.font = '700 14px "Segoe UI", sans-serif'; ctx.fillStyle = '#ff7a45'; ctx.fillText(t(k === 'discord' ? 'Discord voice' : 'Twitch viewers'), r.x + 6, r.y - 8);
     }
-    const msg = 'Drag a group to move it  ·  Mouse wheel to resize  ·  Esc or click Done to finish';
+    const msg = t('Drag a group to move it  ·  Mouse wheel to resize  ·  Esc or click Done to finish');
     ctx.font = '600 16px "Segoe UI", sans-serif';
     const w = ctx.measureText(msg).width + 150;
     ctx.fillStyle = '#211e28'; ctx.fillRect(W / 2 - w / 2, 24, w, 48); ctx.strokeStyle = '#3a3545'; ctx.lineWidth = 1; ctx.strokeRect(W / 2 - w / 2, 24, w, 48);
     ctx.fillStyle = '#f2eef7'; ctx.textBaseline = 'middle'; ctx.fillText(msg, W / 2 - w / 2 + 16, 48);
     doneBtn = { x: W / 2 + w / 2 - 100, y: 32, w: 84, h: 32 };
     ctx.fillStyle = '#ff7a45'; ctx.fillRect(doneBtn.x, doneBtn.y, doneBtn.w, doneBtn.h);
-    ctx.fillStyle = '#1b1015'; ctx.textAlign = 'center'; ctx.fillText('Done', doneBtn.x + doneBtn.w / 2, doneBtn.y + 17);
+    ctx.fillStyle = '#1b1015'; ctx.textAlign = 'center'; ctx.fillText(t('Done'), doneBtn.x + doneBtn.w / 2, doneBtn.y + 17);
     ctx.restore();
   }
   let drag = null, doneBtn = null;
