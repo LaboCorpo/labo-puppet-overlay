@@ -15,14 +15,14 @@ const DEFAULTS = {
   },
   discord: { clientId: '', clientSecret: '', redirectUri: 'http://localhost' },
   overlay: {
-    enabled: true, anchor: 'bottom-left', pos: { x: 0.15, y: 0.92 }, scale: 0.8, spacing: 120, margin: 30,
+    enabled: true, layout: 'horizontal', anchor: 'bottom-left', pos: { x: 0.15, y: 0.92 }, scale: 0.8, spacing: 120, margin: 30,
     showNames: true, hideIdle: false, showSelf: true, glow: false, maxVisible: 12, display: 0,
     entrance: 'random', exit: 'random', statusStyle: 'props', sleepMinutes: 10, lookAtSpeaker: true,
   },
   twitch: {
     enabled: false, channel: '', scale: 0.5, maxViewers: 20, bubbleSeconds: 7, idleMinutes: 10,
     palette: 'vivid', colors: [], hats: true, beards: true, showNames: true, useChatColor: false,
-    anchor: 'bottom-right', pos: { x: 0.75, y: 0.95 }, widthRatio: 0.55,
+    layout: 'horizontal', anchor: 'bottom-right', pos: { x: 0.75, y: 0.95 }, widthRatio: 0.55,
     ignore: 'nightbot, streamelements, streamlabs, moobot, fossabot',
     bubbleBg: '#ffffff', bubbleFg: '#1d1a1f', showOnDesktop: false,
     commandsEnabled: true, commandPrefix: '!', hideCommands: true, disabledCommands: [],

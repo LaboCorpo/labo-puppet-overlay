@@ -57,6 +57,8 @@
       <div class="card grid">
         <label class="check"><input type="checkbox" data-key="overlay.enabled"> Show the overlay on my desktop</label>
         <div class="btns" style="margin:0"><button data-placement>Move puppets with the mouse…</button></div>
+        <label>Layout
+          <select data-key="overlay.layout"><option value="horizontal">Horizontal (row)</option><option value="vertical">Vertical (column)</option></select></label>
         <label>Position
           <select data-key="overlay.anchor">
             <option value="bottom-left">Bottom left</option><option value="bottom-center">Bottom center</option><option value="bottom-right">Bottom right</option>
@@ -132,9 +134,11 @@
         <label>Max viewers on screen <input type="number" min="1" max="80" data-key="twitch.maxViewers"></label>
         <label>Bubble duration (s) <input type="number" min="2" max="30" data-key="twitch.bubbleSeconds"></label>
         <label>Leave after inactivity (min) <input type="number" min="1" max="120" data-key="twitch.idleMinutes"></label>
+        <label>Layout
+          <select data-key="twitch.layout"><option value="horizontal">Horizontal (row)</option><option value="vertical">Vertical (column)</option></select></label>
         <label>Side
           <select data-key="twitch.anchor"><option value="bottom-right">Bottom right</option><option value="bottom-left">Bottom left</option><option value="custom">Custom (placement mode)</option></select></label>
-        <label>Width used <input type="range" min="0.2" max="1" step="0.05" data-key="twitch.widthRatio"><output></output></label>
+        <label>Screen length used <input type="range" min="0.2" max="1" step="0.05" data-key="twitch.widthRatio"><output></output></label>
       </div>
       <div class="btns"><span class="muted" style="align-self:center">Test:</span>
         <button class="ghost" data-test="chat">Chat message</button><button class="ghost" data-test="command">Command</button>

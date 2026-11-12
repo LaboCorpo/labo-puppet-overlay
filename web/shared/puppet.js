@@ -25,16 +25,17 @@
     pattern: ['none', 'stripes', 'dots', 'stars', 'checks'],
     neckwear: ['none', 'scarf', 'bowtie', 'tie', 'necklace', 'medal'],
     held: ['none', 'mug', 'controller', 'sword', 'flower', 'phone', 'pizza', 'balloon'],
+    heldLayer: ['behind', 'front'],
   };
   // Numeric sliders: [min, max, default]
   const SLIDERS = {
     headSize: [0.85, 1.25, 1], headWidth: [0.85, 1.2, 1], headHeight: [0.85, 1.2, 1], mouthHeight: [0.45, 0.75, 0.62],
     eyeSize: [0.7, 1.4, 1], eyeSpacing: [0.75, 1.3, 1], eyeHeight: [-1, 1, 0], eyeTilt: [-0.5, 0.5, 0],
     browSize: [0.6, 1.6, 1], browHeight: [-1, 1, 0], browTilt: [-0.6, 0.6, 0], browSpacing: [0.7, 1.4, 1],
-    glassesSize: [0.7, 1.4, 1], noseSize: [0.6, 1.6, 1], noseHeight: [-1, 1, 0], cheekSize: [0.6, 1.6, 1],
+    glassesSize: [0.7, 1.4, 1], glassesHeight: [-1, 1, 0], glassesSpacing: [0.7, 1.4, 1], noseSize: [0.6, 1.6, 1], noseHeight: [-1, 1, 0], cheekSize: [0.6, 1.6, 1],
     hairSize: [0.85, 1.25, 1], hairHeight: [-1, 1, 0], beardSize: [0.7, 1.4, 1],
     hatSize: [0.7, 1.4, 1], hatHeight: [-1, 1, 0], hatTilt: [-0.5, 0.5, 0],
-    bodyWidth: [0.8, 1.3, 1], bodyHeight: [0.85, 1.2, 1], heldSize: [0.6, 1.6, 1],
+    bodyWidth: [0.8, 1.3, 1], bodyHeight: [0.85, 1.2, 1], heldSize: [0.6, 1.6, 1], heldHeight: [0, 1, 0], heldX: [-1, 1, 0],
   };
   // Transform helper: scale/rotate around a pivot, optionally shifted.
   function around(ctx, px, py, sc, rot, dx, dy) {
@@ -83,7 +84,7 @@
       hat: 'none', hatColor: PALETTES.cloth[0],
       outfit: 'jacket', pattern: 'none', clothColor: PALETTES.cloth[5], accentColor: PALETTES.cloth[2],
       bodyWidth: 1, bodyHeight: 1,
-      neckwear: 'none', neckColor: PALETTES.cloth[0], held: 'none',
+      neckwear: 'none', neckColor: PALETTES.cloth[0], held: 'none', heldLayer: 'behind',
       photo: null, photoSplit: 0.58,
       ...Object.fromEntries(Object.entries(SLIDERS).map(([k, v]) => [k, v[2]])),
     };
@@ -422,8 +423,7 @@
     }
     // mitten hands (right one can wave)
     const hand = a.outfit === 'tshirt' ? (a.skin || '#ffe0c2') : shade(c, -25);
-    if (a.held && a.held !== 'none') { ctx.save(); ctx.translate(-44, -44); ctx.scale(1.4 * (a.heldSize || 1), 1.4 * (a.heldSize || 1)); ctx.translate(44, 44); drawHeld(ctx, a, st); ctx.restore(); }
-    mitten(ctx, -40, -40, 0.3, hand); // mitten in front of the item = it's being held
+    if (a.heldLayer !== 'front') drawLeftHand(ctx, a, st, hand, c);
     const w = st.wave || 0;
     if (w > 0) {
       const wig = Math.sin((st.time || 0) * 14) * 0.35;
@@ -434,6 +434,21 @@
     } else {
       mitten(ctx, 40, -40, -0.3, hand);
     }
+  }
+
+  // Left hand + held item. The hand can be raised/moved (heldHeight/heldX) and drawn in front of the head.
+  function drawLeftHand(ctx, a, st, hand, cloth) {
+    const hx = -40 + (a.heldX || 0) * 30, hy = -40 - (a.heldHeight || 0) * 85;
+    if (hx !== -40 || hy !== -40) {
+      // arm from the shoulder to the moved hand
+      ctx.beginPath(); ctx.moveTo(-26, -80); ctx.quadraticCurveTo(-46, (hy - 80) / 2 + 8, hx, hy + 6);
+      ctx.lineWidth = 12; ctx.strokeStyle = OUTLINE; ctx.stroke(); ctx.lineWidth = 7; ctx.strokeStyle = a.outfit === 'tshirt' ? hand : cloth; ctx.stroke();
+    }
+    if (a.held && a.held !== 'none') {
+      const k = 1.4 * (a.heldSize || 1);
+      ctx.save(); ctx.translate(hx - 4, hy - 4); ctx.scale(k, k); ctx.translate(44, 44); drawHeld(ctx, a, st); ctx.restore();
+    }
+    mitten(ctx, hx, hy, 0.3, hand); // mitten in front of the item = it's being held
   }
 
   // Item held in the left mitten (-40, -40).
@@ -553,8 +568,8 @@
   function drawGlasses(ctx, a) {
     if (!a.glasses || a.glasses === 'none') return;
     const es = a.eyeSize || 1;
-    const y = HEAD.cy - 12 + (a.eyeHeight || 0) * 12;
-    const dx = 22 * (a.eyeSpacing || 1);
+    const y = HEAD.cy - 12 + (a.eyeHeight || 0) * 12 + (a.glassesHeight || 0) * 16;
+    const dx = 22 * (a.eyeSpacing || 1) * (a.glassesSpacing || 1);
     const c = a.glassesColor || OUTLINE;
     const L = HEAD.cx - dx - 4, R = HEAD.cx + dx - 4, r = 14 * es * (a.glassesSize || 1);
     ctx.lineWidth = 3.5; ctx.strokeStyle = c;
@@ -976,6 +991,12 @@
 
     // neckwear sits in front of the chin
     if (a.neckwear && a.neckwear !== 'none') { ctx.save(); ctx.scale(a.bodyWidth || 1, a.bodyHeight || 1); drawNeckwear(ctx, a); ctx.restore(); }
+    if (a.heldLayer === 'front') {
+      const c = a.clothColor || '#3498db';
+      ctx.save(); ctx.scale(a.bodyWidth || 1, a.bodyHeight || 1);
+      drawLeftHand(ctx, a, st, a.outfit === 'tshirt' ? (a.skin || '#ffe0c2') : shade(c, -25), c);
+      ctx.restore();
+    }
 
     ctx.restore(); // puppet transform
 
@@ -1052,12 +1073,25 @@
     if (lines.length === maxLines && words.join(' ').length > lines.join(' ').length) lines[maxLines - 1] = lines[maxLines - 1].replace(/.{0,2}$/, '…');
     const w = Math.min(maxW, Math.max(...lines.map((l) => ctx.measureText(l).width)) + pad * 2);
     const h = lines.length * lineH + pad * 2 - 4 * s;
-    const bx = Math.max(4, Math.min((opts.viewW || ctx.canvas.width) - w - 4, x - w / 2)), by = headTopY - h - 16 * s;
     ctx.globalAlpha = opts.alpha == null ? 1 : opts.alpha;
     ctx.fillStyle = opts.bg || '#ffffff';
-    rr(ctx, bx, by, w, h, 10 * s); ctx.fill(); stroke(ctx, 2.5);
-    ctx.beginPath(); ctx.moveTo(x - 8 * s, by + h - 1); ctx.lineTo(x, by + h + 12 * s); ctx.lineTo(x + 6 * s, by + h - 1); ctx.closePath(); ctx.fill();
-    ctx.beginPath(); ctx.moveTo(x - 8 * s, by + h); ctx.lineTo(x, by + h + 12 * s); ctx.lineTo(x + 6 * s, by + h); stroke(ctx, 2.5);
+    let bx, by;
+    if (opts.side) {
+      // Beside the head (vertical layouts), tail pointing at the puppet.
+      const gap = opts.sideGap || 60 * s, ty = headTopY + 22 * s;
+      bx = opts.side === 'left' ? x - gap - w : x + gap;
+      bx = Math.max(4, Math.min((opts.viewW || ctx.canvas.width) - w - 4, bx));
+      by = ty - h / 2;
+      rr(ctx, bx, by, w, h, 10 * s); ctx.fill(); stroke(ctx, 2.5);
+      const ex = opts.side === 'left' ? bx + w : bx, dir = opts.side === 'left' ? 1 : -1;
+      ctx.beginPath(); ctx.moveTo(ex - dir, ty - 7 * s); ctx.lineTo(ex + dir * 12 * s, ty + 2 * s); ctx.lineTo(ex - dir, ty + 6 * s); ctx.closePath(); ctx.fill();
+      ctx.beginPath(); ctx.moveTo(ex, ty - 7 * s); ctx.lineTo(ex + dir * 12 * s, ty + 2 * s); ctx.lineTo(ex, ty + 6 * s); stroke(ctx, 2.5);
+    } else {
+      bx = Math.max(4, Math.min((opts.viewW || ctx.canvas.width) - w - 4, x - w / 2)); by = headTopY - h - 16 * s;
+      rr(ctx, bx, by, w, h, 10 * s); ctx.fill(); stroke(ctx, 2.5);
+      ctx.beginPath(); ctx.moveTo(x - 8 * s, by + h - 1); ctx.lineTo(x, by + h + 12 * s); ctx.lineTo(x + 6 * s, by + h - 1); ctx.closePath(); ctx.fill();
+      ctx.beginPath(); ctx.moveTo(x - 8 * s, by + h); ctx.lineTo(x, by + h + 12 * s); ctx.lineTo(x + 6 * s, by + h); stroke(ctx, 2.5);
+    }
     ctx.fillStyle = opts.fg || '#1d1a1f'; ctx.textBaseline = 'top';
     lines.forEach((l, i) => ctx.fillText(l, bx + pad, by + pad + i * lineH));
     ctx.restore();

@@ -45,6 +45,8 @@
       { type: 'opt', key: 'glasses', label: 'Glasses', photo: true },
       { type: 'color', key: 'glassesColor', label: 'Glasses colour', pal: 'cloth', photo: true },
       { type: 'slider', key: 'glassesSize', label: 'Glasses size', photo: true },
+      { type: 'slider', key: 'glassesHeight', label: 'Glasses height', photo: true },
+      { type: 'slider', key: 'glassesSpacing', label: 'Glasses spacing', photo: true },
     ] },
     { id: 'hair', label: 'Hair', items: [
       { type: 'opt', key: 'hair', label: 'Hair' },
@@ -72,6 +74,9 @@
       { type: 'color', key: 'neckColor', label: 'Neckwear colour', pal: 'cloth', photo: true },
       { type: 'opt', key: 'held', label: 'In hand', photo: true },
       { type: 'slider', key: 'heldSize', label: 'Item size', photo: true },
+      { type: 'opt', key: 'heldLayer', label: 'Item layer', photo: true },
+      { type: 'slider', key: 'heldHeight', label: 'Raise the item', photo: true },
+      { type: 'slider', key: 'heldX', label: 'Item left / right', photo: true },
     ] },
   ];
   let tab = 'head';

@@ -191,6 +191,11 @@
     'Accepted: a GitHub Gist link, or any raw file URL. The file can contain one <code>PUP1.…</code> code per line, or JSON exported avatars. Every app re-reads it every 2 minutes. Avatars you import by hand take priority.': 'Accepté : un lien GitHub Gist, ou l’URL brute de n’importe quel fichier. Le fichier peut contenir un code <code>PUP1.…</code> par ligne, ou des avatars exportés en JSON. Chaque app le relit toutes les 2 minutes. Les avatars importés à la main restent prioritaires.',
     '⟳ Sync now': '⟳ Synchroniser', '✔ {n} avatars synced': '✔ {n} avatars synchronisés', '✖ Sync failed: {e}': '✖ Échec de la synchro : {e}', 'Syncing…': 'Synchronisation…',
 
+    // ----- v0.7 -----
+    'Layout': 'Disposition', 'Horizontal (row)': 'Horizontale (rangée)', 'Vertical (column)': 'Verticale (colonne)', 'Screen length used': 'Longueur d’écran utilisée',
+    'Glasses height': 'Hauteur des lunettes', 'Glasses spacing': 'Écart des lunettes', 'Item layer': 'Position de l’objet', 'Behind': 'Derrière la tête', 'Front': 'Devant la tête',
+    'Raise the item': 'Lever l’objet', 'Item left / right': 'Objet gauche / droite',
+
     // ----- tray / notifications (main process) -----
     'Discord: {s}': 'Discord : {s}', 'Open panel': 'Ouvrir le panneau', 'Show overlay': 'Afficher l’overlay', 'Reconnect Discord': 'Reconnecter Discord',
     'Restart to update (v{v})': 'Redémarrer pour mettre à jour (v{v})', 'Download v{v}': 'Télécharger la v{v}', 'Quit': 'Quitter',

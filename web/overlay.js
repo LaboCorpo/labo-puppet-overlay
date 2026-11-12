@@ -101,6 +101,7 @@
       overlay: { enabled: true, anchor: 'bottom-left', scale: 0.8, spacing: 120, margin: 30, showNames: true, entrance: 'random', statusStyle: 'props', sleepMinutes: 0.3, lookAtSpeaker: true, maxVisible: 12 },
       twitch: { enabled: true, scale: 0.5, maxViewers: 20, bubbleSeconds: 7, idleMinutes: 10, palette: 'vivid', hats: true, beards: true, showNames: true, anchor: 'bottom-right', widthRatio: 0.55, raidEffects: true, raidMax: 15, subEffects: true, bitsEffects: true },
     };
+    if (params.get('layout')) { settings.overlay.layout = params.get('layout'); settings.twitch.layout = params.get('layout'); }
     makeFakeMembers(); fakeChatLoop();
     setTimeout(() => onTwitchEvent({ type: 'sub', login: 'kiwi', display: 'kiwi', text: 'Thanks for the sub!' }), 4000);
   }
@@ -117,21 +118,34 @@
   // Slots are as wide as each puppet's own scale, so a bigger puppet pushes its neighbours away.
   function discordLayout(scales) {
     const cfg = settings.overlay;
-    const s = cfg.scale || 0.8, gap = (cfg.spacing || 120) * s / 0.8, margin = cfg.margin || 30;
+    const s = cfg.scale || 0.8, margin = cfg.margin || 30;
+    const vertical = cfg.layout === 'vertical';
+    // Horizontal: gap between feet; vertical: gap between baselines (puppets overlap a little, like a stack).
+    const gap = vertical ? 235 * s * (cfg.spacing || 120) / 120 : (cfg.spacing || 120) * s / 0.8;
     const offs = []; let cur = 0;
     scales.forEach((sc, i) => { if (i > 0) cur += gap * (scales[i - 1] + sc) / 2; offs.push(cur); });
     const total = cur;
-    const first = scales[0] || 1, lastS = scales[scales.length - 1] || 1;
+    const first = scales[0] || 1, lastS = scales[scales.length - 1] || 1, maxS = Math.max(1, ...scales);
     const anchor = cfg.anchor || 'bottom-left';
+    if (vertical) {
+      // Column: first puppet at the anchored end (bottom for bottom anchors, top for top anchors).
+      let x, yStart, dir;
+      if (anchor === 'custom' && cfg.pos) { x = cfg.pos.x * W; yStart = cfg.pos.y * H; dir = -1; }
+      else {
+        x = anchor.endsWith('left') ? margin + 70 * s * maxS : anchor.endsWith('right') ? W - margin - 70 * s * maxS : W / 2;
+        if (anchor.startsWith('top')) { yStart = margin + 230 * s * first; dir = 1; } else { yStart = H - margin - 30 * s; dir = -1; }
+      }
+      return { xs: offs.map(() => x), ys: offs.map((o) => yStart + dir * o), s, vertical, total };
+    }
     let x0, y;
     if (anchor === 'custom' && cfg.pos) { x0 = cfg.pos.x * W - total / 2; y = cfg.pos.y * H; }
     else {
       if (anchor.endsWith('left')) x0 = margin + 60 * s * first;
       else if (anchor.endsWith('right')) x0 = W - margin - 60 * s * lastS - total;
       else x0 = W / 2 - total / 2;
-      y = anchor.startsWith('top') ? margin + 230 * s * Math.max(1, ...scales) : H - margin - 30 * s;
+      y = anchor.startsWith('top') ? margin + 230 * s * maxS : H - margin - 30 * s;
     }
-    return { xs: offs.map((o) => x0 + o), y, s };
+    return { xs: offs.map((o) => x0 + o), ys: offs.map(() => y), s, vertical, total };
   }
 
   // Per-member settings (hide / nickname / size) and manual order from the panel.
@@ -157,12 +171,12 @@
       let e = dEnts.get(m.id);
       const tx = L.xs[i];
       if (!e) {
-        e = { id: m.id, anim: new P.Animator(m.id), x: tx, y: L.y, vy: 0, enter: pickEntrance(cfg.entrance), age: 0, leaving: -1 };
+        e = { id: m.id, anim: new P.Animator(m.id), x: tx, y: L.ys[i], vy: 0, enter: pickEntrance(cfg.entrance), age: 0, leaving: -1 };
         if (e.enter === 'walk') e.x = tx < W / 2 ? -120 : W + 120;
-        if (e.enter === 'drop') e.y = -260 * L.s;
+        if (e.enter === 'drop') e.y = L.ys[i] - H;
         dEnts.set(m.id, e);
       }
-      e.member = m; e.tx = tx; e.ty = L.y; e.s = L.s * scales[i];
+      e.member = m; e.tx = tx; e.ty = L.ys[i]; e.s = L.s * scales[i];
       if (e.leaving >= 0 && !e.forceLeave) { e.leaving = -1; e.scaleMul = 1; e.exit = null; }
     });
     for (const e of dEnts.values()) if (!ids.has(e.id) && e.leaving < 0) startExit(e);
@@ -321,7 +335,7 @@
 
   function drawDiscord(t) {
     const cfg = settings.overlay;
-    const ents = [...dEnts.values()].sort((a, b) => a.x - b.x);
+    const ents = [...dEnts.values()].sort((a, b) => a.ty - b.ty || a.x - b.x);
     for (const e of ents) {
       const m = e.member;
       const f = e.fx || {};
@@ -458,13 +472,31 @@
   function twitchLayout() {
     const cfg = settings.twitch;
     const s = cfg.scale || 0.5;
+    const anchor = cfg.anchor || 'bottom-right';
+    const fromRight = anchor !== 'bottom-left';
+    if (cfg.layout === 'vertical') {
+      // Columns along the side edge, filled bottom-up; bubbles open sideways toward the screen.
+      const vgap = 210 * s, colGap = 230 * s, areaH = H * (cfg.widthRatio || 0.55);
+      let colX, baseY;
+      if (anchor === 'custom' && cfg.pos) { colX = cfg.pos.x * W; baseY = cfg.pos.y * H; }
+      else { colX = fromRight ? W - 20 - 60 * s : 20 + 60 * s; baseY = H - 20 - 20 * s; }
+      const perCol = Math.max(1, Math.floor(areaH / vgap));
+      const slot = (i) => { const c = Math.floor(i / perCol), r = i % perCol; return { x: colX + (fromRight ? -1 : 1) * c * colGap, y: baseY - r * vgap, col: c }; };
+      const rect = { x: fromRight ? colX - colGap * 1.4 : colX - 70 * s, y: baseY - areaH - 60 * s, w: colGap * 1.4 + 70 * s, h: areaH + 80 * s };
+      return { s, vertical: true, fromRight, slot, rect, baseY };
+    }
     const gap = 95 * s / 0.5;
     const areaW = W * (cfg.widthRatio || 0.55);
-    const anchor = cfg.anchor || 'bottom-right';
-    let left, baseY, fromRight = anchor !== 'bottom-left';
+    let left, baseY;
     if (anchor === 'custom' && cfg.pos) { left = cfg.pos.x * W - areaW / 2; baseY = cfg.pos.y * H; }
     else { left = fromRight ? W - 20 - areaW : 20; baseY = H - 20 - 20 * s; }
-    return { s, gap, areaW, left, baseY, fromRight, perRow: Math.max(1, Math.floor(areaW / gap)) };
+    const perRow = Math.max(1, Math.floor(areaW / gap));
+    const slot = (i) => {
+      const row = Math.floor(i / perRow), col = i % perRow;
+      const off = col * gap + (row % 2) * gap / 2 + 50 * s;
+      return { x: fromRight ? left + areaW - off : left + off, y: baseY - row * 120 * s, col };
+    };
+    return { s, vertical: false, fromRight, slot, rect: { x: left, y: baseY - 210 * s, w: areaW, h: 250 * s }, baseY };
   }
 
   function updateTwitch(dt, t) {
@@ -475,11 +507,8 @@
     const list = [...viewers.values()].filter((v) => v.leaving < 0).sort((a, b) => a.joined - b.joined);
     list.forEach((v, i) => {
       if ((v.temp && now > v.expires) || (!v.temp && now - v.lastMsg > idle)) { v.leaving = 0; return; }
-      const row = Math.floor(i / L.perRow), col = i % L.perRow;
-      const off = col * L.gap + (row % 2) * L.gap / 2 + 50 * L.s;
-      v.tx = L.fromRight ? L.left + L.areaW - off : L.left + off;
-      v.ty = L.baseY - row * 120 * L.s;
-      v.col = col;
+      const sl = L.slot(i);
+      v.tx = sl.x; v.ty = sl.y; v.col = sl.col;
       if (v.x == null) { v.x = L.fromRight ? W + 80 : -80; v.y = v.ty; }
     });
     for (const v of [...viewers.values()]) {
@@ -507,12 +536,13 @@
       const st = v.anim.state(t);
       if (v.walking) st.bob -= Math.abs(Math.sin(t * 14 + v.x * 0.01)) * 7;
       st.scaleMul = v.leaving >= 0 ? Math.max(0, 1 - v.leaving / 0.22) : (v.pop != null ? 1 + Math.sin(v.pop / 0.5 * Math.PI) * 0.18 : 1);
-      P.draw(ctx, v.avatar, st, { x: v.x, y: v.y, scale: L.s, flip: v.walking ? v.tx > v.x : v.x < W / 2, name: cfg.showNames !== false && v.display && v.leaving < 0 ? v.display : null, labelColor: cfg.useChatColor ? v.color : null });
+      P.draw(ctx, v.avatar, st, { x: v.x, y: v.y, scale: L.s, flip: v.walking ? v.tx > v.x : (L.vertical ? !L.fromRight : v.x < W / 2), name: cfg.showNames !== false && v.display && v.leaving < 0 ? v.display : null, labelColor: cfg.useChatColor ? v.color : null });
       if (v.leaving >= 0) P.drawPoof(ctx, v.x, v.y - 120 * L.s, L.s, Math.min(1, v.leaving / 0.7));
       if (v.msg && now < v.msgUntil && v.leaving < 0) {
         const alpha = Math.min(1, (v.msgUntil - now) / 0.5);
-        const headTop = v.y + st.bob * L.s + P.headTopLocal(v.avatar) * L.s - (v.col % 2) * 46 * L.s;
-        Puppet.drawBubble(ctx, v.msg, v.x, headTop, Math.max(0.75, L.s * 1.4), { alpha, bg: v.system ? '#2b2633' : cfg.bubbleBg, fg: v.system ? '#ffd166' : cfg.bubbleFg, viewW: W, maxLines: v.system ? 4 : 3 });
+        const headTop = v.y + st.bob * L.s + P.headTopLocal(v.avatar) * L.s - (L.vertical ? 0 : (v.col % 2) * 46 * L.s);
+        Puppet.drawBubble(ctx, v.msg, v.x, headTop, Math.max(0.75, L.s * 1.4), { alpha, bg: v.system ? '#2b2633' : cfg.bubbleBg, fg: v.system ? '#ffd166' : cfg.bubbleFg, viewW: W, maxLines: v.system ? 4 : 3,
+          side: L.vertical ? (L.fromRight ? 'left' : 'right') : null, sideGap: 70 * L.s });
       }
     }
   }
@@ -553,12 +583,11 @@
   function groupRects() {
     const ds = [...dEnts.values()].filter((e) => e.leaving < 0);
     if (ds.length && SCENE !== 'twitch') {
-      const s = Math.max(...ds.map((e) => e.s)); const xs = ds.map((e) => e.tx);
-      groups.discord = { x: Math.min(...xs) - 75 * s, y: ds[0].ty - 270 * s, w: Math.max(...xs) - Math.min(...xs) + 150 * s, h: 310 * s };
+      const s = Math.max(...ds.map((e) => e.s)); const xs = ds.map((e) => e.tx), ys = ds.map((e) => e.ty);
+      groups.discord = { x: Math.min(...xs) - 75 * s, y: Math.min(...ys) - 270 * s, w: Math.max(...xs) - Math.min(...xs) + 150 * s, h: Math.max(...ys) - Math.min(...ys) + 310 * s };
     } else groups.discord = null;
     if (SCENE !== 'discord' && settings.twitch && (settings.twitch.enabled || settings.twitch.showOnDesktop)) {
-      const L = twitchLayout();
-      groups.twitch = { x: L.left, y: L.baseY - 210 * L.s, w: L.areaW, h: 250 * L.s };
+      groups.twitch = twitchLayout().rect;
     } else groups.twitch = null;
   }
   function drawPlacement() {
@@ -594,7 +623,7 @@
     // Switch to a custom anchor at the group's current centre/baseline so the drag starts from where it is.
     if (cfg.anchor !== 'custom') {
       cfg.anchor = 'custom';
-      cfg.pos = key === 'discord' ? { x: (r.x + r.w / 2) / W, y: dEnts.size ? [...dEnts.values()][0].ty / H : 0.9 } : { x: (r.x + r.w / 2) / W, y: twitchLayout().baseY / H };
+      cfg.pos = key === 'discord' ? { x: (r.x + r.w / 2) / W, y: dEnts.size ? Math.max(...[...dEnts.values()].map((e) => e.ty)) / H : 0.9 } : { x: (settings.twitch.layout === 'vertical' ? (settings.twitch.anchor === 'bottom-left' ? r.x + 70 * (settings.twitch.scale || 0.5) : r.x + r.w - 70 * (settings.twitch.scale || 0.5)) : r.x + r.w / 2) / W, y: twitchLayout().baseY / H };
     }
     drag = { key, sx: e.clientX, sy: e.clientY, px: cfg.pos.x, py: cfg.pos.y };
   });

@@ -75,6 +75,10 @@ Windows desktop overlay that shows the members of your current Discord voice cha
   - Played by the app (captured by OBS Desktop Audio) **or** by the OBS source (enable *Control audio via OBS*), never both.
   - Commands and links are not read.
 
+### Layout
+- **Settings → Overlay → Layout** and **Twitch → Layout**: `Horizontal` (a row) or `Vertical` (a column). In vertical layout, Twitch bubbles open sideways.
+- Placement mode works with both.
+
 ### Members
 The Members tab lists everyone you've shared a voice channel with. For each person you can set:
 - hidden or shown;
