@@ -180,6 +180,17 @@
     'Keep an icon in the taskbar while running': 'Garder une icône dans la barre des tâches pendant que l’app tourne',
     'It stays in your taskbar and system tray. Right-click the tray icon to quit.': 'Elle reste dans la barre des tâches et la zone de notification. Clic droit sur l’icône de notification pour quitter.',
 
+    // ----- v0.6: chat sound, sync -----
+    'Chat sound': 'Son du chat', 'Sound': 'Son', 'Gibberish (each viewer has a voice)': 'Charabia (chaque spectateur a sa voix)', 'Text-to-speech': 'Synthèse vocale',
+    'Played by': 'Joué par', 'This app (desktop audio)': 'Cette app (son du bureau)', 'The OBS browser source': 'La source navigateur OBS', 'Volume': 'Volume', 'Speed': 'Vitesse', 'Pitch': 'Hauteur',
+    'Voice (text-to-speech)': 'Voix (synthèse vocale)', 'A different voice/pitch per viewer': 'Une voix / hauteur différente par spectateur', "Read the viewer's name first (TTS)": 'Lire le pseudo avant le message (synthèse)',
+    'Max characters per message': 'Caractères max par message', 'Max messages waiting': 'Messages max en attente', 'Muted (shortcut Ctrl+Shift+M)': 'Coupé (raccourci Ctrl+Shift+M)',
+    '🔊 Test sound': '🔊 Tester le son', 'System default': 'Voix par défaut du système', 'Hello chat! This is how your viewers will sound.': 'Salut le chat ! Voilà comment vos messages vont sonner.',
+    '{name} says: ': '{name} dit : ', 'Mute / unmute chat sound': 'Couper / remettre le son du chat',
+    '“This app” plays through your speakers, so OBS picks it up with Desktop Audio. “OBS browser source” plays inside OBS: tick <i>Control audio via OBS</i> on the source to get it on its own mixer track. Text-to-speech uses the voices installed in Windows. Commands and links are never read.': '« Cette app » joue sur tes haut-parleurs : OBS le capte via le Son du bureau. « La source navigateur OBS » joue dans OBS : coche <i>Contrôler l’audio via OBS</i> sur la source pour l’avoir sur sa propre piste. La synthèse vocale utilise les voix installées dans Windows. Les commandes et les liens ne sont jamais lus.',
+    'Accepted: a GitHub Gist link, or any raw file URL. The file can contain one <code>PUP1.…</code> code per line, or JSON exported avatars. Every app re-reads it every 2 minutes. Avatars you import by hand take priority.': 'Accepté : un lien GitHub Gist, ou l’URL brute de n’importe quel fichier. Le fichier peut contenir un code <code>PUP1.…</code> par ligne, ou des avatars exportés en JSON. Chaque app le relit toutes les 2 minutes. Les avatars importés à la main restent prioritaires.',
+    '⟳ Sync now': '⟳ Synchroniser', '✔ {n} avatars synced': '✔ {n} avatars synchronisés', '✖ Sync failed: {e}': '✖ Échec de la synchro : {e}', 'Syncing…': 'Synchronisation…',
+
     // ----- tray / notifications (main process) -----
     'Discord: {s}': 'Discord : {s}', 'Open panel': 'Ouvrir le panneau', 'Show overlay': 'Afficher l’overlay', 'Reconnect Discord': 'Reconnecter Discord',
     'Restart to update (v{v})': 'Redémarrer pour mettre à jour (v{v})', 'Download v{v}': 'Télécharger la v{v}', 'Quit': 'Quitter',

@@ -6,7 +6,7 @@
 const { EventEmitter } = require('events');
 const { app, shell } = require('electron');
 
-const OWNER = 'F4ilortrue';
+const OWNER = 'LaboCorpo';
 const REPO = 'labo-puppet-overlay';
 const RELEASES_URL = `https://github.com/${OWNER}/${REPO}/releases/latest`;
 

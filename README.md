@@ -1,112 +1,112 @@
 # Puppet Overlay
 
-A Discord voice overlay where everyone in your call is a cut-paper puppet: the top of the head flaps open when they talk. It comes with an avatar creator (draw one from scratch or start from a photo) and Twitch viewers who show up as their own puppets, with speech bubbles and chat commands. Windows only.
+Windows desktop overlay that shows the members of your current Discord voice channel as animated paper puppets. Twitch chat viewers can be shown as well. The same scene is exposed to OBS/Streamlabs as a browser source.
 
-| What | Where |
+- Electron app with a tray icon, a settings panel and a transparent, click-through overlay window.
+- Voice data comes from the local Discord client over RPC. There is no bot and no server.
+- Twitch chat is read anonymously (read-only IRC).
+- Avatars are created in the built-in creator and shared as `.puppet` files, `PUP1.…` codes, or a shared sync file.
+
+## Setup
+
+### 1. Discord application (once, by the maintainer)
+1. In the [Discord Developer Portal](https://discord.com/developers/applications), use the application `1570204741982756965`. That ID is already built into the app (`electron/app-config.json`).
+2. **OAuth2**:
+   - add the redirect `http://localhost`;
+   - enable **Public Client** (authorization uses PKCE, so no client secret ships with the app).
+3. **App Testers**: add every person who will **run** the app (max 50). Each tester must accept the invite.
+   - Discord only exposes voice data over RPC to approved testers of the application.
+   - People who only appear in someone else's channel need nothing.
+
+### 2. Release
+- Every push to `main` builds Windows binaries; they appear under *Actions → Build Windows → Artifacts*.
+- Pushing a tag `vX.Y.Z` also publishes a GitHub Release with:
+  - `PuppetOverlay-X.Y.Z-setup.exe`: per-user installer, auto-updates;
+  - `PuppetOverlay-X.Y.Z-portable.exe`: no install; only notifies when a new version exists;
+  - `latest.yml` and the `.blockmap` file, which the auto-updater uses.
+- The repository must be public, so that releases can be downloaded and installed copies can update.
+- Optional: set the repository variable `DISCORD_CLIENT_ID` to override the built-in ID at build time.
+
+### 3. Per user
+1. Install `setup.exe`. The exe is not code-signed, so SmartScreen asks for confirmation: *More info → Run anyway*.
+2. Start the Discord desktop app. On first launch, click **Authorize** in the Discord popup.
+3. In the panel, go to **Avatars → Create / edit my avatar**, then share the `.puppet` file or the code.
+
+## Usage
+
+| Item | Location |
 |---|---|
-| App (tray icon + settings panel + desktop overlay) | `PuppetOverlay-x.y.z-setup.exe` (recommended, **auto-updates**) or `-portable.exe` |
-| Avatar creator | Inside the app (Avatars → Create), or open `web/creator.html` in any browser |
-| OBS / Streamlabs | Browser Source → `http://localhost:47800/overlay.html` |
+| Panel | Tray icon (click) or taskbar button |
+| Show / hide overlay | `Ctrl+Shift+O` |
+| Placement mode (drag to move, mouse wheel to resize, `Esc` to finish) | `Ctrl+Shift+P` |
+| Mute / unmute Twitch chat sound | `Ctrl+Shift+M` |
+| OBS browser source (1920×1080, transparent) | `http://localhost:47800/overlay.html` |
+| Discord-only / Twitch-only source | append `?scene=discord` / `?scene=twitch` |
 
-## Features
-- **Lively puppets**
-  - entrances (walk in, drop from the sky, pop) and a puff of smoke when someone leaves
-  - tape over the mouth when muted, earmuffs when deafened
-  - puppets fall asleep (Zzz) after a configurable idle time
-  - everyone turns to look at whoever is speaking
-  - the longer someone talks, the more animated they get
-- **Avatar creator**: 7 head shapes, 10 eye styles, plus glasses, noses, cheeks (blush, freckles, scars…), teeth, 12 hairstyles, 8 kinds of facial hair, 13 hats (including a wizard hat, a halo and a spinning propeller), 10 outfits, 5 clothing patterns, neckwear, and items to hold (mug, controller, sword, balloon…).
-  - Sliders for head size, eye size/spacing/height and body width/height.
-  - Options are grouped in tabs; you can randomize a single tab, and undo/redo with Ctrl+Z / Ctrl+Y.
-  - Photo puppets: rotation, mirror, brightness, contrast, saturation, black & white, cartoon effect, plus all the body and accessory options.
-- **Fine-tuning sliders**: head width/height, mouth line, eye tilt, eyebrow size/height/tilt/spacing, nose size/height, cheek size, hair size/height, facial-hair size, hat size/height/tilt, glasses size, held-item size.
-- **Entrance / exit effects**:
-  - Entrances: walk in, drop, pop, portal, teleport beam, feathers, puff of smoke.
-  - Exits: smoke, portal, teleport beam, feathers.
-  - *Replay entrances* (panel, or the taskbar thumbnail button) previews them.
-- **Taskbar presence** (Windows): the app keeps a taskbar button while running (closing the panel minimizes it); this can be turned off in Settings.
-  - A status badge shows whether you're in voice, idle or have an error.
-  - Thumbnail buttons: show/hide overlay, move puppets, replay entrances.
-  - The taskbar button also shows update download progress.
-- **Members tab**: hide someone, give them a nickname, change their size, and set the order everyone stands in. These settings are remembered for everyone you've shared a voice channel with.
-- **Performance modes**:
-  - Performance: full frame rate.
-  - Normal: 60 fps.
-  - Eco: 30 fps, 1× resolution, fewer effects.
-  - In every mode, the overlay idles when nobody is on screen.
-- **Placement mode**: drag the Discord and Twitch groups with the mouse and use the scroll wheel to resize them. Positions are relative, so they carry over to OBS.
-- **Global shortcuts** (configurable): `Ctrl+Shift+O` shows or hides the overlay, `Ctrl+Shift+P` turns placement mode on and off.
-- **Launch with Windows**: off by default. When on, the app starts hidden in the tray.
-- **Languages**: English and French (Settings → Language). *Auto* follows the Windows language. To add a language, add a dictionary in `web/shared/i18n.js`.
-- **Auto-update** from GitHub Releases. The installed version updates itself; the portable version tells you when a new release is out.
-- **Twitch viewers**
-  - each viewer gets a stable random puppet, with chat bubbles
-  - raids bring in a crowd; subs and bits trigger confetti
-  - chat commands:
-    - actions: `!jump`, `!dance`, `!wave`
-    - customisation: `!hat`, `!hair`, `!outfit`, `!eyes`, `!color`, `!hatcolor`, `!reroll`, `!reset`
-    - help: `!puppet` lists the commands
-    - each command has a per-viewer cooldown and can be turned off individually
-    - customisations are remembered across streams
+- Shortcuts can be changed in **Settings**.
+- If port 47800 is busy, the app uses the next free one; the panel's OBS tab shows the actual URL.
+- Games running in exclusive fullscreen hide the overlay. Use borderless windowed mode instead.
 
----
+### Avatars and sync
+- Precedence: manual imports (`.puppet` file or code) override synced avatars. Members without an avatar are drawn with their Discord profile picture.
+- **Shared sync** (Avatars tab): paste a GitHub Gist link or any raw file URL. The file is re-read every 2 minutes.
+- Accepted file formats:
+  - one `PUP1.…` code per line (other lines are ignored);
+  - `{"avatars": [ … ]}` or a JSON array of avatar objects;
+  - the content of a single `.puppet` file.
+- Photo avatars are too large for codes. Include them in a JSON file instead.
 
-## 1. One-time setup (whoever manages the project)
+### Twitch
+- Enable it in the Twitch tab and enter the channel name.
+- Each viewer gets a deterministic puppet generated from their login. Chat commands override it persistently.
+- Commands (prefix `!`, configurable; each can be disabled; cooldown per viewer):
 
-Voice data comes from Discord's local RPC. It only works for **testers** of a Discord application (up to 50).
-Only people who **run** the app need to be testers. Friends who only appear in your channel don't need to do anything.
+| Command | Effect |
+|---|---|
+| `jump` `dance` `wave` | Animation |
+| `hat` `hair` `outfit` `eyes` `glasses` `item` `neck` `pattern` `<value>` | Change that part (values match the creator) |
+| `color` `hatcolor` `<name or #hex>` | Change clothes / hat colour |
+| `reroll` / `reset` | New random look / back to the original |
+| `puppet` | List the commands |
 
-1. Go to https://discord.com/developers/applications and click **New Application**.
-2. On the **OAuth2** tab, add the redirect `http://localhost` and turn on **Public Client**. That way no secret ships in the exe.
-3. On the **App Testers** tab, invite everyone who will run the app. Each person must **accept the invite**.
-4. Copy the **Application ID**, then do one of the following:
-   - Recommended: in this GitHub repo, go to *Settings → Secrets and variables → Actions → Variables* and create `DISCORD_CLIENT_ID`. Every build will then include it.
-   - Or: each user pastes it in the app under **Discord setup**.
+- Raids, subs and bits trigger effects (each can be toggled).
+- **Chat sound**: `None`, `Gibberish` (synthesised, with a distinct voice per viewer) or `Text-to-speech` (installed Windows voices).
+  - Settings: volume, speed, pitch, voice, a different voice per viewer, reading the name first, maximum characters, queue length.
+  - Played by the app (captured by OBS Desktop Audio) **or** by the OBS source (enable *Control audio via OBS*), never both.
+  - Commands and links are not read.
 
-## 2. Getting the app
+### Members
+The Members tab lists everyone you've shared a voice channel with. For each person you can set:
+- hidden or shown;
+- a nickname;
+- a size (50–180 %);
+- their position in the row.
 
-Every push to `main` builds the app (under **Actions → Build Windows → Artifacts**).
-To publish a release, push a tag like `v0.2.0`. The installers then appear under **Releases**.
+These settings persist when the person is offline.
 
-> **The repository must be public** for friends to download releases and for auto-update to work.
-> Windows SmartScreen may say "Unknown publisher" because the exe isn't code-signed. Click *More info → Run anyway*.
+## Files
+| Path | Content |
+|---|---|
+| `%APPDATA%\Puppet Overlay\config.json` | Settings, avatars, known members, Twitch viewer looks, Discord token |
+| `%APPDATA%\Puppet Overlay\logs\main.log` | Log (rotated at 1 MB); Settings → *Open logs folder* |
 
-## 3. Using it
-- The app lives in the system tray. Click the icon to open the panel; right-click it to show/hide the overlay, enter placement mode, reconnect Discord, install an update, or quit.
-- The first time you connect, Discord shows an authorization popup. Click **Authorize**.
-- Games in exclusive fullscreen hide the overlay. Switch them to **borderless windowed**.
-
-### Avatars
-- **Create**: panel → Avatars → *Create / edit my avatar*. You can build one from scratch or start from a photo: frame the face, then move the mouth line.
-- **Share**: export a `.puppet` file (works for any avatar) or a `PUP1.…` code (drawn avatars only; easy to paste into Discord).
-- **Receive**: drop `.puppet` files anywhere in the panel, or paste a code.
-- If someone has no custom avatar, their Discord profile picture is cut into a puppet.
-- **Shared sync (beta)**: put `{"avatars": [ …contents of .puppet files… ]}` in a GitHub Gist and paste its *Raw* URL in the panel.
-
-### OBS / Streamlabs
-Add a 1920×1080 **Browser Source** with one of these URLs:
-- `http://localhost:47800/overlay.html` shows Discord and Twitch.
-- `…/overlay.html?scene=discord` shows Discord only.
-- `…/overlay.html?scene=twitch` shows Twitch only.
-
----
+## Troubleshooting
+| Symptom | Fix |
+|---|---|
+| Status `Discord not found` | Run the Discord desktop app (the browser version has no RPC) |
+| Status `error` mentioning tester / authorization | Check that the account is an accepted App Tester, then click *Reconnect / re-authorize* |
+| Overlay not visible in game | Use borderless windowed mode |
+| Update says the repository must be public | Make the repository public |
+| Nothing in OBS | The app must be running; check the URL in the panel's OBS tab |
 
 ## Development
 ```bash
 npm install
-npm start          # run the app
-npm run dist       # Windows build (run on Windows)
+npm start                    # run from source
+npm run dist                 # Windows build (on Windows)
 ```
-To preview without Discord, open `web/overlay.html?demo=1`.
-
-| File | Role |
-|---|---|
-| `electron/main.js` | windows, tray, hotkeys, startup, placement, actions |
-| `electron/discord-rpc.js` | Discord RPC client (named pipe, PKCE authorize, voice events) |
-| `electron/twitch.js` | anonymous Twitch IRC, commands, raids/subs/bits |
-| `electron/updater.js` | GitHub Releases updates |
-| `electron/server.js` | local server (127.0.0.1): static `web/` + `/api/*`, pushed via SSE |
-| `web/shared/puppet.js` | puppet renderer + animator, shared by every page |
-| `web/overlay.*`, `web/panel.*`, `web/creator.*` | overlay, panel, creator |
-
-Settings, avatars and viewer customisations are stored in `%APPDATA%/Puppet Overlay/config.json`. Logs are in `%APPDATA%/Puppet Overlay/logs/`.
+- `web/overlay.html?demo=1` shows the scene offline. `&fx=portal` forces an entrance effect.
+- Source layout:
+  - `electron/`: main process (`main.js`), Discord RPC, Twitch IRC, updater, local server (127.0.0.1, SSE + JSON API).
+  - `web/`: overlay, panel, creator, and shared files (`shared/puppet.js` renderer, `chatsound.js`, `i18n.js`).
+- Translations live in `web/shared/i18n.js`. Keys are the English strings.

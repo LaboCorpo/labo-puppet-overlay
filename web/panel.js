@@ -134,7 +134,7 @@
       $('#updateText').textContent = u.status === 'ready' ? t('Version {v} is downloaded and ready.', { v: u.latest }) : t("Version {v} is available. The portable build can't update itself — grab the new .exe.", { v: u.latest });
       $('#updateBtn').textContent = t(u.status === 'ready' ? 'Restart & update' : 'Download');
     } else banner.classList.add('hidden');
-    for (const k of ['toggleOverlay', 'placement']) $('#hk-' + k).textContent = t((a.hotkeyErrors || {})[k] || '');
+    for (const k of ['toggleOverlay', 'placement', 'muteChat']) $('#hk-' + k).textContent = t((a.hotkeyErrors || {})[k] || '');
     const sel = $('#displaySelect');
     const opts = (a.displays || []).map((d) => `<option value="${d.index}">${escapeHtml(d.label.replace('Primary', t('Primary')))}</option>`).join('');
     if (sel.dataset.opts !== opts) { sel.innerHTML = opts; sel.dataset.opts = opts; sel.value = state.settings.overlay.display; }
@@ -192,6 +192,12 @@
   ['dragleave', 'drop'].forEach((ev) => document.addEventListener(ev, (e) => { e.preventDefault(); if (ev === 'drop' || e.target === drop) drop.classList.remove('over'); }));
   document.addEventListener('drop', (e) => { if (e.dataTransfer.files.length) { showTab('avatars'); readFiles(e.dataTransfer.files); } });
   $('#openCreator').onclick = () => { const me = state.discord && state.discord.me; action('open-creator', { id: me ? me.id : '' }); };
+
+  function renderSync() {
+    const st = state.syncStatus || {};
+    $('#syncStatus').textContent = st.status === 'ok' ? t('✔ {n} avatars synced', { n: st.count }) : st.status === 'error' ? t('✖ Sync failed: {e}', { e: st.error }) : '';
+  }
+  $('#syncNow').onclick = () => { action('sync-now'); toast(t('Syncing…')); };
 
   // ---------- Members ----------
   function orderedKnown() {
@@ -283,6 +289,28 @@
   }));
   $('#clearViewers').onclick = () => { if (confirm(t('Reset every viewer back to their default look?'))) action('clear-viewers').then(() => toast(t('Viewer customisations cleared'))); };
 
+  // ---------- Chat sound ----------
+  const tester = new ChatSound();
+  function renderVoices() {
+    const sel = $('#voiceSelect');
+    const list = tester.voiceList();
+    const key = list.map((v) => v.name).join('|');
+    if (sel.dataset.key === key && list.length) return;
+    sel.dataset.key = key;
+    sel.innerHTML = `<option value="">${escapeHtml(t('System default'))}</option>` + list.map((v) => `<option value="${escapeHtml(v.name)}">${escapeHtml(v.name)} (${escapeHtml(v.lang)})</option>`).join('');
+    if (state.settings) sel.value = state.settings.twitch.sound.voice || '';
+  }
+  if (window.speechSynthesis) speechSynthesis.addEventListener('voiceschanged', renderVoices);
+  setTimeout(renderVoices, 300);
+  $('#testSound').onclick = () => {
+    const snd = Object.assign({}, state.settings.twitch.sound, { muted: false, namePattern: t('{name} says: ') });
+    if (snd.mode === 'none') snd.mode = 'gibberish';
+    tester.configure(snd);
+    const names = ['pixelcat', 'Bobby_42', 'MamieGaming'];
+    const n = names[Math.floor(Math.random() * names.length)];
+    tester.say({ login: n.toLowerCase(), display: n, text: t('Hello chat! This is how your viewers will sound.') });
+  };
+
   // ---------- OBS ----------
   function renderUrls() {
     const origin = location.origin.replace('127.0.0.1', 'localhost');
@@ -314,7 +342,7 @@
       // Language: translate static text once per change, then force the dynamic parts to re-render.
       const langChanged = I18N.setLang((state.app && state.app.lang) || 'en') || !langApplied;
       if (langChanged) { langApplied = true; I18N.apply(document.body); lastAvatars = ''; lastCmdKey = ''; lastMembers = ''; $('#displaySelect').dataset.opts = ''; }
-      fillInputs(); renderStatus(); renderApp();
+      fillInputs(); renderStatus(); renderApp(); renderVoices(); renderSync();
       const av = JSON.stringify(state.avatars); if (av !== lastAvatars) { lastAvatars = av; renderAvatars(); }
       const mk = I18N.lang + JSON.stringify([Object.keys(state.known || {}), (state.discord.members || []).map((m) => m.id), state.settings.memberOrder, state.settings.members, av.length]);
       if (mk !== lastMembers) { lastMembers = mk; renderMembers(); }

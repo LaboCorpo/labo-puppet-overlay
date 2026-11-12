@@ -10,7 +10,7 @@ const DEFAULTS = {
     launchAtStartup: false,
     taskbarIcon: true, // keep a taskbar button while the app runs (panel minimizes instead of hiding)
     autoUpdate: true,
-    hotkeys: { toggleOverlay: 'CommandOrControl+Shift+O', placement: 'CommandOrControl+Shift+P' },
+    hotkeys: { toggleOverlay: 'CommandOrControl+Shift+O', placement: 'CommandOrControl+Shift+P', muteChat: 'CommandOrControl+Shift+M' },
     firstRunDone: false,
   },
   discord: { clientId: '', clientSecret: '', redirectUri: 'http://localhost' },
@@ -28,6 +28,8 @@ const DEFAULTS = {
     commandsEnabled: true, commandPrefix: '!', hideCommands: true, disabledCommands: [],
     actionCooldown: 5, styleCooldown: 10,
     raidEffects: true, raidMax: 15, subEffects: true, bitsEffects: true,
+    // Chat sounds: played by the desktop app ('app') or by the OBS browser source ('obs'), never both.
+    sound: { mode: 'none', output: 'app', volume: 0.6, speed: 1, pitch: 1, voice: '', varyVoices: true, readNames: false, maxChars: 120, maxQueue: 4, muted: false },
   },
   // Per-member overrides keyed by Discord user ID: { hidden, alias, scale }
   members: {},

@@ -17,6 +17,8 @@ const I18N = require('../web/shared/i18n.js');
 const t = I18N.t;
 
 if (!app.requestSingleInstanceLock()) { app.quit(); process.exit(0); }
+// Overlay windows have no user gesture: let them play chat sounds anyway.
+app.commandLine.appendSwitch('autoplay-policy', 'no-user-gesture-required');
 
 const WEB_DIR = path.join(__dirname, '..', 'web');
 const ICON = path.join(__dirname, '..', 'build', 'icon.png');
@@ -43,6 +45,7 @@ function appState() {
   return {
     discord: rpc ? rpc.snapshot() : { status: 'starting', members: [] },
     known: store.data.known,
+    syncStatus,
     twitchStatus: twitch ? twitch.snapshot() : { status: 'off' },
     app: {
       version: app.getVersion(), placement, hotkeyErrors, lang: I18N.lang,
@@ -85,19 +88,42 @@ function startTwitch() {
 
 // ---------- Avatar sync (read-only shared JSON) ----------
 let syncTimer;
+let syncStatus = { status: 'off' };
+require('../web/shared/puppet.js'); // globalThis.Puppet for decoding shared codes
+// Accepts a gist page URL (converted to its raw URL) or any direct raw URL.
+function rawSyncUrl(url) {
+  const m = String(url).trim().match(/^https:\/\/gist\.github\.com\/([^/]+)\/([0-9a-f]+)\/?$/i);
+  return m ? `https://gist.githubusercontent.com/${m[1]}/${m[2]}/raw` : String(url).trim();
+}
+// File formats accepted: {"avatars":[...]}, a JSON array, a single .puppet file, or plain text with one PUP1 code per line.
+function parseSyncFile(text) {
+  const P = globalThis.Puppet;
+  const out = [];
+  try {
+    const j = JSON.parse(text);
+    const list = Array.isArray(j) ? j : Array.isArray(j.avatars) ? j.avatars : j.avatar ? [j.avatar] : Object.values(j.avatars || j);
+    for (const it of list) out.push(it && it.avatar ? it.avatar : it);
+  } catch (e) {
+    for (const line of String(text).split(/\r?\n/)) {
+      const code = (line.match(/PUP1\.[A-Za-z0-9_-]+/) || [])[0];
+      if (code) try { out.push(P.decodeAny(code)); } catch (err) { /* skip bad line */ }
+    }
+  }
+  return out.filter((a) => a && /^\d{15,22}$/.test(String(a.id))).map((a) => P.normalize(a));
+}
 async function syncOnce() {
   const s = store.settings.sync;
-  if (!s.url) return;
+  if (!s.url) { syncStatus = { status: 'off' }; return; }
   try {
-    const res = await fetch(s.url, { cache: 'no-store' });
+    const res = await fetch(rawSyncUrl(s.url) + (s.url.includes('?') ? '&' : '?') + 't=' + Date.now(), { cache: 'no-store' });
     if (!res.ok) throw new Error('HTTP ' + res.status);
-    const j = await res.json();
-    const list = Array.isArray(j) ? j : Array.isArray(j.avatars) ? j.avatars : Object.values(j.avatars || j);
+    const list = parseSyncFile(await res.text());
     const out = {};
-    for (const it of list) { const a = it && it.avatar ? it.avatar : it; if (a && /^\d{15,22}$/.test(String(a.id))) out[a.id] = a; }
+    for (const a of list) out[a.id] = a;
     store.data.syncedAvatars = out; store.save();
+    syncStatus = { status: 'ok', count: list.length, at: Date.now() };
     push();
-  } catch (e) { log.warn('[sync] ' + e.message); }
+  } catch (e) { log.warn('[sync] ' + e.message); syncStatus = { status: 'error', error: e.message, at: Date.now() }; push(); }
 }
 function scheduleSync() {
   clearInterval(syncTimer);
@@ -247,7 +273,7 @@ function registerHotkeys() {
   globalShortcut.unregisterAll();
   hotkeyErrors = {};
   const hk = store.settings.app.hotkeys || {};
-  const map = { toggleOverlay, placement: () => setPlacement(!placement) };
+  const map = { toggleOverlay, placement: () => setPlacement(!placement), muteChat: () => applySettings({ twitch: { sound: { muted: !store.settings.twitch.sound.muted } } }) };
   for (const [name, fn] of Object.entries(map)) {
     const acc = hk[name];
     if (!acc) continue;
@@ -292,6 +318,7 @@ async function onAction(name, b) {
     case 'open-url': if (/^https:\/\//.test(b.url || '')) shell.openExternal(b.url); return;
     case 'twitch-test': twitch.simulate(b.kind); return;
     case 'fx-test': srv.broadcast('fx-test', {}); return;
+    case 'sync-now': await syncOnce(); return;
     case 'forget-member': store.forgetMember(String(b.id || '')); push(); return;
     case 'clear-viewers': store.clearViewers(); srv.broadcast('viewers-reset', {}); push(); return;
     case 'export-config': {

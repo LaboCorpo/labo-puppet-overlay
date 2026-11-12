@@ -53,6 +53,7 @@
     if (s.discord) members = s.discord.members || [];
     if (s.app && s.app.lang) I18N.setLang(s.app.lang);
     placement = DESKTOP && !!(s.app && s.app.placement);
+    if (s.settings) configureSound();
     document.body.classList.toggle('placing', placement);
   }
   function connect() {
@@ -376,8 +377,32 @@
     return v;
   }
 
+  // ---------- Chat sounds ----------
+  // Exactly one page plays them: the desktop overlay (output 'app') or the OBS source (output 'obs').
+  const sound = new ChatSound();
+  function soundHere() {
+    const snd = (settings.twitch && settings.twitch.sound) || {};
+    if (!settings.twitch.enabled || TEST || DEMO) return false;
+    return (snd.output || 'app') === 'app' ? DESKTOP : !DESKTOP;
+  }
+  function configureSound() {
+    const snd = Object.assign({}, (settings.twitch && settings.twitch.sound) || {});
+    if (!soundHere()) snd.mode = 'none';
+    snd.namePattern = t('{name} says: ');
+    sound.configure(snd);
+  }
+
   function onChat(m) {
-    if (!settings || SCENE === 'discord') return;
+    if (!settings) return;
+    if (!m.fake && !m.system && m.text && sound.enabled()) {
+      sound.say({
+        login: m.login, display: m.display, text: m.text,
+        // keep the puppet's mouth moving for exactly as long as its sound plays
+        onStart: (sec) => { const v = viewers.get(m.login); if (v) v.anim.talkUntil = performance.now() / 1000 + sec; },
+        onEnd: () => { const v = viewers.get(m.login); if (v) v.anim.talkUntil = 0; },
+      });
+    }
+    if (SCENE === 'discord') return;
     if (!m.fake) lastRealChat = performance.now();
     const cfg = settings.twitch || {};
     const v = ensureViewer(m.login, m.display, m.color);
@@ -386,7 +411,7 @@
       v.system = !!m.system;
       v.msgUntil = v.lastMsg + (cfg.bubbleSeconds || 7);
       v.anim.jump(10);
-      v.anim.talkUntil = v.lastMsg + Math.min(3.5, 0.6 + v.msg.length * 0.05);
+      if (!sound.enabled() || m.fake) v.anim.talkUntil = v.lastMsg + Math.min(3.5, 0.6 + v.msg.length * 0.05); // otherwise synced to the sound
     }
   }
 

@@ -110,7 +110,8 @@
       <div class="card grid">
         <label class="wide">URL of a shared JSON (e.g. the “Raw” link of a GitHub Gist)
           <input data-key="sync.url" placeholder="https://gist.githubusercontent.com/…/avatars.json"></label>
-        <p class="muted wide">The JSON holds a list of exported avatars; every app re-reads it every 2 minutes. Avatars you import by hand take priority.</p>
+        <p class="muted wide" data-i18n-html>Accepted: a GitHub Gist link, or any raw file URL. The file can contain one <code>PUP1.…</code> code per line, or JSON exported avatars. Every app re-reads it every 2 minutes. Avatars you import by hand take priority.</p>
+        <div class="wide btns" style="margin:0"><button class="ghost" id="syncNow">⟳ Sync now</button><span class="muted" id="syncStatus" data-no-i18n style="align-self:center"></span></div>
       </div>
     </section>
 
@@ -139,6 +140,25 @@
         <button class="ghost" data-test="chat">Chat message</button><button class="ghost" data-test="command">Command</button>
         <button class="ghost" data-test="sub">Sub</button><button class="ghost" data-test="bits">Bits</button><button class="ghost" data-test="raid">Raid</button>
       </div>
+      <h2>Chat sound</h2>
+      <div class="card grid">
+        <label>Sound
+          <select data-key="twitch.sound.mode"><option value="none">None</option><option value="gibberish">Gibberish (each viewer has a voice)</option><option value="tts">Text-to-speech</option></select></label>
+        <label>Played by
+          <select data-key="twitch.sound.output"><option value="app">This app (desktop audio)</option><option value="obs">The OBS browser source</option></select></label>
+        <label>Volume <input type="range" min="0" max="1" step="0.05" data-key="twitch.sound.volume"><output></output></label>
+        <label>Speed <input type="range" min="0.5" max="2" step="0.05" data-key="twitch.sound.speed"><output></output></label>
+        <label>Pitch <input type="range" min="0.5" max="2" step="0.05" data-key="twitch.sound.pitch"><output></output></label>
+        <label>Voice (text-to-speech) <select data-key="twitch.sound.voice" id="voiceSelect" data-no-i18n></select></label>
+        <label class="check"><input type="checkbox" data-key="twitch.sound.varyVoices"> A different voice/pitch per viewer</label>
+        <label class="check"><input type="checkbox" data-key="twitch.sound.readNames"> Read the viewer's name first (TTS)</label>
+        <label>Max characters per message <input type="number" min="10" max="400" data-key="twitch.sound.maxChars"></label>
+        <label>Max messages waiting <input type="number" min="1" max="20" data-key="twitch.sound.maxQueue"></label>
+        <label class="check"><input type="checkbox" data-key="twitch.sound.muted"> Muted (shortcut Ctrl+Shift+M)</label>
+        <div class="btns" style="margin:0;align-self:end"><button class="ghost" id="testSound">🔊 Test sound</button></div>
+        <p class="muted wide" data-i18n-html>“This app” plays through your speakers, so OBS picks it up with Desktop Audio. “OBS browser source” plays inside OBS: tick <i>Control audio via OBS</i> on the source to get it on its own mixer track. Text-to-speech uses the voices installed in Windows. Commands and links are never read.</p>
+      </div>
+
       <h2>Viewer style</h2>
       <div class="card grid">
         <label>Clothes palette
@@ -201,6 +221,7 @@
       <div class="card grid">
         <label>Show / hide overlay <input class="hotkey" data-key="app.hotkeys.toggleOverlay" readonly placeholder="Click, then press keys"><span class="err" id="hk-toggleOverlay"></span></label>
         <label>Move puppets (placement mode) <input class="hotkey" data-key="app.hotkeys.placement" readonly placeholder="Click, then press keys"><span class="err" id="hk-placement"></span></label>
+        <label>Mute / unmute chat sound <input class="hotkey" data-key="app.hotkeys.muteChat" readonly placeholder="Click, then press keys"><span class="err" id="hk-muteChat"></span></label>
         <p class="muted wide">Click a field and press your combination (e.g. Ctrl+Shift+O). Backspace clears it.</p>
       </div>
       <h2>Updates</h2>
@@ -242,6 +263,7 @@
 <div id="toast" class="toast"></div>
 <script src="shared/i18n.js"></script>
 <script src="shared/puppet.js"></script>
+<script src="shared/chatsound.js"></script>
 <script src="panel.js"></script>
 </body>
 </html>
