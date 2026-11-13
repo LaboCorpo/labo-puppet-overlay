@@ -28,6 +28,8 @@ This file is everything needed to continue the project exactly where the previou
 
 ## 2. Project summary
 
+> **Current state (after v0.8.0, not yet released)**: the screen-share display and the emoji-reaction/soundboard display shipped in v0.8.0 were **removed** at the maintainer's request (Discord's RPC doesn't expose them in practice). The next step is a clean-up/hardening pass of the codebase (see §9). No build was triggered for this removal (pushed with `[skip ci]`).
+
 The app is a Windows desktop overlay that shows people in your **Discord voice channel** as animated cut-paper puppets: the top half of the head hinges open when the person speaks. It is meant for a group of friends first, possibly a wider public later.
 
 **Features (v0.8.0)**
@@ -50,8 +52,6 @@ The app is a Windows desktop overlay that shows people in your **Discord voice c
   - chat commands (`!jump`, `!hat crown`…), stored persistently per viewer;
   - raid, sub and bits effects;
   - chat sound: none / gibberish (WebAudio, one voice per viewer) / TTS (speechSynthesis).
-- **Screen share display**: off / simple (laptop prop) / advanced (live thumbnail of your **own** screen).
-- **Emoji reactions / soundboard** over the sender: experimental (see §5).
 - **App-wide**:
   - English + French UI with Auto language detection;
   - global hotkeys; launch with Windows (off by default); auto-update from GitHub Releases;
@@ -87,17 +87,18 @@ The app is a Windows desktop overlay that shows people in your **Discord voice c
   - v0.3.0 i18n FR/EN; v0.4.0 rich creator, members, perf modes;
   - v0.5.0 fine sliders, entrance/exit VFX, taskbar; v0.6.0 org repo, chat sound, sync formats, README;
   - v0.7.0 vertical layouts, glasses height/spacing, held item in front;
-  - v0.8.0 add-on offsets, new outfits/hats/items (hi-vis vest…), screen-share display, experimental voice effects.
+  - v0.8.0 add-on offsets, new outfits/hats/items (hi-vis vest…), screen-share display, experimental voice effects;
+  - unreleased (`[skip ci]`): screen-share display and voice effects removed again.
 
 ## 4. Architecture
 
 ```
 electron/
   main.js          app lifecycle, windows (overlay, panel, creator), tray, taskbar, hotkeys, login item,
-                   placement mode, screen-preview capture, avatar sync, actions dispatcher
+                   placement mode, avatar sync, actions dispatcher
   server.js        http://127.0.0.1:<port> (47800, +1 if busy): static web/ + JSON API + SSE (/api/events)
   discord-rpc.js   Discord IPC client (\\?\pipe\discord-ipc-N): handshake, AUTHORIZE (PKCE, Public Client),
-                   AUTHENTICATE, voice channel subscriptions, speaking, experimental VOICE_CHANNEL_EFFECT_SEND
+                   AUTHENTICATE, voice channel subscriptions, speaking
   twitch.js        anonymous IRC over WebSocket (justinfan), commands, raids/subs/bits, simulate()
   updater.js       electron-updater (installer) / GitHub latest-release check (portable)
   store.js         %APPDATA%/Puppet Overlay/config.json — DEFAULTS, deep-merge, atomic debounced writes
@@ -121,15 +122,13 @@ tools/mock-discord.js   fake Discord IPC server for tests
 
 | Event | Content / when |
 |---|---|
-| `state` | full state: settings, avatars, viewers, discord snapshot, known, syncStatus, twitchStatus, app info (version, placement, lang, selfSharing, update, displays, hotkeyErrors) |
+| `state` | full state: settings, avatars, viewers, discord snapshot, known, syncStatus, twitchStatus, app info (version, placement, lang, update, displays, hotkeyErrors) |
 | `speaking` | `{id, speaking}` |
 | `chat` | Twitch message |
 | `twitch-event` | `action`, `restyle`, `raid`, `sub`, `bits` |
 | `viewer` | per-viewer change |
 | `viewers-reset` | viewers cleared |
 | `fx-test` | "replay entrances" |
-| `voice-effect` | `{userId, emoji, soundId}` |
-| `screen-preview` | `{id, img}` |
 
 - **API**:
   - `GET /api/state`, `POST /api/settings` (deep-merge patch), `POST /api/avatars`, `DELETE /api/avatars/:id`;
@@ -149,8 +148,6 @@ tools/mock-discord.js   fake Discord IPC server for tests
 | `fx-test` | replay entrances |
 | `forget-member` | remove a known member |
 | `sync-now` | re-read the sync file |
-| `toggle-sharing` | "I'm sharing my screen" |
-| `test-voice-fx` | fake reaction |
 
   - Non-GET requests are rejected unless the Origin is localhost or absent.
 - **Exactly one page plays chat sound**: the desktop overlay (`host=desktop`) when output = `app`, or the OBS source when output = `obs`.
@@ -160,9 +157,7 @@ tools/mock-discord.js   fake Discord IPC server for tests
 
 - **Access**: RPC voice data (`rpc`, `rpc.voice.read`) works only for the app owner and **App Testers (max 50)**, unless Discord approves the app. Every person who **runs** the app must be an accepted tester; people who only appear in the channel need nothing.
 - **Auth**: AUTHORIZE over RPC with PKCE (requires *Public Client* enabled + redirect `http://localhost`). A client-secret fallback field exists in the panel. On auth failure the client halts (no popup loop) until the user clicks *Reconnect*; a stale stored token triggers one automatic re-authorization.
-- **Voice state fields**: the RPC voice_state is documented with only deaf/mute/self_deaf/self_mute/suppress. `self_stream` / `self_video` are read if present (`features.streamField`); otherwise use the manual toggle "I'm sharing my screen" (Ctrl+Shift+L).
-- **Reactions/soundboard**: `VOICE_CHANNEL_EFFECT_SEND` is a **gateway** event (bots). The app tries to SUBSCRIBE over RPC; `features.effects` = true/false is shown in the Status tab. **Not yet confirmed with a real Discord client — ask the maintainer what the Status tab shows.** Unknown RPC events are logged once (`Unhandled RPC event …`) to help discovery.
-- **Screen previews of other members are impossible** (not exposed). The advanced preview captures **only the local screen** via `desktopCapturer` (192×108 JPEG, every `previewInterval` s, only while the user is sharing and mode = advanced). Measured at ~15–20 ms per capture after warm-up on Linux/xvfb; expect 30–80 ms on large Windows screens.
+- **Tested and abandoned (v0.8.0)**: on the maintainer's real Discord client, `self_stream` (Go Live) is **not** reported in RPC voice states, and SUBSCRIBE to `VOICE_CHANNEL_EFFECT_SEND` (emoji reactions/soundboard) is **refused**. Both features were removed. Don't re-add them over RPC; the only path would be a hosted bot connected to the voice channel (gateway).
 - **Wider public release** needs one of:
   - Discord approval (uncertain);
   - a "bring your own Discord app" onboarding wizard (most realistic; the panel already accepts a custom Application ID);
@@ -210,14 +205,14 @@ tools/mock-discord.js   fake Discord IPC server for tests
 | Section | Settings |
 |---|---|
 | `app` | `language` (auto/en/fr), `performance`, `launchAtStartup` (false), `taskbarIcon` (true), `autoUpdate`, `hotkeys` |
-| `overlay` | `enabled`, `layout`, `anchor` (corner or `custom` + `pos {x,y}` ratios), `scale`, `spacing`, `margin`, `display`, `maxVisible`, `entrance`, `exit`, `statusStyle` (props/badges/both), `sleepMinutes`, `lookAtSpeaker`, `showNames`, `showSelf`, `hideIdle`, `glow`, `voiceEffects`, `screenShare` (off/simple/advanced), `previewInterval`, `previewDisplay` |
+| `overlay` | `enabled`, `layout`, `anchor` (corner or `custom` + `pos {x,y}` ratios), `scale`, `spacing`, `margin`, `display`, `maxVisible`, `entrance`, `exit`, `statusStyle` (props/badges/both), `sleepMinutes`, `lookAtSpeaker`, `showNames`, `showSelf`, `hideIdle`, `glow` |
 | `twitch` | `enabled`, `channel`, `layout`, `anchor`/`pos`, `widthRatio`, `scale`, `maxViewers`, `bubbleSeconds`, `idleMinutes`, style (`palette`, `colors`, `hats`, `beards`, `showNames`, `useChatColor`, `bubbleBg`/`bubbleFg`), `ignore`, commands (`commandsEnabled`, `commandPrefix`, `hideCommands`, `disabledCommands`, cooldowns), effects (`raidEffects`, `raidMax`, `subEffects`, `bitsEffects`), `showOnDesktop`, `sound` (below) |
 | `members` | `{ [discordId]: { hidden, alias, scale } }` |
 | `memberOrder` | array of Discord IDs |
 | `sync` | `url`, `intervalSec` |
 | `discord` | `clientId`, `clientSecret`, `redirectUri` |
 
-- `app.hotkeys` defaults: `toggleOverlay` Ctrl+Shift+O, `placement` Ctrl+Shift+P, `muteChat` Ctrl+Shift+M, `shareScreen` Ctrl+Shift+L.
+- `app.hotkeys` defaults: `toggleOverlay` Ctrl+Shift+O, `placement` Ctrl+Shift+P, `muteChat` Ctrl+Shift+M.
 - `twitch.sound` fields: `mode`, `output` (app/obs), `volume`, `speed`, `pitch`, `voice`, `varyVoices`, `readNames`, `maxChars`, `maxQueue`, `muted`.
 - Other top-level data in `config.json`: `avatars`, `syncedAvatars`, `viewers` (Twitch looks), `known` (members seen), `token`.
 
@@ -229,7 +224,7 @@ tools/mock-discord.js   fake Discord IPC server for tests
    ```bash
    mkdir -p /tmp/run /tmp/ud
    echo '{"settings":{"discord":{"clientId":"123456789012345678"}},"token":{"clientId":"123456789012345678","access_token":"AT","refresh_token":"RT","expires_at":9999999999999}}' > /tmp/ud/config.json
-   XDG_RUNTIME_DIR=/tmp/run node tools/mock-discord.js &          # 4 users, speaking events, self_stream on user 3, voice effects
+   XDG_RUNTIME_DIR=/tmp/run node tools/mock-discord.js &          # 4 users, speaking events
    XDG_RUNTIME_DIR=/tmp/run xvfb-run -a ./node_modules/electron/dist/electron --no-sandbox --user-data-dir=/tmp/ud . &
    # then drive http://localhost:47800/panel.html and /overlay.html with Playwright; check /api/state
    ```
@@ -243,10 +238,16 @@ tools/mock-discord.js   fake Discord IPC server for tests
    - login item;
    - auto-update;
    - TTS inside OBS (likely unsupported there → recommend output = app);
-   - real Discord `features.effects` / `features.streamField`;
-   - desktopCapturer cost on big screens.
+   - TTS chat sound with a real Twitch channel.
 
 ## 9. Backlog / next steps (agreed or proposed, not done)
+
+**Next: clean-up / hardening pass (requested by the maintainer)**
+- [ ] Remove dead code and leftovers from features that were added then removed.
+- [ ] Split the large files (`overlay.js`, `puppet.js`, `main.js`) into cohesive modules, without changing behaviour or adding a bundler (`web/` must keep working from `file://`).
+- [ ] Unify settings validation (clamp numbers, enums), centralise defaults, and harden the API inputs.
+- [ ] Add a minimal automated check script (syntax check + headless render smoke test + Twitch parser tests) runnable in CI before the build.
+- [ ] Keep the FR translations complete, and keep old avatar codes/files loadable (`normalize()`), and old configs readable (`migrate()` in `store.js`).
 
 **For the friends release**
 - [ ] Bake the default sync URL into `app-config.json` once the maintainer gives it. Suggested: a public repo `LaboCorpo/labo-puppet-avatars` with `avatars.txt` (one `PUP1.` code per line, raw URL).

@@ -6,9 +6,8 @@ net.createServer(s=>{let buf=Buffer.alloc(0);
   if(op===0){s.write(enc(1,{cmd:'DISPATCH',evt:'READY',data:{user:users[0]}}));continue;}
   const reply=(data)=>s.write(enc(1,{cmd:m.cmd,nonce:m.nonce,data}));
   if(m.cmd==='AUTHENTICATE')reply({user:users[0]});
-  else if(m.cmd==='GET_SELECTED_VOICE_CHANNEL')reply({id:'99',name:'Général',voice_states:users.map((u,i)=>({user:u,voice_state:{self_mute:i===3,self_stream:i===2}}))});
+  else if(m.cmd==='GET_SELECTED_VOICE_CHANNEL')reply({id:'99',name:'Général',voice_states:users.map((u,i)=>({user:u,voice_state:{self_mute:i===3}}))});
   else reply({});
-  if(m.cmd==='SUBSCRIBE'&&m.evt==='VOICE_CHANNEL_EFFECT_SEND'){setInterval(()=>s.write(enc(1,{cmd:'DISPATCH',evt:'VOICE_CHANNEL_EFFECT_SEND',data:{channel_id:'99',user_id:'222222222222222222',emoji:{name:'🔥',id:null},sound_id:Math.random()<0.5?'7':null}})),1500);}
  }});
  const iv=setInterval(()=>{const u=users[Math.floor(Math.random()*3)];s.write(enc(1,{cmd:'DISPATCH',evt:Math.random()<0.5?'SPEAKING_START':'SPEAKING_STOP',data:{user_id:u.id}}));},700);
  s.on('close',()=>clearInterval(iv)); s.on('error',()=>{});

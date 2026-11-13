@@ -203,15 +203,6 @@
     'Hivis': 'Gilet jaune', 'Apron': 'Tablier', 'Jersey': 'Maillot', 'Kimono': 'Kimono', 'Superhero': 'Super-héros', 'Raincoat': 'Ciré',
     'Hardhat': 'Casque de chantier', 'Party': 'Chapeau de fête', 'Pirate': 'Pirate', 'Santa': 'Bonnet de Noël', 'Chef': 'Toque', 'Microphone': 'Micro', 'Trophy': 'Trophée',
     'Popcorn': 'Pop-corn', 'Lei': 'Collier de fleurs', 'Chain': 'Chaîne en or',
-    'Screen sharing & reactions': 'Partage d’écran et réactions', 'Screen sharing display': 'Affichage du partage d’écran', 'Off': 'Désactivé',
-    'Simple (a laptop appears)': 'Simple (un PC portable apparaît)', 'Advanced (live thumbnail of my screen)': 'Avancé (miniature en direct de mon écran)',
-    'Thumbnail refresh (seconds)': 'Rafraîchissement de la miniature (secondes)', 'Screen to preview (0 = first)': 'Écran à prévisualiser (0 = premier)',
-    "🖥 I'm sharing my screen": '🖥 Je partage mon écran', "I'm sharing my screen": 'Je partage mon écran', 'Sharing — click to stop': 'Partage en cours — cliquer pour arrêter',
-    'Show emoji reactions & soundboard over the sender': 'Afficher les réactions emoji et la soundboard au-dessus de l’auteur', '🎉 Test a reaction': '🎉 Tester une réaction',
-    "Discord's local connection doesn't always report screen sharing or reactions: the Status tab shows what your Discord client exposes. If “Go Live” isn't reported, use <b>I'm sharing my screen</b> (Ctrl+Shift+L) when you share. The advanced thumbnail only shows <b>your own</b> screen (Discord doesn't expose other people's streams), refreshed every few seconds at a tiny size to stay light.": 'La connexion locale de Discord ne signale pas toujours le partage d’écran ni les réactions : l’onglet Statut indique ce que ton client Discord expose. Si le « Go Live » n’est pas signalé, utilise <b>Je partage mon écran</b> (Ctrl+Shift+L) quand tu partages. La miniature avancée ne montre que <b>ton propre</b> écran (Discord n’expose pas les streams des autres), rafraîchie toutes les quelques secondes en très petite taille pour rester légère.',
-    'Reactions / soundboard': 'Réactions / soundboard', 'Go Live detection': 'Détection du Go Live', 'supported': 'prises en charge', 'not exposed by Discord (RPC)': 'non exposées par Discord (RPC)',
-    'unknown — join a voice channel': 'inconnu — rejoins un salon vocal', 'reported by Discord': 'signalé par Discord', 'not reported — use “I’m sharing my screen”': 'non signalé — utilise « Je partage mon écran »',
-    "I'm sharing my screen (on/off)": 'Je partage mon écran (on/off)',
 
     // ----- tray / notifications (main process) -----
     'Discord: {s}': 'Discord : {s}', 'Open panel': 'Ouvrir le panneau', 'Show overlay': 'Afficher l’overlay', 'Reconnect Discord': 'Reconnecter Discord',
