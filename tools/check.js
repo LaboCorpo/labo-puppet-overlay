@@ -56,6 +56,14 @@ const PUPPET_FILES = ['avatar', 'gfx', 'animator', 'body', 'face', 'hair', 'rend
 
 (async () => {
   // ---------- Syntax ----------
+  // Windows (CI build, users' checkouts) rejects names with quotes, backslashes, ':' '*' '?' '<' '>' '|' etc.
+  await test('repository file names are Windows-safe', () => {
+    let files = [];
+    try { files = require('child_process').execFileSync('git', ['ls-files', '-z'], { cwd: ROOT }).toString().split('\0').filter(Boolean); } catch (e) { return; } // not a git checkout
+    const bad = files.filter((f) => !/^[A-Za-z0-9._/ -]+$/.test(f) || /[. ]$/.test(f));
+    assert.equal(bad.length, 0, 'Non-portable file names:\n       ' + bad.join('\n       '));
+  });
+
   await test('syntax of every script', () => {
     const files = [...listJs('electron'), ...listJs('web'), ...listJs('tools')];
     const bad = [];

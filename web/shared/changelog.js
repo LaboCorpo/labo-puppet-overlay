@@ -3,7 +3,7 @@
   'use strict';
   root.CHANGELOG = [
     {
-      version: '0.10.0',
+      version: '0.10.1',
       en: [
         'Puppets fade when your mouse comes near them (Overlay settings: on/off, opacity %, distance).',
         'Choose what closing the window does: stay in the taskbar, hide in the tray, or quit the app.',

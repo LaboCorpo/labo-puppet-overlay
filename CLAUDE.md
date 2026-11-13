@@ -28,7 +28,7 @@ This file is everything needed to continue the project exactly where the previou
 
 ## 2. Project summary
 
-> **Current state (v0.10.0)**: hover fade (puppets fade near the mouse on the desktop overlay; `setIgnoreMouseEvents(true, {forward:true})` forwards mouse moves to the page) and configurable close behaviour (`app.closeAction`). Before that, **v0.9.0**: friends release done: first-run guide, bundled avatar sync URL (`LaboCorpo/labo-puppet-avatars`, `avatars.txt`; the repo must be created by the maintainer), "Share" buttons on avatars, "Copy diagnostics", "What's new" after an update, French welcome message in `docs/welcome-fr.md`. v0.8.1 was the clean-up/hardening pass. Next: optional follow-ups or the public release (§9).
+> **Current state (v0.10.1)**: hover fade (puppets fade near the mouse on the desktop overlay; `setIgnoreMouseEvents(true, {forward:true})` forwards mouse moves to the page) and configurable close behaviour (`app.closeAction`). Before that, **v0.9.0**: friends release done: first-run guide, bundled avatar sync URL (`LaboCorpo/labo-puppet-avatars`, `avatars.txt`; the repo must be created by the maintainer), "Share" buttons on avatars, "Copy diagnostics", "What's new" after an update, French welcome message in `docs/welcome-fr.md`. v0.8.1 was the clean-up/hardening pass. Next: optional follow-ups or the public release (§9).
 
 The app is a Windows desktop overlay that shows people in your **Discord voice channel** as animated cut-paper puppets: the top half of the head hinges open when the person speaks. It is meant for a group of friends first, possibly a wider public later.
 
@@ -90,7 +90,7 @@ The app is a Windows desktop overlay that shows people in your **Discord voice c
   - v0.8.0 add-on offsets, new outfits/hats/items (hi-vis vest…), screen-share display, experimental voice effects;
   - v0.8.1 screen-share display and voice effects removed; clean-up/hardening pass, module split, `npm test`;
   - v0.9.0 friends release: first-run guide, bundled sync URL, avatar sharing, diagnostics, "What's new";
-  - v0.10.0 hover fade near the mouse (desktop overlay), close behaviour setting (minimize to taskbar / tray / quit).
+  - v0.10.0 hover fade near the mouse (desktop overlay), close behaviour setting (minimize to taskbar / tray / quit) — build failed (stray file with an invalid Windows name); v0.10.1 same features, fixed.
 
 ## 4. Architecture
 
