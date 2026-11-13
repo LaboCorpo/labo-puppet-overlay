@@ -68,7 +68,7 @@ class AvatarSync extends EventEmitter {
     try {
       const url = rawSyncUrl(s.url);
       const res = await fetch(url + (url.includes('?') ? '&' : '?') + 't=' + Date.now(), { cache: 'no-store', signal: AbortSignal.timeout(20000) });
-      if (!res.ok) throw new Error('HTTP ' + res.status);
+      if (!res.ok) throw new Error(res.status === 404 ? 'Shared file not found (404)' : 'HTTP ' + res.status);
       const text = await res.text();
       if (text.length > MAX_BYTES) throw new Error('File too large');
       const list = parseSyncFile(text);

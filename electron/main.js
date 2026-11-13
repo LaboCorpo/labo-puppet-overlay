@@ -2,7 +2,7 @@
  * Puppet Overlay — Electron main process.
  * Wires the local server, Discord RPC, Twitch chat, avatar sync, updater, windows and shell integration.
  */
-const { app, screen, shell, Notification, dialog, globalShortcut } = require('electron');
+const { app, screen, shell, Notification, dialog, globalShortcut, clipboard } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const { Store } = require('./store');
@@ -10,10 +10,11 @@ const { createServer } = require('./server');
 const { DiscordVoiceRPC } = require('./discord-rpc');
 const { TwitchChat } = require('./twitch');
 const { AvatarSync } = require('./sync');
-const { Updater } = require('./updater');
+const { Updater, cmpVersion } = require('./updater');
+const { buildDiagnostics } = require('./diagnostics');
 const { createWindows } = require('./windows');
 const { createDesktop } = require('./desktop');
-const { cleanAvatarMap } = require('./avatars');
+const { cleanAvatarMap, Puppet } = require('./avatars');
 const { createLogger } = require('./log');
 const I18N = require('../web/shared/i18n.js');
 
@@ -54,9 +55,17 @@ function appState() {
       hotkeyErrors: desktop ? desktop.hotkeyErrors : {},
       update: updater ? updater.state : null,
       portable: !!process.env.PORTABLE_EXECUTABLE_FILE,
+      whatsNew: whatsNewFrom(),
       displays: screen.getAllDisplays().map((d, i) => ({ index: i, label: `${d.id === primary ? 'Primary — ' : ''}${d.size.width}×${d.size.height}`, primary: d.id === primary })),
     },
   };
+}
+// "What's new" is pending after an update until the panel acknowledges it.
+// Returns the previously acknowledged version ('' = unknown, show the current notes only), or null.
+function whatsNewFrom() {
+  const last = store.data.lastVersion;
+  if (last === null) return null;
+  return last === '' || cmpVersion(app.getVersion(), last) > 0 ? last : null;
 }
 function push(opts) {
   if (srv) srv.pushState(opts);
@@ -121,6 +130,24 @@ async function exportConfig() {
   await fs.promises.writeFile(r.filePath, JSON.stringify({ settings, avatars: store.data.avatars }, null, 2));
 }
 
+// Saves one avatar as a .puppet file and shows it in Explorer, ready to be sent.
+async function exportAvatar(id) {
+  const av = store.allAvatars()[id];
+  if (!av) throw new Error('No avatar for this member yet');
+  const file = (av.name || av.id).replace(/[^\w-]+/g, '_') + '.puppet';
+  const r = await dialog.showSaveDialog(windows.panel, { defaultPath: path.join(app.getPath('documents'), file), filters: [{ name: 'Puppet', extensions: ['puppet'] }] });
+  if (r.canceled || !r.filePath) return;
+  await fs.promises.writeFile(r.filePath, Puppet.toFileContent(av));
+  shell.showItemInFolder(r.filePath);
+}
+
+function copyDiagnostics() {
+  clipboard.writeText(buildDiagnostics({
+    version: app.getVersion(), portable: !!process.env.PORTABLE_EXECUTABLE_FILE, versions: process.versions,
+    locale: app.getLocale(), state: appState(), store, logFile: log.file,
+  }));
+}
+
 async function onAction(name, b) {
   switch (name) {
     case 'reconnect': store.data.token = null; store.save(); startDiscord(); return;
@@ -136,6 +163,9 @@ async function onAction(name, b) {
     case 'forget-member': store.forgetMember(String(b.id || '')); push(); return;
     case 'clear-viewers': store.clearViewers(); srv.broadcast('viewers-reset', {}); push(); return;
     case 'export-config': await exportConfig(); return;
+    case 'export-avatar': await exportAvatar(String(b.id || '')); return;
+    case 'copy-diagnostics': copyDiagnostics(); return;
+    case 'whats-new-seen': store.data.lastVersion = app.getVersion(); store.save(); push(); return;
     default: throw new Error('Unknown action');
   }
 }
@@ -172,6 +202,7 @@ app.whenReady().then(async () => {
   store = new Store(app.getPath('userData'), readBundledConfig(), log);
   store.data.avatars = cleanAvatarMap(store.data.avatars);
   store.data.syncedAvatars = cleanAvatarMap(store.data.syncedAvatars);
+  if (store.data.lastVersion === null) { store.data.lastVersion = app.getVersion(); store.save(); } // fresh install: nothing new to show
   syncLang();
 
   srv = createServer({ webDir: WEB_DIR, store, getState: appState, onSettings: applySettings, onAction, onAvatarsChanged: () => push({ avatars: true }) });

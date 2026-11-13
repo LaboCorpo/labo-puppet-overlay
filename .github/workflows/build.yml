@@ -26,8 +26,9 @@ jobs:
         shell: bash
         env:
           CLIENT_ID: ${{ vars.DISCORD_CLIENT_ID }}
+        # Merge, so the other bundled defaults (e.g. the avatar sync URL) are kept.
         run: |
-          printf '{ "discord": { "clientId": "%s" } }' "$CLIENT_ID" > electron/app-config.json
+          node -e "const f='electron/app-config.json',c=JSON.parse(require('fs').readFileSync(f,'utf8'));c.discord=Object.assign({},c.discord,{clientId:process.env.CLIENT_ID});require('fs').writeFileSync(f,JSON.stringify(c,null,2))"
       - run: npx electron-builder --win portable nsis --publish never
         env:
           CSC_IDENTITY_AUTO_DISCOVERY: false

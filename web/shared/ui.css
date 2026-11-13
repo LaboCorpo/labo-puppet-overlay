@@ -87,3 +87,20 @@ input:focus-visible, select:focus-visible, button:focus-visible { outline: 2px s
 .mrow .order { display: flex; flex-direction: column; gap: 2px; }
 .mrow .order button { padding: 2px 8px; font-size: 11px; }
 .live-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: var(--ok); margin-right: 4px; }
+
+/* Modal dialogs (first-run guide, what's new) */
+.modal { position: fixed; inset: 0; background: #0b0a0ecc; display: flex; align-items: center; justify-content: center; z-index: 20; padding: 16px; }
+.modal.hidden { display: none; }
+.modal-box { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 22px 24px; width: min(560px, 100%); max-height: calc(100vh - 32px); overflow: auto; box-shadow: 0 20px 60px #0008; }
+.modal-box h2 { margin-top: 0; color: var(--text); text-transform: none; letter-spacing: 0; font-size: 20px; }
+.modal-box [data-step] { display: none; }
+.modal-box [data-step].on { display: block; }
+.modal-nav { margin-top: 18px; align-items: center; }
+.dots { display: flex; gap: 6px; margin-bottom: 14px; }
+.dots span { width: 26px; height: 4px; border-radius: 2px; background: var(--line); }
+.dots span.on { background: var(--accent); }
+.keys { display: grid; grid-template-columns: auto 1fr; gap: 8px 14px; align-items: center; }
+kbd { background: var(--card); border: 1px solid var(--line); border-bottom-width: 2px; border-radius: 6px; padding: 2px 8px; font: 600 12px ui-monospace, Consolas, monospace; white-space: nowrap; }
+.notes h3 { font-size: 14px; margin: 14px 0 6px; color: var(--accent); }
+.notes ul { margin: 0; padding-left: 20px; }
+.notes li { margin: 4px 0; }

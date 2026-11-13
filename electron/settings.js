@@ -13,7 +13,8 @@ const DEFAULTS = {
     taskbarIcon: true, // keep a taskbar button while the app runs (panel minimizes instead of hiding)
     autoUpdate: true,
     hotkeys: { toggleOverlay: 'CommandOrControl+Shift+O', placement: 'CommandOrControl+Shift+P', muteChat: 'CommandOrControl+Shift+M' },
-    firstRunDone: false,
+    firstRunDone: false, // tray notification shown once, on the first panel close
+    welcomeDone: false, // first-run guide finished or skipped
   },
   discord: { clientId: '', clientSecret: '', redirectUri: 'http://localhost' },
   overlay: {

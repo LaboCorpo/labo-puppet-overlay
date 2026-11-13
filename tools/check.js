@@ -202,12 +202,58 @@ const PUPPET_FILES = ['avatar', 'gfx', 'animator', 'body', 'face', 'hair', 'rend
     fs.writeFileSync(path.join(dir, 'config.json'), JSON.stringify({ settings: { twitch: { palette: 'vif' }, overlay: { voiceEffects: true } }, avatars: { a: 1 }, token: 'x' }));
     const s2 = new Store(dir, {});
     assert.equal(s2.settings.twitch.palette, 'vivid'); assert.equal('voiceEffects' in s2.settings.overlay, false); assert.equal(s2.data.token, null);
+    assert.equal(s2.settings.app.welcomeDone, true, 'existing installs skip the first-run guide'); assert.equal(s2.data.lastVersion, '');
     s2.updateSettings({ overlay: { scale: 1.1 } });
     s2.rememberMembers([{ id: '123456789012345678', name: 'Ana' }]);
     s2.flush();
     assert.equal(new Store(dir, {}).settings.overlay.scale, 1.1);
     s2.forgetMember('123456789012345678');
     assert.equal(s2.data.known['123456789012345678'], undefined);
+    fs.rmSync(dir, { recursive: true, force: true });
+  });
+
+  await test('store: fresh install starts the first-run guide, bundled sync URL is valid', () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'po-store-'));
+    const bundled = JSON.parse(read('electron/app-config.json'));
+    const s = new Store(dir, bundled);
+    assert.equal(s.settings.app.welcomeDone, false);
+    assert.equal(s.data.lastVersion, null);
+    assert.ok(/^https:\/\/\S+$/.test(bundled.sync.url), 'bundled sync URL');
+    assert.equal(s.settings.sync.url, bundled.sync.url);
+    s.data.lastVersion = '0.9.0'; // set by main.js at boot
+    s.updateSettings({ sync: { url: '' } }); // clearing it by hand sticks
+    s.flush();
+    assert.equal(new Store(dir, bundled).settings.sync.url, '');
+    // A pre-0.9.0 config (no lastVersion) with no sync URL gets the bundled one.
+    fs.writeFileSync(path.join(dir, 'config.json'), JSON.stringify({ settings: { sync: { url: '' } } }));
+    assert.equal(new Store(dir, bundled).settings.sync.url, bundled.sync.url);
+    fs.rmSync(dir, { recursive: true, force: true });
+  });
+
+  await test('changelog: current version listed, every entry in English and French', () => {
+    loadWeb('web/shared/changelog.js');
+    const log = globalThis.CHANGELOG;
+    const version = JSON.parse(read('package.json')).version;
+    assert.equal(log[0].version, version, 'newest changelog entry must match package.json');
+    for (const e of log) {
+      assert.ok(/^\d+\.\d+\.\d+$/.test(e.version), e.version);
+      assert.ok(e.en.length > 0 && e.en.length === e.fr.length, 'v' + e.version + ': en/fr entries differ');
+    }
+  });
+
+  await test('diagnostics: no secrets, log tail included', () => {
+    const { buildDiagnostics } = require('../electron/diagnostics');
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'po-diag-'));
+    const store = new Store(dir, {});
+    store.updateSettings({ discord: { clientSecret: 'SECRET123' }, members: { '123456789012345678': { alias: 'Ana' } } });
+    store.data.token = { access_token: 'TOKEN123' };
+    const logFile = path.join(dir, 'main.log');
+    fs.writeFileSync(logFile, 'line one\nlast line\n');
+    const text = buildDiagnostics({ version: '1.0.0', portable: false, versions: {}, locale: 'fr', logFile, store,
+      state: { discord: { status: 'connected', members: [] }, twitchStatus: { status: 'off' }, syncStatus: { status: 'off' }, app: { lang: 'fr', displays: [], update: null } } });
+    assert.ok(!/SECRET123|TOKEN123|Ana/.test(text), 'secret or member data leaked');
+    assert.ok(text.includes('last line') && text.includes('Discord: connected'));
+    store.flush();
     fs.rmSync(dir, { recursive: true, force: true });
   });
 
@@ -304,7 +350,7 @@ const PUPPET_FILES = ['avatar', 'gfx', 'animator', 'body', 'face', 'hair', 'rend
     // Strings that are identical in French.
     const SAME = new Set(['Discord', 'Twitch', 'Overlay', 'Avatars', 'OBS / Streamlabs', 'Position', 'Pastel', 'Monochrome', 'Sub', 'Bits', 'Raid', 'Zoom', 'Puppet Overlay',
       'English', 'Français', 'Application ID', 'Client Secret', 'Redirect URI', 'Public Client', 'Normal', 'portable', 'Puppet', 'Discord + Twitch', 'Version', 'Timo', 'PUP1.…', '🌐 Auto',
-      'Monocle', 'Long', 'Afro', 'Cowboy', 'Bandana', 'Pirate', 'Cape', 'Kimono', 'Pizza']);
+      'OK', 'Monocle', 'Long', 'Afro', 'Cowboy', 'Bandana', 'Pirate', 'Cape', 'Kimono', 'Pizza']);
     // JS: literal arguments of t(), creator tab/item labels, panel command help.
     for (const f of ['web/panel.js', 'web/creator.js', 'web/overlay.js', 'web/overlay/placement.js', 'electron/main.js', 'electron/windows.js', 'electron/desktop.js']) {
       const src = read(f);

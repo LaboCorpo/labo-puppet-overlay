@@ -28,11 +28,11 @@ This file is everything needed to continue the project exactly where the previou
 
 ## 2. Project summary
 
-> **Current state (v0.8.1)**: screen-share display and voice effects removed (Discord RPC doesn't expose them). Clean-up/hardening pass done: large files split into modules, central settings validation, hardened API/RPC/IRC inputs, `npm test` check script run in CI, lower CPU use (idle overlay sleeps, preview capped at 30 fps, state pushes without avatars/viewers). Next: the friends release (§9).
+> **Current state (v0.9.0)**: friends release done: first-run guide, bundled avatar sync URL (`LaboCorpo/labo-puppet-avatars`, `avatars.txt`; the repo must be created by the maintainer), "Share" buttons on avatars, "Copy diagnostics", "What's new" after an update, French welcome message in `docs/welcome-fr.md`. v0.8.1 was the clean-up/hardening pass. Next: optional follow-ups or the public release (§9).
 
 The app is a Windows desktop overlay that shows people in your **Discord voice channel** as animated cut-paper puppets: the top half of the head hinges open when the person speaks. It is meant for a group of friends first, possibly a wider public later.
 
-**Features (v0.8.0)**
+**Features (v0.9.0)**
 - **Overlay**: transparent, click-through, always-on-top Electron window. It has a tray icon and a taskbar presence: status badge, thumbnail buttons, update progress.
 - **Same scene in OBS/Streamlabs**: browser source at `http://localhost:47800/overlay.html` (`?scene=discord|twitch`).
 - **Avatar creator** (`web/creator.html`, also works from `file://`):
@@ -88,7 +88,8 @@ The app is a Windows desktop overlay that shows people in your **Discord voice c
   - v0.5.0 fine sliders, entrance/exit VFX, taskbar; v0.6.0 org repo, chat sound, sync formats, README;
   - v0.7.0 vertical layouts, glasses height/spacing, held item in front;
   - v0.8.0 add-on offsets, new outfits/hats/items (hi-vis vest…), screen-share display, experimental voice effects;
-  - v0.8.1 screen-share display and voice effects removed; clean-up/hardening pass, module split, `npm test`.
+  - v0.8.1 screen-share display and voice effects removed; clean-up/hardening pass, module split, `npm test`;
+  - v0.9.0 friends release: first-run guide, bundled sync URL, avatar sharing, diagnostics, "What's new".
 
 ## 4. Architecture
 
@@ -103,12 +104,13 @@ electron/
   store.js         %APPDATA%/Puppet Overlay/config.json — validated load, migrate(), atomic debounced writes (retry on lock)
   avatars.js       cleanAvatar()/cleanAvatarMap(): normalize + Discord ID check, for API, sync and saved config
   sync.js          AvatarSync: shared avatar file (Gist/raw URL), parseSyncFile()
+  diagnostics.js   plain-text report for "Copy diagnostics" (versions, statuses, settings without secrets/member data, log tail)
   discord-rpc.js   Discord IPC client (\\?\pipe\discord-ipc-N): handshake, AUTHORIZE (PKCE, Public Client),
                    AUTHENTICATE, voice channel subscriptions, speaking
   twitch.js        anonymous IRC over WebSocket (justinfan), commands, raids/subs/bits, watchdog, simulate()
   updater.js       electron-updater (installer) / GitHub latest-release check (portable)
   log.js           %APPDATA%/Puppet Overlay/logs/main.log (1 MB rotation)
-  app-config.json  bundled defaults (Discord client ID)
+  app-config.json  bundled defaults (Discord client ID, avatar sync URL); CI merges DISCORD_CLIENT_ID into it
 web/
   overlay.html/.js scene host: SSE, chat sound, render loop (sleeps when nothing is on screen)
   overlay/         fx.js (entrances/exits, particles), discord.js (DiscordGroup), twitch.js (TwitchCrowd), placement.js
@@ -118,7 +120,8 @@ web/
                    gfx.js (primitives, head geometry), animator.js, body.js, face.js, hair.js (parts), render.js (draw, bubbles)
   shared/chatsound.js  ChatSound (gibberish synth + TTS queue)
   shared/i18n.js   I18N.t/apply/resolve (keys = English strings) — also require()-d by main.js
-  shared/ui.css    shared dark UI styles
+  shared/changelog.js  window.CHANGELOG: release notes (EN + FR per entry, newest first) for the "What's new" dialog
+  shared/ui.css    shared dark UI styles (incl. .modal)
 build/             icon.png/.ico, taskbar badges (badge-*.png), thumbnail icons (thumb-*.png)
 tools/check.js     automated checks (`npm test`, also in CI)
 tools/mock-discord.js   fake Discord IPC server for tests (Windows named pipe or $XDG_RUNTIME_DIR)
@@ -130,7 +133,7 @@ tools/mock-discord.js   fake Discord IPC server for tests (Windows named pipe or
 
 | Event | Content / when |
 |---|---|
-| `state` | settings, discord snapshot, known, syncStatus, twitchStatus, app info (version, placement, lang, update, displays, hotkeyErrors). `avatars` and `viewers` are only in the first event of a connection; later pushes carry `avatars` only when they changed (`pushState({avatars:true})`). Pages merge, they don't replace. |
+| `state` | settings, discord snapshot, known, syncStatus, twitchStatus, app info (version, placement, lang, update, displays, hotkeyErrors, whatsNew). `avatars` and `viewers` are only in the first event of a connection; later pushes carry `avatars` only when they changed (`pushState({avatars:true})`). Pages merge, they don't replace. |
 | `speaking` | `{id, speaking}` |
 | `chat` | Twitch message |
 | `twitch-event` | `action`, `restyle`, `raid`, `sub`, `bits` |
@@ -156,6 +159,9 @@ tools/mock-discord.js   fake Discord IPC server for tests (Windows named pipe or
 | `fx-test` | replay entrances |
 | `forget-member` | remove a known member |
 | `sync-now` | re-read the sync file |
+| `export-avatar` | save one avatar as a `.puppet` file and show it in Explorer |
+| `copy-diagnostics` | put the diagnostics report on the clipboard |
+| `whats-new-seen` | acknowledge the "What's new" notes (`lastVersion` = current) |
 
   - Non-GET requests are rejected unless the Origin is localhost or absent. Any request whose `Host` isn't `localhost`/`127.0.0.1` gets 421 (DNS rebinding).
   - Body limits: settings 200 KB, avatars 4 MB, actions 10 KB (413 above). Settings go through `sanitize()`, avatars through `cleanAvatar()`.
@@ -216,7 +222,7 @@ tools/mock-discord.js   fake Discord IPC server for tests (Windows named pipe or
 
 | Section | Settings |
 |---|---|
-| `app` | `language` (auto/en/fr), `performance`, `launchAtStartup` (false), `taskbarIcon` (true), `autoUpdate`, `hotkeys` |
+| `app` | `language` (auto/en/fr), `performance`, `launchAtStartup` (false), `taskbarIcon` (true), `autoUpdate`, `hotkeys`, `firstRunDone` (tray notice shown), `welcomeDone` (first-run guide finished/skipped; `migrate()` sets it for pre-0.9 configs) |
 | `overlay` | `enabled`, `layout`, `anchor` (corner or `custom` + `pos {x,y}` ratios), `scale`, `spacing`, `margin`, `display`, `maxVisible`, `entrance`, `exit`, `statusStyle` (props/badges/both), `sleepMinutes`, `lookAtSpeaker`, `showNames`, `showSelf`, `hideIdle`, `glow` |
 | `twitch` | `enabled`, `channel`, `layout`, `anchor`/`pos`, `widthRatio`, `scale`, `maxViewers`, `bubbleSeconds`, `idleMinutes`, style (`palette`, `colors`, `hats`, `beards`, `showNames`, `useChatColor`, `bubbleBg`/`bubbleFg`), `ignore`, commands (`commandsEnabled`, `commandPrefix`, `hideCommands`, `disabledCommands`, cooldowns), effects (`raidEffects`, `raidMax`, `subEffects`, `bitsEffects`), `showOnDesktop`, `sound` (below) |
 | `members` | `{ [discordId]: { hidden, alias, scale } }` |
@@ -226,7 +232,8 @@ tools/mock-discord.js   fake Discord IPC server for tests (Windows named pipe or
 
 - `app.hotkeys` defaults: `toggleOverlay` Ctrl+Shift+O, `placement` Ctrl+Shift+P, `muteChat` Ctrl+Shift+M.
 - `twitch.sound` fields: `mode`, `output` (app/obs), `volume`, `speed`, `pitch`, `voice`, `varyVoices`, `readNames`, `maxChars`, `maxQueue`, `muted`.
-- Other top-level data in `config.json`: `avatars`, `syncedAvatars`, `viewers` (Twitch looks), `known` (members seen), `token`.
+- Other top-level data in `config.json`: `avatars`, `syncedAvatars`, `viewers` (Twitch looks), `known` (members seen), `token`, `lastVersion` (last acknowledged "What's new"; `null` = fresh install, `''` = config from before v0.9.0, which also gets the bundled sync URL if it had none).
+- Release notes: add an entry at the top of `web/shared/changelog.js` for every version bump (`npm test` checks it matches `package.json`).
 
 ## 8. Testing (no Windows/Discord in the cloud sandbox)
 
@@ -260,11 +267,9 @@ tools/mock-discord.js   fake Discord IPC server for tests (Windows named pipe or
 - [ ] Size the overlay window to its content instead of the full work area (the GPU process compositing the transparent full-screen window is now the main cost).
 - [ ] Vertical Twitch crowd anchored bottom-left flips its growth direction once moved in placement mode (custom anchors always grow leftwards).
 
-**For the friends release**
-- [ ] Bake the default sync URL into `app-config.json` once the maintainer gives it. Suggested: a public repo `LaboCorpo/labo-puppet-avatars` with `avatars.txt` (one `PUP1.` code per line, raw URL).
-- [ ] French welcome message for friends (install `setup.exe`, SmartScreen "Run anyway", authorize Discord, create & share the avatar, hotkeys).
-- [ ] First-run wizard: detect the Discord ID, open the creator pre-filled, show hotkeys.
-- [ ] "Copy diagnostics" button (logs + state). Also a "What's new" window after an update, and "Share my avatar" (open the file location / copy the code).
+**Done in v0.9.0 (friends release)**: bundled sync URL, French welcome message (`docs/welcome-fr.md`), first-run guide, "Copy diagnostics", "What's new", "Share my avatar".
+- [ ] Maintainer: create the public repo `LaboCorpo/labo-puppet-avatars` with `avatars.txt` (one `PUP1.` code per line). Until then sync shows "Shared file not found (404)".
+- [ ] Not verified on Windows yet: the `export-avatar` save dialog and the guide inside the real panel window.
 
 **For a public release**
 - [ ] "Bring your own Discord app" onboarding.

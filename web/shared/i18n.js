@@ -208,6 +208,31 @@
     'Restart to update (v{v})': 'Redémarrer pour mettre à jour (v{v})', 'Download v{v}': 'Télécharger la v{v}', 'Quit': 'Quitter',
     'Puppet Overlay is still running': 'Puppet Overlay tourne toujours', 'It lives in the system tray. Right-click the icon to quit.': 'L’app reste dans la zone de notification. Clic droit sur l’icône pour quitter.',
     'Update ready': 'Mise à jour prête', 'Puppet Overlay {v} will install when you restart the app.': 'Puppet Overlay {v} s’installera au prochain redémarrage de l’app.',
+
+    // ----- first-run guide, what's new, sharing, diagnostics -----
+    'Welcome to Puppet Overlay': 'Bienvenue dans Puppet Overlay',
+    'Everyone in your Discord voice channel appears on your screen as a paper puppet that talks with them. Three quick steps.': 'Chaque personne de ton salon vocal Discord apparaît à l’écran en marionnette de papier qui parle avec elle. Trois étapes rapides.',
+    '1. Connect Discord': '1. Connecter Discord', '2. Your avatar': '2. Ton avatar', '3. Shortcuts': '3. Raccourcis',
+    'Create my avatar': 'Créer mon avatar', 'Edit my avatar': 'Modifier mon avatar', 'Share my avatar': 'Partager mon avatar',
+    "Send your code (or .puppet file) to whoever manages the crew's avatar file: your puppet then shows up on everyone's screen.": 'Envoie ton code (ou ton fichier .puppet) à la personne qui gère le fichier d’avatars de l’équipe : ta marionnette apparaîtra alors chez tout le monde.',
+    'Closing this window keeps the app running in the taskbar and the system tray. Right-click the tray icon to quit.': 'Fermer cette fenêtre laisse l’app tourner dans la barre des tâches et la zone de notification. Clic droit sur l’icône pour quitter.',
+    'Esc': 'Échap', 'Skip': 'Passer', 'Back': 'Retour', 'Next': 'Suivant', 'Finish': 'Terminer',
+    'Connected as {name}.': 'Connecté en tant que {name}.',
+    'Start the Discord desktop app (the browser version does not work).': 'Lance l’application Discord (la version navigateur ne marche pas).',
+    'Check that you accepted the App Tester invite from the app owner, then click Reconnect.': 'Vérifie que tu as accepté l’invitation « App Tester » du propriétaire de l’app, puis clique sur Reconnecter.',
+    'Waiting for Discord: click “Authorize” in the Discord popup.': 'En attente de Discord : clique sur « Autoriser » dans la fenêtre de Discord.',
+    'Connect Discord first: the creator needs your Discord ID.': 'Connecte d’abord Discord : le créateur a besoin de ton ID Discord.',
+    'Your Discord ID: {id}': 'Ton ID Discord : {id}', 'Your avatar is ready.': 'Ton avatar est prêt.',
+    'Not created yet. Until then, your Discord profile picture is used.': 'Pas encore créé. En attendant, ta photo de profil Discord est utilisée.',
+    "What's new": 'Quoi de neuf',
+    'Share': 'Partager', 'Copy the code': 'Copier le code', 'Save the .puppet file': 'Enregistrer le fichier .puppet',
+    'Create your avatar first': 'Crée d’abord ton avatar', 'Export failed': 'Échec de l’export', 'No avatar for this member yet': 'Pas encore d’avatar pour ce membre',
+    'Code copied — paste it to your friends on Discord': 'Code copié — colle-le à tes potes sur Discord', 'Could not copy the code': 'Impossible de copier le code',
+    'Connect Discord first, so the app knows which avatar is yours': 'Connecte d’abord Discord, pour que l’app sache quel avatar est le tien',
+    'Copy diagnostics': 'Copier les diagnostics', 'Show the welcome guide': 'Revoir le guide de bienvenue',
+    'Something wrong? Copy the diagnostics and paste them to whoever helps you. They contain no password or token.': 'Un souci ? Copie les diagnostics et colle-les à la personne qui t’aide. Ils ne contiennent ni mot de passe ni token.',
+    'Diagnostics copied — paste them to whoever helps you': 'Diagnostics copiés — colle-les à la personne qui t’aide', 'Could not copy the diagnostics': 'Impossible de copier les diagnostics',
+    'Shared file not found (404)': 'Fichier partagé introuvable (404)',
   };
 
   const DICT = { en: {}, fr: FR };

@@ -30,7 +30,10 @@ Windows desktop overlay that shows the members of your current Discord voice cha
 ### 3. Per user
 1. Install `setup.exe`. The exe is not code-signed, so SmartScreen asks for confirmation: *More info → Run anyway*.
 2. Start the Discord desktop app. On first launch, click **Authorize** in the Discord popup.
-3. In the panel, go to **Avatars → Create / edit my avatar**, then share the `.puppet` file or the code.
+3. Follow the first-run guide: it checks the Discord connection, opens the creator with your Discord ID, and lists the shortcuts.
+4. **Share my avatar** copies your code (or saves the `.puppet` file for photo avatars). Send it to the maintainer of the shared avatar file.
+
+A ready-to-paste French welcome message for friends is in [`docs/welcome-fr.md`](docs/welcome-fr.md).
 
 ## Usage
 
@@ -50,6 +53,8 @@ Windows desktop overlay that shows the members of your current Discord voice cha
 ### Avatars and sync
 - Precedence: manual imports (`.puppet` file or code) override synced avatars. Members without an avatar are drawn with their Discord profile picture.
 - **Shared sync** (Avatars tab): paste a GitHub Gist link or any raw file URL. The file is re-read every 2 minutes.
+  - Default: `avatars.txt` in the public repository `LaboCorpo/labo-puppet-avatars` (set in `electron/app-config.json`). The maintainer adds each friend's `PUP1.` code there, one per line.
+  - Clearing the field turns sync off; it stays off.
 - Accepted file formats:
   - one `PUP1.…` code per line (other lines are ignored);
   - `{"avatars": [ … ]}` or a JSON array of avatar objects;
@@ -102,6 +107,8 @@ These settings persist when the person is offline.
 | Overlay not visible in game | Use borderless windowed mode |
 | Update says the repository must be public | Make the repository public |
 | Nothing in OBS | The app must be running; check the URL in the panel's OBS tab |
+| `Sync failed: Shared file not found (404)` | The shared avatar file doesn't exist yet or the repository is private |
+| Anything else | **Settings → Copy diagnostics** and send the text (versions, statuses, settings without secrets, end of the log) |
 
 ## Development
 ```bash
@@ -114,8 +121,8 @@ npm run dist                 # Windows build (on Windows)
 - `node tools/mock-discord.js [pipeIndex]` is a fake Discord IPC server (4 users, random speaking) for testing without Discord.
 - `npm test` (`tools/check.js`): syntax, avatar format, render smoke test on a recording canvas, overlay frames, settings validation, store, sync parsing, Twitch IRC parsing, local server API, French translations.
 - Source layout:
-  - `electron/`: `main.js` (wiring, settings, actions), `windows.js`, `desktop.js` (tray, taskbar, hotkeys), `server.js` (127.0.0.1, SSE + JSON API), `settings.js` (defaults + validation), `store.js`, `avatars.js`, `sync.js`, `discord-rpc.js`, `twitch.js`, `updater.js`, `log.js`.
+  - `electron/`: `main.js` (wiring, settings, actions), `windows.js`, `desktop.js` (tray, taskbar, hotkeys), `server.js` (127.0.0.1, SSE + JSON API), `settings.js` (defaults + validation), `store.js`, `avatars.js`, `sync.js`, `diagnostics.js`, `discord-rpc.js`, `twitch.js`, `updater.js`, `log.js`.
   - `web/shared/puppet/`: avatar format (`avatar.js`, also used by the main process), drawing (`gfx.js`, `body.js`, `face.js`, `hair.js`, `render.js`), `animator.js`.
   - `web/overlay/`: scene modules (`fx.js`, `discord.js`, `twitch.js`, `placement.js`) loaded by `overlay.html` before `overlay.js`.
-  - `web/`: `panel`, `creator`, `shared/chatsound.js`, `shared/i18n.js`, `shared/ui.css`. Classic scripts only, so the creator also works from `file://`.
+  - `web/`: `panel`, `creator`, `shared/chatsound.js`, `shared/i18n.js`, `shared/changelog.js` (release notes shown after an update, EN + FR), `shared/ui.css`. Classic scripts only, so the creator also works from `file://`.
 - Translations live in `web/shared/i18n.js`. Keys are the English strings.

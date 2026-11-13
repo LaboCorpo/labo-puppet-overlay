@@ -149,6 +149,9 @@
   $('#checkUpdate').onclick = () => action('update-check');
   $('#openLogs').onclick = () => action('open-logs');
   $('#exportConfig').onclick = () => action('export-config');
+  $('#copyDiag').onclick = () => action('copy-diagnostics').then((r) => toast(t(r.ok ? 'Diagnostics copied — paste them to whoever helps you' : 'Could not copy the diagnostics')));
+  $('#showWelcome').onclick = () => openWelcome();
+  $('#showWhatsNew').onclick = () => openWhatsNew(null);
   $$('[data-placement]').forEach((b) => (b.dataset.label = b.textContent));
   $$('[data-placement]').forEach((b) => (b.onclick = () => action('placement', { on: !state.app.placement })));
 
@@ -174,7 +177,10 @@
       edit.onclick = () => action('open-creator', { id: av.id });
       const del = document.createElement('button'); del.className = 'danger'; del.textContent = t('Delete');
       del.onclick = () => { if (confirm(t('Delete {name}’s avatar?', { name: av.name || av.id }))) api('/api/avatars/' + encodeURIComponent(av.id), null, 'DELETE'); };
-      btns.append(edit, del);
+      const share = document.createElement('button'); share.className = 'ghost'; share.textContent = t('Share');
+      share.title = t(av.kind === 'photo' ? 'Save the .puppet file' : 'Copy the code');
+      share.onclick = () => shareAvatar(av);
+      btns.append(edit, share, del);
       card.append(name, id, btns);
       box.appendChild(card);
     });
@@ -198,9 +204,22 @@
   document.addEventListener('drop', (e) => { if (e.dataTransfer.files.length) { showTab('avatars'); readFiles(e.dataTransfer.files); } });
   $('#openCreator').onclick = () => { const me = state.discord && state.discord.me; action('open-creator', { id: me ? me.id : '' }); };
 
+  // Drawn avatars travel as a code (clipboard); photo avatars are too large and are saved as a .puppet file.
+  function shareAvatar(av) {
+    if (!av) { toast(t('Create your avatar first')); return; }
+    if (av.kind === 'photo') { action('export-avatar', { id: av.id }).then((r) => { if (!r.ok) toast(t(r.error || 'Export failed')); }); return; }
+    navigator.clipboard.writeText(Puppet.encodeCode(av))
+      .then(() => toast(t('Code copied — paste it to your friends on Discord')), () => toast(t('Could not copy the code')));
+  }
+  const myId = () => (state.discord && state.discord.me ? state.discord.me.id : '');
+  $('#shareMine').onclick = () => {
+    if (!myId()) { toast(t('Connect Discord first, so the app knows which avatar is yours')); return; }
+    shareAvatar(state.avatars[myId()]);
+  };
+
   function renderSync() {
     const st = state.syncStatus || {};
-    $('#syncStatus').textContent = st.status === 'ok' ? t('✔ {n} avatars synced', { n: st.count }) : st.status === 'error' ? t('✖ Sync failed: {e}', { e: st.error }) : '';
+    $('#syncStatus').textContent = st.status === 'ok' ? t('✔ {n} avatars synced', { n: st.count }) : st.status === 'error' ? t('✖ Sync failed: {e}', { e: t(st.error || '') }) : '';
   }
   $('#syncNow').onclick = () => { action('sync-now'); toast(t('Syncing…')); };
 
@@ -328,6 +347,88 @@
   $('#replayFx').onclick = () => { action('fx-test'); toast(t('Watch the preview, your overlay and OBS')); };
   $('#reconnect').onclick = () => { action('reconnect'); toast(t('Reconnecting to Discord…')); };
 
+  // ---------- First-run guide ----------
+  const LAST_STEP = 2;
+  let wStep = 0, welcomeOpen = false, welcomeShown = false;
+  const kbd = (acc) => (acc
+    ? acc.replace('CommandOrControl', 'Ctrl').split('+').map((k) => `<kbd>${escapeHtml(k)}</kbd>`).join(' + ')
+    : `<span class="muted">${escapeHtml(t('none'))}</span>`);
+  function openWelcome() { wStep = 0; welcomeOpen = true; $('#welcome').classList.remove('hidden'); renderWelcome(); }
+  function closeWelcome() {
+    welcomeOpen = false;
+    $('#welcome').classList.add('hidden');
+    if (!state.settings.app.welcomeDone) { state.settings.app.welcomeDone = true; save('app.welcomeDone', true); }
+    checkWhatsNew();
+  }
+  function discordHint(d) {
+    if (d.me) return `<p class="ok">✔ ${escapeHtml(t('Connected as {name}.', { name: d.me.name }))}</p>`;
+    if (d.status === 'Discord not found') return `<p class="warn">● ${escapeHtml(t('Start the Discord desktop app (the browser version does not work).'))}</p>`;
+    if (d.status === 'error' || d.status === 'refused') {
+      const detail = d.detail ? ' — ' + d.detail.split(' — ').map((x) => t(x)).join(' — ') : '';
+      return `<p class="err">● ${escapeHtml(t(d.status) + detail)}</p><p class="muted">${escapeHtml(t('Check that you accepted the App Tester invite from the app owner, then click Reconnect.'))}</p>`;
+    }
+    return `<p class="warn">● ${escapeHtml(t('Waiting for Discord: click “Authorize” in the Discord popup.'))}</p>`;
+  }
+  function renderWelcome() {
+    if (!welcomeOpen) return;
+    const d = state.discord || {}, me = d.me;
+    const mine = me && state.avatars[me.id];
+    $$('#welcome [data-step]').forEach((el) => el.classList.toggle('on', Number(el.dataset.step) === wStep));
+    $('#wDots').innerHTML = [0, 1, 2].map((i) => `<span class="${i <= wStep ? 'on' : ''}"></span>`).join('');
+    $('#wBack').style.visibility = wStep ? 'visible' : 'hidden';
+    $('#wNext').textContent = wStep === LAST_STEP ? t('Finish') : t('Next');
+    $('#wDiscord').innerHTML = discordHint(d);
+    $('#wAvatar').innerHTML = !me
+      ? `<p class="warn">${escapeHtml(t('Connect Discord first: the creator needs your Discord ID.'))}</p>`
+      : `<p>${escapeHtml(t('Your Discord ID: {id}', { id: me.id }))}</p>` + (mine
+        ? `<p class="ok">✔ ${escapeHtml(t('Your avatar is ready.'))}</p>`
+        : `<p class="muted">${escapeHtml(t('Not created yet. Until then, your Discord profile picture is used.'))}</p>`);
+    $('#wCreate').disabled = !me;
+    $('#wCreate').textContent = mine ? t('Edit my avatar') : t('Create my avatar');
+    $('#wShare').disabled = !mine;
+    const hk = state.settings.app.hotkeys;
+    const rows = [[hk.toggleOverlay, 'Show / hide overlay'], [hk.placement, 'Move puppets (placement mode)'], [t('Esc'), 'Finish placement'], [hk.muteChat, 'Mute / unmute chat sound']];
+    $('#wKeys').innerHTML = rows.map(([k, label]) => `<span>${kbd(k)}</span><span>${escapeHtml(t(label))}</span>`).join('');
+  }
+  $('#wNext').onclick = () => { if (wStep < LAST_STEP) { wStep++; renderWelcome(); } else closeWelcome(); };
+  $('#wBack').onclick = () => { if (wStep > 0) { wStep--; renderWelcome(); } };
+  $('#wSkip').onclick = closeWelcome;
+  $('#wReconnect').onclick = () => { action('reconnect'); toast(t('Reconnecting to Discord…')); };
+  $('#wCreate').onclick = () => { if (myId()) action('open-creator', { id: myId() }); };
+  $('#wShare').onclick = () => shareAvatar(state.avatars[myId()]);
+
+  // ---------- What's new ----------
+  const cmpVersion = (a, b) => {
+    const pa = String(a).split('.').map(Number), pb = String(b).split('.').map(Number);
+    for (let i = 0; i < 3; i++) if ((pa[i] || 0) !== (pb[i] || 0)) return (pa[i] || 0) - (pb[i] || 0);
+    return 0;
+  };
+  let whatsNewChecked = false;
+  // from: last acknowledged version ('' = unknown: current notes only), null = opened by hand (recent notes).
+  function openWhatsNew(from) {
+    const cur = state.app.version || '0';
+    const all = (window.CHANGELOG || []).filter((e) => cmpVersion(e.version, cur) <= 0);
+    const list = from === null ? all.slice(0, 3) : from === '' ? all.filter((e) => e.version === cur) : all.filter((e) => cmpVersion(e.version, from) > 0);
+    if (!list.length) return false;
+    const fr = I18N.lang === 'fr';
+    $('#wnList').innerHTML = list.map((e) => `<h3>v${escapeHtml(e.version)}</h3><ul>${(fr ? e.fr : e.en).map((x) => `<li>${escapeHtml(x)}</li>`).join('')}</ul>`).join('');
+    $('#whatsNew').classList.remove('hidden');
+    return true;
+  }
+  // Shown once after an update, never on top of the first-run guide.
+  function checkWhatsNew() {
+    const from = state.app.whatsNew;
+    if (whatsNewChecked || welcomeOpen || from === null || from === undefined) return;
+    whatsNewChecked = true;
+    if (!openWhatsNew(from)) action('whats-new-seen');
+  }
+  function closeWhatsNew() {
+    $('#whatsNew').classList.add('hidden');
+    if (state.app.whatsNew !== null && state.app.whatsNew !== undefined) action('whats-new-seen');
+  }
+  $('#wnClose').onclick = closeWhatsNew;
+  document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && !$('#whatsNew').classList.contains('hidden')) closeWhatsNew(); });
+
   // ---------- Logo ----------
   // Small animated mascot, redrawn at ~20 fps: it doesn't need more.
   (function logo() {
@@ -366,6 +467,9 @@
       if (mk !== lastMembers) { lastMembers = mk; renderMembers(); }
       const ck = I18N.lang + (state.settings.twitch.commandPrefix || '') + JSON.stringify(state.settings.twitch.disabledCommands || []);
       if (ck !== lastCmdKey) { lastCmdKey = ck; renderCommands(); }
+      if (!state.settings.app.welcomeDone && !welcomeShown) { welcomeShown = true; openWelcome(); }
+      renderWelcome();
+      checkWhatsNew();
     });
     es.addEventListener('speaking', (e) => {
       const d = JSON.parse(e.data);

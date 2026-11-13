@@ -1,1 +1,4 @@
-{ "discord": { "clientId": "1570204741982756965" } }
+{
+  "discord": { "clientId": "1570204741982756965" },
+  "sync": { "url": "https://raw.githubusercontent.com/LaboCorpo/labo-puppet-avatars/main/avatars.txt" }
+}

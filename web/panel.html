@@ -98,6 +98,7 @@
       <div class="card">
         <div class="btns" style="margin-top:0">
           <button id="openCreator">Create / edit my avatar</button>
+          <button class="ghost" id="shareMine">Share my avatar</button>
           <label class="button ghost">Import .puppet files<input type="file" id="importFile" accept=".puppet,.json" multiple hidden></label>
         </div>
         <div class="paste">
@@ -233,13 +234,16 @@
       <div class="card">
         <div class="row"><b>Version</b><span id="appVersion" data-no-i18n>—</span></div>
         <div class="row"><b>Status</b><span id="updStatus" data-no-i18n>—</span></div>
-        <div class="btns"><button class="ghost" id="checkUpdate">Check now</button></div>
+        <div class="btns"><button class="ghost" id="checkUpdate">Check now</button><button class="ghost" id="showWhatsNew">What's new</button></div>
       </div>
       <h2>Troubleshooting</h2>
       <div class="card btns" style="margin-top:0">
         <button class="ghost" id="openLogs">Open logs folder</button>
         <button class="ghost" id="exportConfig">Back up settings &amp; avatars…</button>
+        <button class="ghost" id="copyDiag">Copy diagnostics</button>
+        <button class="ghost" id="showWelcome">Show the welcome guide</button>
       </div>
+      <p class="muted">Something wrong? Copy the diagnostics and paste them to whoever helps you. They contain no password or token.</p>
     </section>
 
     <!-- DISCORD CONFIG -->
@@ -265,8 +269,44 @@
     </section>
   </main>
 </div>
+<!-- FIRST-RUN GUIDE -->
+<div id="welcome" class="modal hidden" role="dialog" aria-modal="true">
+  <div class="modal-box">
+    <div class="dots" id="wDots" data-no-i18n></div>
+    <div data-step="0">
+      <h2>Welcome to Puppet Overlay</h2>
+      <p>Everyone in your Discord voice channel appears on your screen as a paper puppet that talks with them. Three quick steps.</p>
+      <h3>1. Connect Discord</h3>
+      <div id="wDiscord" data-no-i18n></div>
+      <div class="btns"><button class="ghost" id="wReconnect">Reconnect / re-authorize Discord</button></div>
+    </div>
+    <div data-step="1">
+      <h2>2. Your avatar</h2>
+      <div id="wAvatar" data-no-i18n></div>
+      <div class="btns"><button id="wCreate">Create my avatar</button><button class="ghost" id="wShare">Share my avatar</button></div>
+      <p class="muted">Send your code (or .puppet file) to whoever manages the crew's avatar file: your puppet then shows up on everyone's screen.</p>
+    </div>
+    <div data-step="2">
+      <h2>3. Shortcuts</h2>
+      <div id="wKeys" class="keys" data-no-i18n></div>
+      <p class="muted">Closing this window keeps the app running in the taskbar and the system tray. Right-click the tray icon to quit.</p>
+    </div>
+    <div class="btns modal-nav"><button class="ghost" id="wSkip">Skip</button><span class="grow"></span><button class="ghost" id="wBack">Back</button><button id="wNext">Next</button></div>
+  </div>
+</div>
+
+<!-- WHAT'S NEW -->
+<div id="whatsNew" class="modal hidden" role="dialog" aria-modal="true">
+  <div class="modal-box">
+    <h2>What's new</h2>
+    <div id="wnList" class="notes" data-no-i18n></div>
+    <div class="btns modal-nav"><span class="grow"></span><button id="wnClose">OK</button></div>
+  </div>
+</div>
+
 <div id="toast" class="toast"></div>
 <script src="shared/i18n.js"></script>
+<script src="shared/changelog.js"></script>
 <script src="shared/puppet/avatar.js"></script>
 <script src="shared/puppet/gfx.js"></script>
 <script src="shared/puppet/animator.js"></script>

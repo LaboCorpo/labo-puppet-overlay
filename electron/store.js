@@ -11,6 +11,9 @@ function migrate(saved) {
   const s = saved.settings;
   if (!isObj(s)) return saved;
   if (isObj(s.twitch) && s.twitch.palette === 'vif') s.twitch.palette = 'vivid';
+  // Installs from before v0.9.0 are already set up: don't show them the first-run guide.
+  if (!isObj(s.app)) s.app = {};
+  if (s.app.welcomeDone === undefined) s.app.welcomeDone = true;
   return saved; // removed settings (e.g. v0.8.0 screen share) are dropped by sanitize()
 }
 
@@ -42,8 +45,12 @@ class Store {
       viewers: obj(saved.viewers),
       known: obj(saved.known),
       token: isObj(saved.token) ? saved.token : null,
+      // Last version whose "What's new" was acknowledged ('' = installed before v0.9.0 tracked it).
+      lastVersion: typeof saved.lastVersion === 'string' ? saved.lastVersion.slice(0, 20) : isObj(saved.settings) ? '' : null,
     };
     if (!this.data.settings.discord.clientId) this.data.settings.discord.clientId = defaults.discord.clientId;
+    // Before v0.9.0 there was no bundled sync URL, so an empty one there means "never set": use the crew file.
+    if (this.data.lastVersion === '' && !this.data.settings.sync.url) this.data.settings.sync.url = defaults.sync.url;
   }
 
   warn(msg) { if (this.log) this.log.warn('[store] ' + msg); }
