@@ -57,14 +57,13 @@
     '…or paste a PUP1.xxxx code from a friend': '…ou colle un code PUP1.xxxx reçu d’un pote', 'Drop .puppet files anywhere in this window': 'Dépose des fichiers .puppet n’importe où dans cette fenêtre',
     'Members without an imported avatar appear with their Discord profile picture cut into a puppet.': 'Les membres sans avatar importé apparaissent avec leur photo de profil Discord découpée en marionnette.',
     'Shared sync (beta)': 'Synchro partagée (bêta)', 'URL of a shared JSON (e.g. the “Raw” link of a GitHub Gist)': 'URL d’un JSON partagé (ex. le lien « Raw » d’un GitHub Gist)',
-    'The JSON holds a list of exported avatars; every app re-reads it every 2 minutes. Avatars you import by hand take priority.': 'Le JSON contient la liste des avatars exportés ; chaque app le relit toutes les 2 minutes. Les avatars importés à la main restent prioritaires.',
     'No avatars imported yet.': 'Aucun avatar importé pour l’instant.', '(no name)': '(sans nom)', 'Delete {name}’s avatar?': 'Supprimer l’avatar de {name} ?',
     '✔ Imported {name}’s avatar.': '✔ Avatar de {name} importé.', 'Unreadable code or file': 'Code ou fichier illisible', 'Import failed': 'Import échoué',
     'Missing or invalid Discord ID (17–20 digits)': 'ID Discord manquant ou invalide (17 à 20 chiffres)', 'Invalid avatar': 'Avatar invalide', 'Invalid photo': 'Photo invalide',
 
     // ----- twitch tab -----
     'Twitch viewers': 'Spectateurs Twitch', 'Twitch channel': 'Chaîne Twitch', 'your_channel': 'ta_chaine', 'Max viewers on screen': 'Spectateurs max à l’écran',
-    'Bubble duration (s)': 'Durée des bulles (s)', 'Leave after inactivity (min)': 'Départ après inactivité (min)', 'Side': 'Côté', 'Width used': 'Largeur occupée',
+    'Bubble duration (s)': 'Durée des bulles (s)', 'Leave after inactivity (min)': 'Départ après inactivité (min)', 'Side': 'Côté',
     'Test:': 'Tester :', 'Chat message': 'Message', 'Command': 'Commande', 'Sub': 'Sub', 'Bits': 'Bits', 'Raid': 'Raid',
     'Viewer style': 'Style des spectateurs', 'Clothes palette': 'Palette des vêtements', 'Vivid': 'Vive', 'Pastel': 'Pastel', 'Monochrome': 'Monochrome', 'My colours': 'Mes couleurs',
     'My colours (comma separated)': 'Mes couleurs (séparées par des virgules)', 'Hats': 'Chapeaux', 'Beards & moustaches': 'Barbes et moustaches', 'Names': 'Pseudos',
@@ -75,7 +74,7 @@
     'Max raiders on screen': 'Raiders max à l’écran', 'Subs: confetti & celebration': 'Subs : confettis et célébration', 'Bits: confetti': 'Bits : confettis',
     "Each viewer keeps the same character across streams (it's generated from their username) until they customise it with commands. Chat is read anonymously — no Twitch login needed.": 'Chaque spectateur garde le même personnage d’un live à l’autre (il est généré à partir de son pseudo) tant qu’il ne le personnalise pas avec des commandes. Le chat est lu anonymement, sans connexion Twitch.',
     'jump': 'sauter', 'dance': 'danser', 'wave hello': 'faire coucou', 'hat crown / cap / none…': 'chapeau crown / cap / none…', 'hair afro / long…': 'cheveux afro / long…',
-    'outfit suit / dress…': 'tenue suit / dress…', 'eyes stars / glasses…': 'yeux stars / glasses…', 'color pink / #ff00aa': 'couleur pink / #ff00aa', 'hatcolor gold': 'couleur du chapeau gold',
+    'outfit suit / dress…': 'tenue suit / dress…', 'eyes stars / hearts…': 'yeux stars / hearts…', 'color pink / #ff00aa': 'couleur pink / #ff00aa', 'hatcolor gold': 'couleur du chapeau gold',
     'new random look': 'nouveau look au hasard', 'back to default look': 'retour au look d’origine', 'list commands': 'liste des commandes',
     'Tip: the effect shows in the Status preview and in OBS': 'Astuce : l’effet s’affiche dans l’aperçu de Statut et dans OBS',
     'Reset every viewer back to their default look?': 'Remettre tous les spectateurs à leur look d’origine ?', 'Viewer customisations cleared': 'Looks des spectateurs réinitialisés',
@@ -212,7 +211,6 @@
   };
 
   const DICT = { en: {}, fr: FR };
-  const LANGS = [{ code: 'en', label: 'English' }, { code: 'fr', label: 'Français' }];
   let lang = 'en';
 
   const norm = (s) => String(s).replace(/\s+/g, ' ').trim();
@@ -260,7 +258,7 @@
     document.documentElement.lang = lang;
   }
 
-  const api = { t, apply, setLang, resolve, LANGS, get lang() { return lang; } };
+  const api = { t, apply, setLang, resolve, get lang() { return lang; } };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else root.I18N = api;
 })(typeof window !== 'undefined' ? window : globalThis);

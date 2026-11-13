@@ -5,11 +5,14 @@
  */
 const { EventEmitter } = require('events');
 
-// Part lists come from the shared renderer so chat commands always match what the creator offers.
-require('../web/shared/puppet.js');
-const OPT = globalThis.Puppet.OPTIONS;
-const COLOR_NAMES = globalThis.Puppet.COLOR_NAMES;
-const list = (k) => OPT[k].filter((v) => v !== 'glasses' || k !== 'eyes');
+// Part lists come from the shared avatar format so chat commands always match what the creator offers.
+const { Puppet } = require('./avatars');
+
+const OPT = Puppet.OPTIONS;
+const COLOR_NAMES = Puppet.COLOR_NAMES;
+const list = (k) => OPT[k];
+const MAX_TEXT = 500;
+const STALE_MS = 6 * 60 * 1000; // Twitch pings every ~5 min: silence longer than this means a dead socket
 
 // Command catalogue. kind 'action' = animation, 'style' = persistent customisation.
 const COMMANDS = {
@@ -47,8 +50,14 @@ function parseColor(arg) {
   return null;
 }
 
+// Sender fields shared by every event, capped so a crafted tag cannot bloat the overlay.
+function viewer(login, tags) {
+  const color = /^#[0-9a-f]{6}$/i.test(tags.color || '') ? tags.color : null;
+  return { login, display: String(tags['display-name'] || login).slice(0, 40), color };
+}
+
 class TwitchChat extends EventEmitter {
-  /** opts: { getSettings(), getOverride(login), setOverride(login, patch|null) , log } */
+  /** opts: { getSettings(), setOverride(login, patch|null) } */
   constructor(opts) {
     super();
     this.o = opts;
@@ -58,6 +67,8 @@ class TwitchChat extends EventEmitter {
     this.cooldowns = new Map(); // login|cmd -> until (ms)
     this.retryMs = 2000;
     this.timer = null;
+    this.watchdog = null;
+    this.lastRx = 0;
   }
 
   setStatus(s, detail) { this.status = s; this.detail = detail || ''; this.emit('status'); }
@@ -76,6 +87,8 @@ class TwitchChat extends EventEmitter {
 
   close() {
     clearTimeout(this.timer);
+    clearInterval(this.watchdog);
+    this.watchdog = null;
     if (this.ws) { const w = this.ws; this.ws = null; try { w.close(); } catch (e) {} }
   }
 
@@ -85,13 +98,25 @@ class TwitchChat extends EventEmitter {
     let ws;
     try { ws = new WebSocket('wss://irc-ws.chat.twitch.tv:443'); } catch (e) { return this.retry(); }
     this.ws = ws;
+    this.lastRx = Date.now();
+    this.watchdog = setInterval(() => {
+      if (Date.now() - this.lastRx < STALE_MS) return;
+      this.close();
+      this.setStatus('reconnecting', 'Connection lost');
+      this.retry();
+    }, 60000);
     ws.onopen = () => {
       ws.send('CAP REQ :twitch.tv/tags twitch.tv/commands');
       ws.send('PASS SCHMOOPIIE');
       ws.send('NICK justinfan' + Math.floor(10000 + Math.random() * 80000));
       ws.send('JOIN #' + chan);
     };
-    ws.onmessage = (ev) => String(ev.data).split('\r\n').forEach((l) => this.handle(l));
+    ws.onmessage = (ev) => {
+      this.lastRx = Date.now();
+      for (const l of String(ev.data).split('\r\n')) {
+        try { this.handle(l); } catch (e) { /* one malformed line must not drop the connection */ }
+      }
+    };
     ws.onclose = () => { if (this.ws === ws) { this.ws = null; this.setStatus('reconnecting', 'Connection lost'); this.retry(); } };
     ws.onerror = () => {};
   }
@@ -127,8 +152,8 @@ class TwitchChat extends EventEmitter {
   onPrivmsg(login, tags, text) {
     if (this.ignored(login)) return;
     if (text.startsWith('\u0001ACTION ')) text = text.slice(8, -1);
-    const display = tags['display-name'] || login;
-    const base = { login, display, color: tags.color || null };
+    text = text.slice(0, MAX_TEXT);
+    const base = viewer(login, tags);
     if (tags.bits) this.emit('event', Object.assign({ type: 'bits', amount: Number(tags.bits) || 0 }, base));
     const cfg = this.o.getSettings();
     const prefix = cfg.commandPrefix || '!';
@@ -151,10 +176,10 @@ class TwitchChat extends EventEmitter {
     if (disabled.includes(name)) return false;
     const now = Date.now();
     const cdKey = base.login + '|' + (def.kind === 'action' ? 'action' : name);
-    const cd = (def.kind === 'action' ? cfg.actionCooldown : cfg.styleCooldown) || (def.kind === 'action' ? 5 : 10);
+    const cd = (def.kind === 'action' ? cfg.actionCooldown : cfg.styleCooldown) ?? (def.kind === 'action' ? 5 : 10);
     if ((this.cooldowns.get(cdKey) || 0) > now) return true;
     this.cooldowns.set(cdKey, now + cd * 1000);
-    if (this.cooldowns.size > 5000) this.cooldowns.clear();
+    if (this.cooldowns.size > 5000) for (const [k, until] of this.cooldowns) if (until <= now) this.cooldowns.delete(k);
 
     if (def.kind === 'help') {
       const p = cfg.commandPrefix || '!';
@@ -177,14 +202,12 @@ class TwitchChat extends EventEmitter {
 
   onUsernotice(tags, text) {
     const id = tags['msg-id'];
-    const login = tags.login || '';
-    const display = tags['display-name'] || login;
-    const sys = tags['system-msg'] || '';
-    const base = { login, display, color: tags.color || null };
+    const base = viewer(String(tags.login || '').toLowerCase(), tags);
+    const sys = String(tags['system-msg'] || '').slice(0, MAX_TEXT);
     if (id === 'raid') {
-      this.emit('event', Object.assign({ type: 'raid', count: Number(tags['msg-param-viewerCount']) || 1, text: sys }, base));
+      this.emit('event', Object.assign({ type: 'raid', count: Math.max(1, Number(tags['msg-param-viewerCount']) || 1), text: sys }, base));
     } else if (/^(sub|resub|subgift|submysterygift|giftpaidupgrade|primepaidupgrade|anongiftpaidupgrade)$/.test(id)) {
-      this.emit('event', Object.assign({ type: 'sub', text: text || sys }, base));
+      this.emit('event', Object.assign({ type: 'sub', text: String(text || sys).slice(0, MAX_TEXT) }, base));
     }
   }
 

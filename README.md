@@ -107,11 +107,15 @@ These settings persist when the person is offline.
 ```bash
 npm install
 npm start                    # run from source
+npm test                     # automated checks (also run by CI before the build)
 npm run dist                 # Windows build (on Windows)
 ```
 - `web/overlay.html?demo=1` shows the scene offline. `&fx=portal` forces an entrance effect; `&layout=vertical` switches to a column.
-- `tools/mock-discord.js` is a fake Discord IPC server for testing without Discord (see `CLAUDE.md`).
+- `node tools/mock-discord.js [pipeIndex]` is a fake Discord IPC server (4 users, random speaking) for testing without Discord.
+- `npm test` (`tools/check.js`): syntax, avatar format, render smoke test on a recording canvas, overlay frames, settings validation, store, sync parsing, Twitch IRC parsing, local server API, French translations.
 - Source layout:
-  - `electron/`: main process (`main.js`), Discord RPC, Twitch IRC, updater, local server (127.0.0.1, SSE + JSON API).
-  - `web/`: overlay, panel, creator, and shared files (`shared/puppet.js` renderer, `chatsound.js`, `i18n.js`).
+  - `electron/`: `main.js` (wiring, settings, actions), `windows.js`, `desktop.js` (tray, taskbar, hotkeys), `server.js` (127.0.0.1, SSE + JSON API), `settings.js` (defaults + validation), `store.js`, `avatars.js`, `sync.js`, `discord-rpc.js`, `twitch.js`, `updater.js`, `log.js`.
+  - `web/shared/puppet/`: avatar format (`avatar.js`, also used by the main process), drawing (`gfx.js`, `body.js`, `face.js`, `hair.js`, `render.js`), `animator.js`.
+  - `web/overlay/`: scene modules (`fx.js`, `discord.js`, `twitch.js`, `placement.js`) loaded by `overlay.html` before `overlay.js`.
+  - `web/`: `panel`, `creator`, `shared/chatsound.js`, `shared/i18n.js`, `shared/ui.css`. Classic scripts only, so the creator also works from `file://`.
 - Translations live in `web/shared/i18n.js`. Keys are the English strings.

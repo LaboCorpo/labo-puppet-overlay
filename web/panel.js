@@ -12,10 +12,15 @@
   function escapeHtml(s) { return String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])); }
 
   // ---------- Tabs (remembered between openings) ----------
+  const preview = $('#preview');
+  const PREVIEW_SRC = preview.getAttribute('src');
   function showTab(name) {
     $$('.tab').forEach((x) => x.classList.toggle('active', x.dataset.tab === name));
     $$('section').forEach((s) => s.classList.toggle('active', s.dataset.panel === name));
-    try { localStorage.setItem('tab', name); } catch (e) {}
+    // The live preview only runs while its tab is shown (a hidden iframe would keep animating).
+    const want = name === 'status' ? PREVIEW_SRC : 'about:blank';
+    if (preview.getAttribute('src') !== want) preview.setAttribute('src', want);
+    try { localStorage.setItem('tab', name); } catch (e) { /* storage disabled */ }
   }
   $$('.tab').forEach((b) => b.addEventListener('click', () => showTab(b.dataset.tab)));
   try { const t = localStorage.getItem('tab'); if (t && $(`.tab[data-tab="${t}"]`)) showTab(t); } catch (e) {}
@@ -324,27 +329,40 @@
   $('#reconnect').onclick = () => { action('reconnect'); toast(t('Reconnecting to Discord…')); };
 
   // ---------- Logo ----------
+  // Small animated mascot, redrawn at ~20 fps: it doesn't need more.
   (function logo() {
     const c = $('#logo'), ctx = c.getContext('2d'), a = new Puppet.Animator('logo');
     const av = Object.assign(Puppet.defaultAvatar(), { hat: 'beanie', hatColor: '#ff7a45', hair: 'none' });
     let last = 0;
-    (function f(t) { a.talking = Math.sin(t / 900) > 0.2; a.update(Math.min(0.05, (t - last) / 1000), t / 1000); last = t; ctx.clearRect(0, 0, 56, 56); Puppet.draw(ctx, av, a.state(t / 1000), { x: 28, y: 76, scale: 0.36 }); requestAnimationFrame(f); })(0);
+    (function f(t) {
+      requestAnimationFrame(f);
+      if (t - last < 50) return;
+      a.talking = Math.sin(t / 900) > 0.2;
+      a.update(Math.min(0.1, (t - last) / 1000), t / 1000); last = t;
+      ctx.clearRect(0, 0, 56, 56);
+      Puppet.draw(ctx, av, a.state(t / 1000), { x: 28, y: 76, scale: 0.36 });
+    })(0);
   })();
 
   // ---------- Live updates ----------
-  let lastAvatars = '', lastCmdKey = '', lastMembers = '', langApplied = false;
+  let avatarsVersion = 0, lastCmdKey = '', lastMembers = '', langApplied = false;
   function connect() {
     const es = new EventSource('/api/events');
     es.onopen = () => $('#offline').classList.add('hidden');
     es.onerror = () => $('#offline').classList.remove('hidden');
     es.addEventListener('state', (e) => {
-      state = JSON.parse(e.data);
+      const next = JSON.parse(e.data);
+      // Avatars are only included when they changed: keep the previous ones otherwise.
+      const avatarsChanged = !!next.avatars;
+      delete next.viewers; // only the overlay uses viewer looks
+      state = Object.assign(state, next);
+      if (avatarsChanged) avatarsVersion++;
       // Language: translate static text once per change, then force the dynamic parts to re-render.
       const langChanged = I18N.setLang((state.app && state.app.lang) || 'en') || !langApplied;
-      if (langChanged) { langApplied = true; I18N.apply(document.body); lastAvatars = ''; lastCmdKey = ''; lastMembers = ''; $('#displaySelect').dataset.opts = ''; }
+      if (langChanged) { langApplied = true; I18N.apply(document.body); lastCmdKey = ''; lastMembers = ''; $('#displaySelect').dataset.opts = ''; }
       fillInputs(); renderStatus(); renderApp(); renderVoices(); renderSync();
-      const av = JSON.stringify(state.avatars); if (av !== lastAvatars) { lastAvatars = av; renderAvatars(); }
-      const mk = I18N.lang + JSON.stringify([Object.keys(state.known || {}), (state.discord.members || []).map((m) => m.id), state.settings.memberOrder, state.settings.members, av.length]);
+      if (avatarsChanged || langChanged) renderAvatars();
+      const mk = I18N.lang + JSON.stringify([Object.keys(state.known || {}), (state.discord.members || []).map((m) => m.id), state.settings.memberOrder, state.settings.members, avatarsVersion]);
       if (mk !== lastMembers) { lastMembers = mk; renderMembers(); }
       const ck = I18N.lang + (state.settings.twitch.commandPrefix || '') + JSON.stringify(state.settings.twitch.disabledCommands || []);
       if (ck !== lastCmdKey) { lastCmdKey = ck; renderCommands(); }

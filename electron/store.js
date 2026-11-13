@@ -1,99 +1,91 @@
 /* JSON persistence in %APPDATA%/Puppet Overlay/config.json (atomic writes, debounced). */
 const fs = require('fs');
 const path = require('path');
+const { DEFAULTS, sanitize, deepMerge, isObj } = require('./settings');
 
-const DEFAULTS = {
-  port: 47800,
-  app: {
-    language: 'auto', // 'auto' follows Windows, or 'en' / 'fr'
-    performance: 'normal', // 'performance' | 'normal' | 'eco'
-    launchAtStartup: false,
-    taskbarIcon: true, // keep a taskbar button while the app runs (panel minimizes instead of hiding)
-    autoUpdate: true,
-    hotkeys: { toggleOverlay: 'CommandOrControl+Shift+O', placement: 'CommandOrControl+Shift+P', muteChat: 'CommandOrControl+Shift+M' },
-    firstRunDone: false,
-  },
-  discord: { clientId: '', clientSecret: '', redirectUri: 'http://localhost' },
-  overlay: {
-    enabled: true, layout: 'horizontal', anchor: 'bottom-left', pos: { x: 0.15, y: 0.92 }, scale: 0.8, spacing: 120, margin: 30,
-    showNames: true, hideIdle: false, showSelf: true, glow: false, maxVisible: 12, display: 0,
-    entrance: 'random', exit: 'random', statusStyle: 'props', sleepMinutes: 10, lookAtSpeaker: true,
-  },
-  twitch: {
-    enabled: false, channel: '', scale: 0.5, maxViewers: 20, bubbleSeconds: 7, idleMinutes: 10,
-    palette: 'vivid', colors: [], hats: true, beards: true, showNames: true, useChatColor: false,
-    layout: 'horizontal', anchor: 'bottom-right', pos: { x: 0.75, y: 0.95 }, widthRatio: 0.55,
-    ignore: 'nightbot, streamelements, streamlabs, moobot, fossabot',
-    bubbleBg: '#ffffff', bubbleFg: '#1d1a1f', showOnDesktop: false,
-    commandsEnabled: true, commandPrefix: '!', hideCommands: true, disabledCommands: [],
-    actionCooldown: 5, styleCooldown: 10,
-    raidEffects: true, raidMax: 15, subEffects: true, bitsEffects: true,
-    // Chat sounds: played by the desktop app ('app') or by the OBS browser source ('obs'), never both.
-    sound: { mode: 'none', output: 'app', volume: 0.6, speed: 1, pitch: 1, voice: '', varyVoices: true, readNames: false, maxChars: 120, maxQueue: 4, muted: false },
-  },
-  // Per-member overrides keyed by Discord user ID: { hidden, alias, scale }
-  members: {},
-  memberOrder: [],
-  // Shared JSON (e.g. a GitHub Gist raw URL) that every app reads periodically.
-  sync: { url: '', intervalSec: 120 },
-};
+const MAX_VIEWERS = 3000;
+const MAX_KNOWN = 300;
 
-function isObj(v) { return v && typeof v === 'object' && !Array.isArray(v); }
-function deepMerge(base, over) {
-  const out = Array.isArray(base) ? [...base] : { ...base };
-  for (const k of Object.keys(over || {})) {
-    const v = over[k];
-    out[k] = isObj(v) && isObj(base && base[k]) ? deepMerge(base[k], v) : v;
-  }
-  return out;
-}
-
+// Old configs stay readable: rename/drop values from earlier versions before validation.
 function migrate(saved) {
   const s = saved.settings;
-  if (s && s.twitch && s.twitch.palette === 'vif') s.twitch.palette = 'vivid';
-  // v0.8.0 screen-share / voice-effect settings were removed: drop them from existing configs.
-  if (s && s.overlay) for (const k of ['screenShare', 'previewInterval', 'previewDisplay', 'voiceEffects']) delete s.overlay[k];
-  if (s && s.app && s.app.hotkeys) delete s.app.hotkeys.shareScreen;
-  return saved;
+  if (!isObj(s)) return saved;
+  if (isObj(s.twitch) && s.twitch.palette === 'vif') s.twitch.palette = 'vivid';
+  return saved; // removed settings (e.g. v0.8.0 screen share) are dropped by sanitize()
 }
 
 class Store {
-  constructor(dir, bundledDefaults) {
+  /** dir: userData folder; bundled: defaults shipped with the build (app-config.json); log: optional logger */
+  constructor(dir, bundled, log) {
     this.file = path.join(dir, 'config.json');
+    this.log = log || null;
+    this.timer = null;
     let saved = {};
-    try { saved = JSON.parse(fs.readFileSync(this.file, 'utf8')); } catch (e) {
+    try {
+      saved = JSON.parse(fs.readFileSync(this.file, 'utf8'));
+      if (!isObj(saved)) throw new Error('not an object');
+    } catch (e) {
+      saved = {};
       // Corrupted file: keep a copy instead of silently losing avatars.
-      if (fs.existsSync(this.file)) try { fs.copyFileSync(this.file, this.file + '.broken'); } catch (err) {}
+      if (fs.existsSync(this.file)) {
+        try { fs.copyFileSync(this.file, this.file + '.broken'); } catch (err) { /* read-only disk: nothing more to do */ }
+        this.warn('config.json unreadable, kept as config.json.broken: ' + e.message);
+      }
     }
     migrate(saved);
-    this.data = deepMerge({ settings: deepMerge(DEFAULTS, bundledDefaults || {}), avatars: {}, syncedAvatars: {}, viewers: {}, known: {}, token: null }, saved);
-    if (!this.data.settings.discord.clientId && bundledDefaults && bundledDefaults.discord) this.data.settings.discord.clientId = bundledDefaults.discord.clientId || '';
-    this.timer = null;
+    const defaults = sanitize(deepMerge(DEFAULTS, bundled || {}));
+    const obj = (v) => (isObj(v) ? v : {});
+    this.data = {
+      settings: sanitize(deepMerge(defaults, obj(saved.settings)), defaults),
+      avatars: obj(saved.avatars),
+      syncedAvatars: obj(saved.syncedAvatars),
+      viewers: obj(saved.viewers),
+      known: obj(saved.known),
+      token: isObj(saved.token) ? saved.token : null,
+    };
+    if (!this.data.settings.discord.clientId) this.data.settings.discord.clientId = defaults.discord.clientId;
   }
+
+  warn(msg) { if (this.log) this.log.warn('[store] ' + msg); }
+
   save() {
     clearTimeout(this.timer);
     this.timer = setTimeout(() => this.flush(), 200);
   }
   flush() {
     clearTimeout(this.timer);
-    fs.mkdirSync(path.dirname(this.file), { recursive: true });
+    this.timer = null;
     const tmp = this.file + '.tmp';
-    fs.writeFileSync(tmp, JSON.stringify(this.data, null, 2));
-    fs.renameSync(tmp, this.file);
+    try {
+      fs.mkdirSync(path.dirname(this.file), { recursive: true });
+      fs.writeFileSync(tmp, JSON.stringify(this.data, null, 2));
+      fs.renameSync(tmp, this.file);
+    } catch (e) {
+      // Antivirus or a sync client can lock the file for a moment: retry later instead of crashing.
+      this.warn('save failed, retrying: ' + e.message);
+      this.timer = setTimeout(() => this.flush(), 2000);
+    }
   }
-  get settings() { return this.data.settings; }
-  updateSettings(patch) { this.data.settings = deepMerge(this.data.settings, patch); this.save(); return this.data.settings; }
-  allAvatars() { return Object.assign({}, this.data.syncedAvatars, this.data.avatars); } // local overrides synced
-  setAvatar(a) { if (!a.id) throw new Error('Avatar has no Discord ID'); this.data.avatars[a.id] = a; this.save(); }
-  deleteAvatar(id) { delete this.data.avatars[id]; this.save(); }
 
-  // Twitch viewer customisations (from chat commands). Capped to the most recent 3000.
+  get settings() { return this.data.settings; }
+  updateSettings(patch) {
+    this.data.settings = sanitize(deepMerge(this.data.settings, patch), this.data.settings);
+    this.save();
+    return this.data.settings;
+  }
+
+  allAvatars() { return Object.assign({}, this.data.syncedAvatars, this.data.avatars); } // local ones override synced ones
+  setAvatar(a) { this.data.avatars[a.id] = a; this.save(); }
+  deleteAvatar(id) { delete this.data.avatars[id]; this.save(); }
+  setSyncedAvatars(map) { this.data.syncedAvatars = map; this.save(); }
+
+  // Twitch viewer customisations (from chat commands), capped to the most recent ones.
   getViewer(login) { return this.data.viewers[login] || null; }
   setViewer(login, patch) {
     if (patch === null) delete this.data.viewers[login];
     else this.data.viewers[login] = Object.assign({}, this.data.viewers[login], patch, { t: Date.now() });
     const keys = Object.keys(this.data.viewers);
-    if (keys.length > 3000) keys.sort((a, b) => this.data.viewers[a].t - this.data.viewers[b].t).slice(0, keys.length - 3000).forEach((k) => delete this.data.viewers[k]);
+    if (keys.length > MAX_VIEWERS) keys.sort((a, b) => this.data.viewers[a].t - this.data.viewers[b].t).slice(0, keys.length - MAX_VIEWERS).forEach((k) => delete this.data.viewers[k]);
     this.save();
   }
   clearViewers() { this.data.viewers = {}; this.save(); }
@@ -101,24 +93,26 @@ class Store {
   // Everyone seen in a voice channel, so per-member settings work even when they're offline.
   rememberMembers(list) {
     let changed = false;
+    const now = Date.now();
     for (const m of list) {
       const k = this.data.known[m.id];
-      if (!k || k.name !== m.name || k.avatarHash !== m.avatarHash || Date.now() - k.lastSeen > 60000) {
-        this.data.known[m.id] = { name: m.name, avatarHash: m.avatarHash || null, lastSeen: Date.now() };
+      if (!k || k.name !== m.name || k.avatarHash !== (m.avatarHash || null) || now - k.lastSeen > 60000) {
+        this.data.known[m.id] = { name: m.name, avatarHash: m.avatarHash || null, lastSeen: now };
         changed = true;
       }
     }
     const ids = Object.keys(this.data.known);
-    if (ids.length > 300) ids.sort((a, b) => this.data.known[a].lastSeen - this.data.known[b].lastSeen).slice(0, ids.length - 300).forEach((id) => delete this.data.known[id]);
+    if (ids.length > MAX_KNOWN) ids.sort((a, b) => this.data.known[a].lastSeen - this.data.known[b].lastSeen).slice(0, ids.length - MAX_KNOWN).forEach((id) => delete this.data.known[id]);
     if (changed) this.save();
     return changed;
   }
   forgetMember(id) {
     delete this.data.known[id];
-    delete this.data.settings.members[id];
-    this.data.settings.memberOrder = (this.data.settings.memberOrder || []).filter((x) => x !== id);
+    const s = this.data.settings;
+    delete s.members[id];
+    s.memberOrder = s.memberOrder.filter((x) => x !== id);
     this.save();
   }
 }
 
-module.exports = { Store, DEFAULTS };
+module.exports = { Store };

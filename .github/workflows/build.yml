@@ -19,6 +19,7 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
+      - run: npm test
       # Inject the Discord Application ID from the repo variable DISCORD_CLIENT_ID (Settings > Secrets and variables > Actions > Variables)
       - name: Bundle Discord client ID
         if: ${{ vars.DISCORD_CLIENT_ID != '' }}
@@ -36,6 +37,7 @@ jobs:
           path: |
             dist/*.exe
             web/creator.html
+            web/shared/
       - name: Publish release (tags only)
         if: startsWith(github.ref, 'refs/tags/v')
         uses: softprops/action-gh-release@v2
