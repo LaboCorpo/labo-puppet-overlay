@@ -21,12 +21,23 @@
 
   const scene = {
     canvas, ctx: canvas.getContext('2d'), W: innerWidth, H: innerHeight, t,
-    settings: null, placement: false,
+    settings: null, placement: false, desktop: DESKTOP,
+    cursor: null, // desktop overlay: last mouse position (forwarded by the click-through window)
     perfMode: () => (scene.settings && scene.settings.app && scene.settings.app.performance) || 'normal',
     useFake: () => TEST || DEMO || scene.placement,
     saveSettings: (patch) => post('/api/settings', patch),
     finishPlacement: () => post('/api/action', { name: 'placement', on: false }),
     wake: () => wake(),
+    // Opacity target for a puppet standing at (x, feetY) with scale s: faded when the cursor is near.
+    hoverTarget: (x, feetY, s) => {
+      const o = scene.settings && scene.settings.overlay;
+      if (!DESKTOP || !o || !o.hoverFade || !scene.cursor || scene.placement) return 1;
+      const r = o.hoverRadius == null ? 80 : o.hoverRadius;
+      const left = x - 70 * s, right = x + 70 * s, top = feetY - 260 * s, bottom = feetY + 20 * s;
+      const dx = Math.max(left - scene.cursor.x, 0, scene.cursor.x - right);
+      const dy = Math.max(top - scene.cursor.y, 0, scene.cursor.y - bottom);
+      return Math.hypot(dx, dy) <= r ? Math.max(0, Math.min(100, o.hoverOpacity == null ? 25 : o.hoverOpacity)) / 100 : 1;
+    },
   };
   const fx = OverlayFx(scene);
   const discord = DiscordGroup(scene, fx);
@@ -51,6 +62,13 @@
     wake();
   }
   addEventListener('resize', resize);
+
+  // ---------- Hover fade (desktop overlay) ----------
+  if (DESKTOP) {
+    addEventListener('mousemove', (e) => { scene.cursor = { x: e.clientX, y: e.clientY }; wake(); });
+    document.addEventListener('mouseleave', () => { scene.cursor = null; wake(); });
+    addEventListener('blur', () => { scene.cursor = null; });
+  }
 
   // ---------- Chat sounds ----------
   // Exactly one page plays them: the desktop overlay (output 'app') or the OBS source (output 'obs').

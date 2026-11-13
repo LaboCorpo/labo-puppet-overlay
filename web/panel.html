@@ -87,6 +87,9 @@
         <label class="check"><input type="checkbox" data-key="overlay.showSelf"> Show myself</label>
         <label class="check"><input type="checkbox" data-key="overlay.hideIdle"> Only show people while they speak</label>
         <label class="check"><input type="checkbox" data-key="overlay.glow"> Green ring while speaking</label>
+        <label class="check"><input type="checkbox" data-key="overlay.hoverFade"> Fade puppets when the mouse comes near</label>
+        <label>Opacity near the mouse (%) <input type="range" min="0" max="100" step="5" data-key="overlay.hoverOpacity"><output></output></label>
+        <label>Fade distance (px) <input type="range" min="0" max="300" step="10" data-key="overlay.hoverRadius"><output></output></label>
         <label class="check"><input type="checkbox" data-key="twitch.showOnDesktop"> Also show Twitch viewers on my desktop</label>
       </div>
       <p class="muted" data-i18n-html>The overlay lets clicks through and stays on top. Games in <b>exclusive fullscreen</b> hide it — switch them to <b>borderless windowed</b>.</p>
@@ -219,7 +222,9 @@
         <label>Performance
           <select data-key="app.performance"><option value="performance">Performance (smoothest)</option><option value="normal">Normal</option><option value="eco">Eco (lighter on your PC)</option></select></label>
         <p class="muted wide">Performance: full frame rate and sharpness. Normal: 60 fps. Eco: 30 fps, lower resolution, fewer effects — and the overlay sleeps when nobody is on screen (all modes pause when empty).</p>
-        <label class="check"><input type="checkbox" data-key="app.taskbarIcon"> Keep an icon in the taskbar while running</label>
+        <label>When I close the window
+          <select data-key="app.closeAction"><option value="minimize">Keep running, minimized in the taskbar</option><option value="tray">Keep running, hidden in the system tray</option><option value="quit">Quit the app</option></select></label>
+        <label class="check"><input type="checkbox" data-key="app.taskbarIcon"> Show a taskbar button when started hidden (with Windows)</label>
         <label class="check"><input type="checkbox" data-key="app.launchAtStartup"> Launch with Windows (starts hidden in the tray)</label>
         <label class="check"><input type="checkbox" data-key="app.autoUpdate"> Check for updates automatically</label>
       </div>

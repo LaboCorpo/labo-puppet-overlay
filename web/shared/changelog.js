@@ -3,6 +3,17 @@
   'use strict';
   root.CHANGELOG = [
     {
+      version: '0.10.0',
+      en: [
+        'Puppets fade when your mouse comes near them (Overlay settings: on/off, opacity %, distance).',
+        'Choose what closing the window does: stay in the taskbar, hide in the tray, or quit the app.',
+      ],
+      fr: [
+        'Les marionnettes deviennent transparentes quand ta souris approche (réglages Overlay : activé, opacité %, distance).',
+        'Choisis ce que fait la fermeture de la fenêtre : rester dans la barre des tâches, se cacher dans la zone de notification, ou quitter l’app.',
+      ],
+    },
+    {
       version: '0.9.0',
       en: [
         'First-run guide: connect Discord, create your avatar, learn the shortcuts.',

@@ -203,6 +203,13 @@
     'Hardhat': 'Casque de chantier', 'Party': 'Chapeau de fête', 'Pirate': 'Pirate', 'Santa': 'Bonnet de Noël', 'Chef': 'Toque', 'Microphone': 'Micro', 'Trophy': 'Trophée',
     'Popcorn': 'Pop-corn', 'Lei': 'Collier de fleurs', 'Chain': 'Chaîne en or',
 
+    // ----- v0.10 -----
+    'When I close the window': 'Quand je ferme la fenêtre', 'Keep running, minimized in the taskbar': 'Continuer, réduite dans la barre des tâches',
+    'Keep running, hidden in the system tray': 'Continuer, cachée dans la zone de notification', 'Quit the app': 'Quitter l’application',
+    'Show a taskbar button when started hidden (with Windows)': 'Afficher un bouton dans la barre des tâches au démarrage caché (avec Windows)',
+    'Fade puppets when the mouse comes near': 'Rendre les marionnettes transparentes quand la souris approche',
+    'Opacity near the mouse (%)': 'Opacité près de la souris (%)', 'Fade distance (px)': 'Distance de fondu (px)',
+
     // ----- tray / notifications (main process) -----
     'Discord: {s}': 'Discord : {s}', 'Open panel': 'Ouvrir le panneau', 'Show overlay': 'Afficher l’overlay', 'Reconnect Discord': 'Reconnecter Discord',
     'Restart to update (v{v})': 'Redémarrer pour mettre à jour (v{v})', 'Download v{v}': 'Télécharger la v{v}', 'Quit': 'Quitter',

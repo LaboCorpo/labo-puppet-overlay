@@ -28,7 +28,7 @@ This file is everything needed to continue the project exactly where the previou
 
 ## 2. Project summary
 
-> **Current state (v0.9.0)**: friends release done: first-run guide, bundled avatar sync URL (`LaboCorpo/labo-puppet-avatars`, `avatars.txt`; the repo must be created by the maintainer), "Share" buttons on avatars, "Copy diagnostics", "What's new" after an update, French welcome message in `docs/welcome-fr.md`. v0.8.1 was the clean-up/hardening pass. Next: optional follow-ups or the public release (§9).
+> **Current state (v0.10.0)**: hover fade (puppets fade near the mouse on the desktop overlay; `setIgnoreMouseEvents(true, {forward:true})` forwards mouse moves to the page) and configurable close behaviour (`app.closeAction`). Before that, **v0.9.0**: friends release done: first-run guide, bundled avatar sync URL (`LaboCorpo/labo-puppet-avatars`, `avatars.txt`; the repo must be created by the maintainer), "Share" buttons on avatars, "Copy diagnostics", "What's new" after an update, French welcome message in `docs/welcome-fr.md`. v0.8.1 was the clean-up/hardening pass. Next: optional follow-ups or the public release (§9).
 
 The app is a Windows desktop overlay that shows people in your **Discord voice channel** as animated cut-paper puppets: the top half of the head hinges open when the person speaks. It is meant for a group of friends first, possibly a wider public later.
 
@@ -89,7 +89,8 @@ The app is a Windows desktop overlay that shows people in your **Discord voice c
   - v0.7.0 vertical layouts, glasses height/spacing, held item in front;
   - v0.8.0 add-on offsets, new outfits/hats/items (hi-vis vest…), screen-share display, experimental voice effects;
   - v0.8.1 screen-share display and voice effects removed; clean-up/hardening pass, module split, `npm test`;
-  - v0.9.0 friends release: first-run guide, bundled sync URL, avatar sharing, diagnostics, "What's new".
+  - v0.9.0 friends release: first-run guide, bundled sync URL, avatar sharing, diagnostics, "What's new";
+  - v0.10.0 hover fade near the mouse (desktop overlay), close behaviour setting (minimize to taskbar / tray / quit).
 
 ## 4. Architecture
 
@@ -222,8 +223,8 @@ tools/mock-discord.js   fake Discord IPC server for tests (Windows named pipe or
 
 | Section | Settings |
 |---|---|
-| `app` | `language` (auto/en/fr), `performance`, `launchAtStartup` (false), `taskbarIcon` (true), `autoUpdate`, `hotkeys`, `firstRunDone` (tray notice shown), `welcomeDone` (first-run guide finished/skipped; `migrate()` sets it for pre-0.9 configs) |
-| `overlay` | `enabled`, `layout`, `anchor` (corner or `custom` + `pos {x,y}` ratios), `scale`, `spacing`, `margin`, `display`, `maxVisible`, `entrance`, `exit`, `statusStyle` (props/badges/both), `sleepMinutes`, `lookAtSpeaker`, `showNames`, `showSelf`, `hideIdle`, `glow` |
+| `app` | `language` (auto/en/fr), `performance`, `launchAtStartup` (false), `taskbarIcon` (true: taskbar button when started hidden), `closeAction` (minimize/tray/quit; `migrate()` maps old `taskbarIcon:false` to `tray`), `autoUpdate`, `hotkeys`, `firstRunDone` (tray notice shown), `welcomeDone` (first-run guide finished/skipped; `migrate()` sets it for pre-0.9 configs) |
+| `overlay` | `enabled`, `layout`, `anchor` (corner or `custom` + `pos {x,y}` ratios), `scale`, `spacing`, `margin`, `display`, `maxVisible`, `entrance`, `exit`, `statusStyle` (props/badges/both), `sleepMinutes`, `lookAtSpeaker`, `showNames`, `showSelf`, `hideIdle`, `glow`, `hoverFade`, `hoverOpacity` (0–100 %), `hoverRadius` (px) |
 | `twitch` | `enabled`, `channel`, `layout`, `anchor`/`pos`, `widthRatio`, `scale`, `maxViewers`, `bubbleSeconds`, `idleMinutes`, style (`palette`, `colors`, `hats`, `beards`, `showNames`, `useChatColor`, `bubbleBg`/`bubbleFg`), `ignore`, commands (`commandsEnabled`, `commandPrefix`, `hideCommands`, `disabledCommands`, cooldowns), effects (`raidEffects`, `raidMax`, `subEffects`, `bitsEffects`), `showOnDesktop`, `sound` (below) |
 | `members` | `{ [discordId]: { hidden, alias, scale } }` |
 | `memberOrder` | array of Discord IDs |

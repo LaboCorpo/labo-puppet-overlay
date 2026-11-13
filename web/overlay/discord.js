@@ -127,6 +127,8 @@
         }
         a.lookTarget = best ? Math.max(-1, Math.min(1, (best.x - e.x) / 120)) : 0;
         a.update(dt, t);
+        const ht = scene.hoverTarget ? scene.hoverTarget(e.x, e.y, e.s) : 1;
+        e.hoverA = e.hoverA == null ? 1 : e.hoverA + (ht - e.hoverA) * Math.min(1, dt * 12);
         // movement: walk/slide to target, drop with a bounce
         if ((e.enter === 'drop' && e.y < e.ty - 0.5) || Math.abs(e.vy) > 30) {
           e.vy += 2600 * dt; e.y += e.vy * dt;
@@ -156,7 +158,7 @@
           const st = e.anim.state(t);
           if (e.walking) st.bob -= Math.abs(Math.sin(t * 13 + e.x * 0.01)) * 9;
           st.scaleMul = e.scaleMul == null ? 1 : e.scaleMul;
-          st.sx = f.sx; st.sy = f.sy; st.alpha = f.alpha; st.rock = (st.rock || 0) + f.rock;
+          st.sx = f.sx; st.sy = f.sy; st.alpha = (f.alpha == null ? 1 : f.alpha) * (e.hoverA == null ? 1 : e.hoverA); st.rock = (st.rock || 0) + f.rock;
           const showName = cfg.showNames !== false && e.leaving < 0 && SHOW_NAME_DURING.includes(e.enter);
           ctx.save();
           if (f.clipBelow != null) { ctx.beginPath(); ctx.rect(0, 0, scene.W, f.clipBelow); ctx.clip(); }

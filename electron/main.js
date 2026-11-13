@@ -222,6 +222,7 @@ app.whenReady().then(async () => {
   windows = createWindows({
     store, log, t, icon: ICON, base,
     isQuitting: () => quitting,
+    quit: () => { quitting = true; app.quit(); },
     onChange: push,
     onPanelShown: () => desktop.onPanelShown(),
   });

@@ -14,6 +14,8 @@ function migrate(saved) {
   // Installs from before v0.9.0 are already set up: don't show them the first-run guide.
   if (!isObj(s.app)) s.app = {};
   if (s.app.welcomeDone === undefined) s.app.welcomeDone = true;
+  // v0.10: the close behaviour used to follow the taskbar toggle.
+  if (s.app.closeAction === undefined && s.app.taskbarIcon === false) s.app.closeAction = 'tray';
   return saved; // removed settings (e.g. v0.8.0 screen share) are dropped by sanitize()
 }
 

@@ -49,6 +49,8 @@ A ready-to-paste French welcome message for friends is in [`docs/welcome-fr.md`]
 - Shortcuts can be changed in **Settings**.
 - If port 47800 is busy, the app uses the next free one; the panel's OBS tab shows the actual URL.
 - Games running in exclusive fullscreen hide the overlay. Use borderless windowed mode instead.
+- **Hover fade** (Overlay tab): on the desktop, puppets turn semi-transparent when the mouse comes near. Opacity (%) and distance (px) are adjustable; OBS is not affected.
+- **Closing the window** (Settings): minimize to the taskbar (default), hide to the system tray, or quit the app.
 
 ### Avatars and sync
 - Precedence: manual imports (`.puppet` file or code) override synced avatars. Members without an avatar are drawn with their Discord profile picture.

@@ -27,7 +27,8 @@ function createWindows(ctx) {
       webPreferences: { backgroundThrottling: false },
     });
     overlayWin.setAlwaysOnTop(true, 'screen-saver');
-    overlayWin.setIgnoreMouseEvents(true);
+    // forward: the page still receives mouse moves while clicks pass through (hover fade).
+    overlayWin.setIgnoreMouseEvents(true, { forward: true });
     overlayWin.setVisibleOnAllWorkspaces(true);
     overlayWin.loadURL(`${ctx.base()}/overlay.html?scene=${overlayScene()}&host=desktop`);
     overlayWin.once('ready-to-show', updateOverlayVisibility);
@@ -53,7 +54,7 @@ function createWindows(ctx) {
 
   function applyPlacement() {
     if (!alive(overlayWin)) return;
-    overlayWin.setIgnoreMouseEvents(!placement);
+    if (placement) overlayWin.setIgnoreMouseEvents(false); else overlayWin.setIgnoreMouseEvents(true, { forward: true });
     overlayWin.setFocusable(placement);
     updateOverlayVisibility();
     if (placement) overlayWin.focus();
@@ -91,13 +92,16 @@ function createWindows(ctx) {
     });
     panelWin.on('close', (e) => {
       if (ctx.isQuitting()) return;
+      const action = store.settings.app.closeAction || 'minimize';
+      // 'quit' closes everything (window close from the taskbar or the X button exits the app).
+      if (action === 'quit') { ctx.quit(); return; }
       e.preventDefault();
-      // With the taskbar icon on, closing just minimizes so the app stays visible in the taskbar.
-      if (store.settings.app.taskbarIcon) panelWin.minimize(); else panelWin.hide();
+      // 'minimize' keeps the app's button in the taskbar; 'tray' hides it, the tray icon remains.
+      if (action === 'minimize') panelWin.minimize(); else panelWin.hide();
       if (!store.settings.app.firstRunDone) {
         store.updateSettings({ app: { firstRunDone: true } });
         if (Notification.isSupported()) {
-          const body = store.settings.app.taskbarIcon ? 'It stays in your taskbar and system tray. Right-click the tray icon to quit.' : 'It lives in the system tray. Right-click the icon to quit.';
+          const body = action === 'minimize' ? 'It stays in your taskbar and system tray. Right-click the tray icon to quit.' : 'It lives in the system tray. Right-click the icon to quit.';
           new Notification({ title: t('Puppet Overlay is still running'), body: t(body), icon: ctx.icon }).show();
         }
       }

@@ -10,7 +10,8 @@ const DEFAULTS = {
     language: 'auto', // 'auto' follows Windows, or 'en' / 'fr'
     performance: 'normal', // 'performance' | 'normal' | 'eco'
     launchAtStartup: false,
-    taskbarIcon: true, // keep a taskbar button while the app runs (panel minimizes instead of hiding)
+    taskbarIcon: true, // give the hidden-at-startup panel a taskbar button
+    closeAction: 'minimize', // closing the panel window: 'minimize' (stays in the taskbar) | 'tray' | 'quit'
     autoUpdate: true,
     hotkeys: { toggleOverlay: 'CommandOrControl+Shift+O', placement: 'CommandOrControl+Shift+P', muteChat: 'CommandOrControl+Shift+M' },
     firstRunDone: false, // tray notification shown once, on the first panel close
@@ -21,6 +22,8 @@ const DEFAULTS = {
     enabled: true, layout: 'horizontal', anchor: 'bottom-left', pos: { x: 0.15, y: 0.92 }, scale: 0.8, spacing: 120, margin: 30,
     showNames: true, hideIdle: false, showSelf: true, glow: false, maxVisible: 12, display: 0,
     entrance: 'random', exit: 'random', statusStyle: 'props', sleepMinutes: 10, lookAtSpeaker: true,
+    // Desktop overlay only: puppets fade when the mouse comes near, so they never hide what you're pointing at.
+    hoverFade: true, hoverOpacity: 25, hoverRadius: 80,
   },
   twitch: {
     enabled: false, channel: '', scale: 0.5, maxViewers: 20, bubbleSeconds: 7, idleMinutes: 10,
@@ -45,6 +48,7 @@ const CORNERS = ['bottom-left', 'bottom-center', 'bottom-right', 'top-left', 'to
 const ENUMS = {
   'app.language': ['auto', 'en', 'fr'],
   'app.performance': ['performance', 'normal', 'eco'],
+  'app.closeAction': ['minimize', 'tray', 'quit'],
   'overlay.layout': ['horizontal', 'vertical'],
   'overlay.anchor': CORNERS,
   'overlay.entrance': ['random', 'walk', 'drop', 'pop', 'portal', 'beam', 'feathers', 'smoke', 'none'],
@@ -61,6 +65,7 @@ const RANGES = {
   port: [1024, 65535, true],
   'overlay.pos.x': [0, 1], 'overlay.pos.y': [0, 1],
   'overlay.scale': [0.3, 1.6], 'overlay.spacing': [70, 260], 'overlay.margin': [0, 200],
+  'overlay.hoverOpacity': [0, 100, true], 'overlay.hoverRadius': [0, 400, true],
   'overlay.maxVisible': [1, 30, true], 'overlay.display': [0, 15, true], 'overlay.sleepMinutes': [0, 120],
   'twitch.pos.x': [0, 1], 'twitch.pos.y': [0, 1],
   'twitch.scale': [0.25, 1], 'twitch.maxViewers': [1, 80, true], 'twitch.bubbleSeconds': [2, 30], 'twitch.idleMinutes': [1, 120],

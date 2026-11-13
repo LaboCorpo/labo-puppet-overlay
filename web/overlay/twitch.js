@@ -140,6 +140,7 @@
         const a = v.anim;
         a.talking = now < (a.talkUntil || 0);
         a.update(dt, t);
+        if (v.x != null && L) { const ht = scene.hoverTarget ? scene.hoverTarget(v.x, v.y, L.s) : 1; v.hoverA = v.hoverA == null ? 1 : v.hoverA + (ht - v.hoverA) * Math.min(1, dt * 12); }
         if (v.tx != null) {
           const dx = v.tx - v.x;
           v.walking = Math.abs(dx) > 4;
@@ -160,6 +161,7 @@
         const st = v.anim.state(t);
         if (v.walking) st.bob -= Math.abs(Math.sin(t * 14 + v.x * 0.01)) * 7;
         st.scaleMul = v.leaving >= 0 ? Math.max(0, 1 - v.leaving / 0.22) : (v.pop != null ? 1 + Math.sin(v.pop / 0.5 * Math.PI) * 0.18 : 1);
+        if (v.hoverA != null && v.hoverA < 1) st.alpha = v.hoverA;
         P.draw(ctx, v.avatar, st, {
           x: v.x, y: v.y, scale: L.s,
           flip: v.walking ? v.tx > v.x : (L.vertical ? !L.fromRight : v.x < W / 2),
@@ -171,7 +173,7 @@
           const alpha = Math.min(1, (v.msgUntil - now) / 0.5);
           const headTop = v.y + st.bob * L.s + P.headTopLocal(v.avatar) * L.s - (L.vertical ? 0 : (v.col % 2) * 46 * L.s);
           P.drawBubble(ctx, v.msg, v.x, headTop, Math.max(0.75, L.s * 1.4), {
-            alpha, bg: v.system ? '#2b2633' : c.bubbleBg, fg: v.system ? '#ffd166' : c.bubbleFg, viewW: W, maxLines: v.system ? 4 : 3,
+            alpha: alpha * (v.hoverA == null ? 1 : v.hoverA), bg: v.system ? '#2b2633' : c.bubbleBg, fg: v.system ? '#ffd166' : c.bubbleFg, viewW: W, maxLines: v.system ? 4 : 3,
             side: L.vertical ? (L.fromRight ? 'left' : 'right') : null, sideGap: 70 * L.s,
           });
         }
