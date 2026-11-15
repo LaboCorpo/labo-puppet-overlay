@@ -49,7 +49,7 @@ class Updater extends EventEmitter {
     // Portable: ask GitHub for the latest release tag.
     this.set({ status: 'checking' });
     try {
-      const res = await fetch(`https://api.github.com/repos/${OWNER}/${REPO}/releases/latest`, { headers: { Accept: 'application/vnd.github+json' } });
+      const res = await fetch(`https://api.github.com/repos/${OWNER}/${REPO}/releases/latest`, { headers: { Accept: 'application/vnd.github+json' }, signal: AbortSignal.timeout(15000) });
       if (res.status === 404) throw new Error('No public release found (is the GitHub repository public?)');
       const j = await res.json();
       const latest = String(j.tag_name || '').replace(/^v/, '');
@@ -79,4 +79,4 @@ function friendly(e) {
   return m.split('\n')[0].slice(0, 200);
 }
 
-module.exports = { Updater, RELEASES_URL };
+module.exports = { Updater, cmpVersion };

@@ -57,14 +57,13 @@
     '…or paste a PUP1.xxxx code from a friend': '…ou colle un code PUP1.xxxx reçu d’un pote', 'Drop .puppet files anywhere in this window': 'Dépose des fichiers .puppet n’importe où dans cette fenêtre',
     'Members without an imported avatar appear with their Discord profile picture cut into a puppet.': 'Les membres sans avatar importé apparaissent avec leur photo de profil Discord découpée en marionnette.',
     'Shared sync (beta)': 'Synchro partagée (bêta)', 'URL of a shared JSON (e.g. the “Raw” link of a GitHub Gist)': 'URL d’un JSON partagé (ex. le lien « Raw » d’un GitHub Gist)',
-    'The JSON holds a list of exported avatars; every app re-reads it every 2 minutes. Avatars you import by hand take priority.': 'Le JSON contient la liste des avatars exportés ; chaque app le relit toutes les 2 minutes. Les avatars importés à la main restent prioritaires.',
     'No avatars imported yet.': 'Aucun avatar importé pour l’instant.', '(no name)': '(sans nom)', 'Delete {name}’s avatar?': 'Supprimer l’avatar de {name} ?',
     '✔ Imported {name}’s avatar.': '✔ Avatar de {name} importé.', 'Unreadable code or file': 'Code ou fichier illisible', 'Import failed': 'Import échoué',
     'Missing or invalid Discord ID (17–20 digits)': 'ID Discord manquant ou invalide (17 à 20 chiffres)', 'Invalid avatar': 'Avatar invalide', 'Invalid photo': 'Photo invalide',
 
     // ----- twitch tab -----
     'Twitch viewers': 'Spectateurs Twitch', 'Twitch channel': 'Chaîne Twitch', 'your_channel': 'ta_chaine', 'Max viewers on screen': 'Spectateurs max à l’écran',
-    'Bubble duration (s)': 'Durée des bulles (s)', 'Leave after inactivity (min)': 'Départ après inactivité (min)', 'Side': 'Côté', 'Width used': 'Largeur occupée',
+    'Bubble duration (s)': 'Durée des bulles (s)', 'Leave after inactivity (min)': 'Départ après inactivité (min)', 'Side': 'Côté',
     'Test:': 'Tester :', 'Chat message': 'Message', 'Command': 'Commande', 'Sub': 'Sub', 'Bits': 'Bits', 'Raid': 'Raid',
     'Viewer style': 'Style des spectateurs', 'Clothes palette': 'Palette des vêtements', 'Vivid': 'Vive', 'Pastel': 'Pastel', 'Monochrome': 'Monochrome', 'My colours': 'Mes couleurs',
     'My colours (comma separated)': 'Mes couleurs (séparées par des virgules)', 'Hats': 'Chapeaux', 'Beards & moustaches': 'Barbes et moustaches', 'Names': 'Pseudos',
@@ -75,7 +74,7 @@
     'Max raiders on screen': 'Raiders max à l’écran', 'Subs: confetti & celebration': 'Subs : confettis et célébration', 'Bits: confetti': 'Bits : confettis',
     "Each viewer keeps the same character across streams (it's generated from their username) until they customise it with commands. Chat is read anonymously — no Twitch login needed.": 'Chaque spectateur garde le même personnage d’un live à l’autre (il est généré à partir de son pseudo) tant qu’il ne le personnalise pas avec des commandes. Le chat est lu anonymement, sans connexion Twitch.',
     'jump': 'sauter', 'dance': 'danser', 'wave hello': 'faire coucou', 'hat crown / cap / none…': 'chapeau crown / cap / none…', 'hair afro / long…': 'cheveux afro / long…',
-    'outfit suit / dress…': 'tenue suit / dress…', 'eyes stars / glasses…': 'yeux stars / glasses…', 'color pink / #ff00aa': 'couleur pink / #ff00aa', 'hatcolor gold': 'couleur du chapeau gold',
+    'outfit suit / dress…': 'tenue suit / dress…', 'eyes stars / hearts…': 'yeux stars / hearts…', 'color pink / #ff00aa': 'couleur pink / #ff00aa', 'hatcolor gold': 'couleur du chapeau gold',
     'new random look': 'nouveau look au hasard', 'back to default look': 'retour au look d’origine', 'list commands': 'liste des commandes',
     'Tip: the effect shows in the Status preview and in OBS': 'Astuce : l’effet s’affiche dans l’aperçu de Statut et dans OBS',
     'Reset every viewer back to their default look?': 'Remettre tous les spectateurs à leur look d’origine ?', 'Viewer customisations cleared': 'Looks des spectateurs réinitialisés',
@@ -204,15 +203,46 @@
     'Hardhat': 'Casque de chantier', 'Party': 'Chapeau de fête', 'Pirate': 'Pirate', 'Santa': 'Bonnet de Noël', 'Chef': 'Toque', 'Microphone': 'Micro', 'Trophy': 'Trophée',
     'Popcorn': 'Pop-corn', 'Lei': 'Collier de fleurs', 'Chain': 'Chaîne en or',
 
+    // ----- v0.10 -----
+    'When I close the window': 'Quand je ferme la fenêtre', 'Keep running, minimized in the taskbar': 'Continuer, réduite dans la barre des tâches',
+    'Keep running, hidden in the system tray': 'Continuer, cachée dans la zone de notification', 'Quit the app': 'Quitter l’application',
+    'Show a taskbar button when started hidden (with Windows)': 'Afficher un bouton dans la barre des tâches au démarrage caché (avec Windows)',
+    'Fade puppets when the mouse comes near': 'Rendre les marionnettes transparentes quand la souris approche',
+    'Opacity near the mouse (%)': 'Opacité près de la souris (%)', 'Fade distance (px)': 'Distance de fondu (px)',
+
     // ----- tray / notifications (main process) -----
     'Discord: {s}': 'Discord : {s}', 'Open panel': 'Ouvrir le panneau', 'Show overlay': 'Afficher l’overlay', 'Reconnect Discord': 'Reconnecter Discord',
     'Restart to update (v{v})': 'Redémarrer pour mettre à jour (v{v})', 'Download v{v}': 'Télécharger la v{v}', 'Quit': 'Quitter',
     'Puppet Overlay is still running': 'Puppet Overlay tourne toujours', 'It lives in the system tray. Right-click the icon to quit.': 'L’app reste dans la zone de notification. Clic droit sur l’icône pour quitter.',
     'Update ready': 'Mise à jour prête', 'Puppet Overlay {v} will install when you restart the app.': 'Puppet Overlay {v} s’installera au prochain redémarrage de l’app.',
+
+    // ----- first-run guide, what's new, sharing, diagnostics -----
+    'Welcome to Puppet Overlay': 'Bienvenue dans Puppet Overlay',
+    'Everyone in your Discord voice channel appears on your screen as a paper puppet that talks with them. Three quick steps.': 'Chaque personne de ton salon vocal Discord apparaît à l’écran en marionnette de papier qui parle avec elle. Trois étapes rapides.',
+    '1. Connect Discord': '1. Connecter Discord', '2. Your avatar': '2. Ton avatar', '3. Shortcuts': '3. Raccourcis',
+    'Create my avatar': 'Créer mon avatar', 'Edit my avatar': 'Modifier mon avatar', 'Share my avatar': 'Partager mon avatar',
+    "Send your code (or .puppet file) to whoever manages the crew's avatar file: your puppet then shows up on everyone's screen.": 'Envoie ton code (ou ton fichier .puppet) à la personne qui gère le fichier d’avatars de l’équipe : ta marionnette apparaîtra alors chez tout le monde.',
+    'Closing this window keeps the app running in the taskbar and the system tray. Right-click the tray icon to quit.': 'Fermer cette fenêtre laisse l’app tourner dans la barre des tâches et la zone de notification. Clic droit sur l’icône pour quitter.',
+    'Esc': 'Échap', 'Skip': 'Passer', 'Back': 'Retour', 'Next': 'Suivant', 'Finish': 'Terminer',
+    'Connected as {name}.': 'Connecté en tant que {name}.',
+    'Start the Discord desktop app (the browser version does not work).': 'Lance l’application Discord (la version navigateur ne marche pas).',
+    'Check that you accepted the App Tester invite from the app owner, then click Reconnect.': 'Vérifie que tu as accepté l’invitation « App Tester » du propriétaire de l’app, puis clique sur Reconnecter.',
+    'Waiting for Discord: click “Authorize” in the Discord popup.': 'En attente de Discord : clique sur « Autoriser » dans la fenêtre de Discord.',
+    'Connect Discord first: the creator needs your Discord ID.': 'Connecte d’abord Discord : le créateur a besoin de ton ID Discord.',
+    'Your Discord ID: {id}': 'Ton ID Discord : {id}', 'Your avatar is ready.': 'Ton avatar est prêt.',
+    'Not created yet. Until then, your Discord profile picture is used.': 'Pas encore créé. En attendant, ta photo de profil Discord est utilisée.',
+    "What's new": 'Quoi de neuf',
+    'Share': 'Partager', 'Copy the code': 'Copier le code', 'Save the .puppet file': 'Enregistrer le fichier .puppet',
+    'Create your avatar first': 'Crée d’abord ton avatar', 'Export failed': 'Échec de l’export', 'No avatar for this member yet': 'Pas encore d’avatar pour ce membre',
+    'Code copied — paste it to your friends on Discord': 'Code copié — colle-le à tes potes sur Discord', 'Could not copy the code': 'Impossible de copier le code',
+    'Connect Discord first, so the app knows which avatar is yours': 'Connecte d’abord Discord, pour que l’app sache quel avatar est le tien',
+    'Copy diagnostics': 'Copier les diagnostics', 'Show the welcome guide': 'Revoir le guide de bienvenue',
+    'Something wrong? Copy the diagnostics and paste them to whoever helps you. They contain no password or token.': 'Un souci ? Copie les diagnostics et colle-les à la personne qui t’aide. Ils ne contiennent ni mot de passe ni token.',
+    'Diagnostics copied — paste them to whoever helps you': 'Diagnostics copiés — colle-les à la personne qui t’aide', 'Could not copy the diagnostics': 'Impossible de copier les diagnostics',
+    'Shared file not found (404)': 'Fichier partagé introuvable (404)',
   };
 
   const DICT = { en: {}, fr: FR };
-  const LANGS = [{ code: 'en', label: 'English' }, { code: 'fr', label: 'Français' }];
   let lang = 'en';
 
   const norm = (s) => String(s).replace(/\s+/g, ' ').trim();
@@ -260,7 +290,7 @@
     document.documentElement.lang = lang;
   }
 
-  const api = { t, apply, setLang, resolve, LANGS, get lang() { return lang; } };
+  const api = { t, apply, setLang, resolve, get lang() { return lang; } };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else root.I18N = api;
 })(typeof window !== 'undefined' ? window : globalThis);

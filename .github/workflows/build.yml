@@ -19,14 +19,16 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
+      - run: npm test
       # Inject the Discord Application ID from the repo variable DISCORD_CLIENT_ID (Settings > Secrets and variables > Actions > Variables)
       - name: Bundle Discord client ID
         if: ${{ vars.DISCORD_CLIENT_ID != '' }}
         shell: bash
         env:
           CLIENT_ID: ${{ vars.DISCORD_CLIENT_ID }}
+        # Merge, so the other bundled defaults (e.g. the avatar sync URL) are kept.
         run: |
-          printf '{ "discord": { "clientId": "%s" } }' "$CLIENT_ID" > electron/app-config.json
+          node -e "const f='electron/app-config.json',c=JSON.parse(require('fs').readFileSync(f,'utf8'));c.discord=Object.assign({},c.discord,{clientId:process.env.CLIENT_ID});require('fs').writeFileSync(f,JSON.stringify(c,null,2))"
       - run: npx electron-builder --win portable nsis --publish never
         env:
           CSC_IDENTITY_AUTO_DISCOVERY: false
@@ -36,6 +38,7 @@ jobs:
           path: |
             dist/*.exe
             web/creator.html
+            web/shared/
       - name: Publish release (tags only)
         if: startsWith(github.ref, 'refs/tags/v')
         uses: softprops/action-gh-release@v2

@@ -35,7 +35,7 @@
       { type: 'slider', key: 'teethX', label: 'Teeth left / right' },
     ] },
     { id: 'eyes', label: 'Eyes', items: [
-      { type: 'opt', key: 'eyes', label: 'Eyes', exclude: ['glasses'] },
+      { type: 'opt', key: 'eyes', label: 'Eyes' },
       { type: 'color', key: 'eyeColor', label: 'Eye colour', pal: 'eye' },
       { type: 'slider', key: 'eyeSize', label: 'Eye size' },
       { type: 'slider', key: 'eyeSpacing', label: 'Eye spacing' },
@@ -127,7 +127,7 @@
       if (it.type === 'opt') {
         row.className = 'opt-row';
         row.innerHTML = `<div class="lbl">${t(it.label)}</div><div class="chips"></div>`;
-        P.OPTIONS[it.key].filter((v) => !(it.exclude || []).includes(v)).forEach((v) => {
+        P.OPTIONS[it.key].forEach((v) => {
           const b = document.createElement('button'); b.className = 'chip' + (av[it.key] === v ? ' on' : ''); b.textContent = t(P.prettyLabel(v));
           b.onclick = () => { av[it.key] = v; commit(); buildOptions(); };
           row.lastChild.appendChild(b);

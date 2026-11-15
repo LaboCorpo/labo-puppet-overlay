@@ -13,6 +13,8 @@ const { EventEmitter } = require('events');
 
 const OP = { HANDSHAKE: 0, FRAME: 1, CLOSE: 2, PING: 3, PONG: 4 };
 const API = 'https://discord.com/api/v10';
+const MAX_FRAME = 4 * 1024 * 1024;
+const CHANNEL_EVENTS = ['VOICE_STATE_CREATE', 'VOICE_STATE_UPDATE', 'VOICE_STATE_DELETE', 'SPEAKING_START', 'SPEAKING_STOP'];
 
 function pipePath(i) {
   if (process.platform === 'win32') return `\\\\?\\pipe\\discord-ipc-${i}`;
@@ -55,7 +57,11 @@ class DiscordVoiceRPC extends EventEmitter {
     if (this.sock) this.sock.destroy();
     this.sock = null;
   }
-  restart() { this.stop(); this.members.clear(); this.channel = null; this.emit('channel'); setTimeout(() => this.start(), 300); }
+  restart() {
+    this.stop();
+    this.members.clear(); this.channel = null; this.emit('channel');
+    this.retryTimer = setTimeout(() => this.start(), 300); // cleared by stop() if the client is replaced meanwhile
+  }
 
   _retry(ms) {
     if (this.stopped) return;
@@ -91,17 +97,23 @@ class DiscordVoiceRPC extends EventEmitter {
   }
 
   _onData(chunk) {
-    this.buf = Buffer.concat([this.buf, chunk]);
+    this.buf = this.buf.length ? Buffer.concat([this.buf, chunk]) : chunk;
     while (this.buf.length >= 8) {
       const op = this.buf.readInt32LE(0), len = this.buf.readInt32LE(4);
+      if (len < 0 || len > MAX_FRAME) { this.emit('warn', new Error('Invalid RPC frame')); this._drop(); return; }
       if (this.buf.length < 8 + len) break;
-      const payload = JSON.parse(this.buf.slice(8, 8 + len).toString('utf8'));
-      this.buf = this.buf.slice(8 + len);
-      if (op === OP.PING) { this.sock.write(encode(OP.PONG, payload)); continue; }
-      if (op === OP.CLOSE) { this.setStatus('refused', payload.message || 'Discord closed the connection'); this.sock && this.sock.destroy(); continue; }
-      this._onFrame(payload);
+      let payload;
+      try { payload = JSON.parse(this.buf.subarray(8, 8 + len).toString('utf8')); } catch (e) { payload = null; }
+      this.buf = this.buf.subarray(8 + len);
+      if (!payload) continue;
+      if (op === OP.PING) { this._write(OP.PONG, payload); continue; }
+      if (op === OP.CLOSE) { this.setStatus('refused', payload.message || 'Discord closed the connection'); this._drop(); return; }
+      try { this._onFrame(payload); } catch (e) { this.emit('warn', e); }
     }
   }
+
+  _write(op, data) { if (this.sock && !this.sock.destroyed) this.sock.write(encode(op, data)); }
+  _drop() { this.buf = Buffer.alloc(0); if (this.sock) this.sock.destroy(); }
 
   _onFrame(msg) {
     if (msg.cmd === 'DISPATCH') {
@@ -124,7 +136,7 @@ class DiscordVoiceRPC extends EventEmitter {
       this.pending.set(nonce, { resolve: (d) => { clearTimeout(timer); resolve(d); }, reject: (e) => { clearTimeout(timer); reject(e); } });
       const frame = { cmd, args: args || {}, nonce };
       if (evt) frame.evt = evt;
-      this.sock.write(encode(OP.FRAME, frame));
+      this._write(OP.FRAME, frame);
     });
   }
 
@@ -132,7 +144,7 @@ class DiscordVoiceRPC extends EventEmitter {
   async _tokenRequest(params) {
     const body = new URLSearchParams(Object.assign({ client_id: this.o.clientId }, params));
     if (this.o.clientSecret) body.set('client_secret', this.o.clientSecret);
-    const res = await fetch(API + '/oauth2/token', { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body });
+    const res = await fetch(API + '/oauth2/token', { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body, signal: AbortSignal.timeout(15000) });
     const json = await res.json().catch(() => ({}));
     if (!res.ok) throw new Error('Token exchange refused: ' + (json.error_description || json.error || res.status));
     const tok = { access_token: json.access_token, refresh_token: json.refresh_token, expires_at: Date.now() + (json.expires_in || 0) * 1000 };
@@ -185,24 +197,20 @@ class DiscordVoiceRPC extends EventEmitter {
   // ---------- Voice channel tracking ----------
   async _setChannel(ch) {
     const prev = this.channel;
-    if (prev) {
-      for (const evt of ['VOICE_STATE_CREATE', 'VOICE_STATE_UPDATE', 'VOICE_STATE_DELETE', 'SPEAKING_START', 'SPEAKING_STOP']) {
-        this.request('UNSUBSCRIBE', { channel_id: prev.id }, evt).catch(() => {});
-      }
-    }
+    if (prev) for (const evt of CHANNEL_EVENTS) this.request('UNSUBSCRIBE', { channel_id: prev.id }, evt).catch(() => {});
     this.members.clear();
     this.channel = ch && ch.id ? { id: ch.id, name: ch.name, guild_id: ch.guild_id } : null;
-    if (this.channel) {
-      (ch.voice_states || []).forEach((vs) => this._upsert(vs));
-      for (const evt of ['VOICE_STATE_CREATE', 'VOICE_STATE_UPDATE', 'VOICE_STATE_DELETE', 'SPEAKING_START', 'SPEAKING_STOP']) {
-        await this.request('SUBSCRIBE', { channel_id: this.channel.id }, evt).catch((e) => this.emit('warn', e));
-      }
-    }
+    if (this.channel) (ch.voice_states || []).forEach((vs) => this._upsert(vs));
     this.emit('channel');
+    if (this.channel) {
+      const id = this.channel.id;
+      for (const evt of CHANNEL_EVENTS) await this.request('SUBSCRIBE', { channel_id: id }, evt).catch((e) => this.emit('warn', e));
+    }
   }
 
   _upsert(vs) {
-    const u = vs.user || {};
+    const u = (vs && vs.user) || {};
+    if (!u.id) return;
     const st = vs.voice_state || {};
     const old = this.members.get(u.id) || {};
     this.members.set(u.id, {
@@ -218,10 +226,15 @@ class DiscordVoiceRPC extends EventEmitter {
 
   _onEvent(evt, data) {
     switch (evt) {
-      case 'VOICE_CHANNEL_SELECT':
-        if (!data.channel_id) return this._setChannel(null);
-        this.request('GET_CHANNEL', { channel_id: data.channel_id }).then((ch) => this._setChannel(ch)).catch((e) => this.emit('warn', e));
+      case 'VOICE_CHANNEL_SELECT': {
+        // Quick channel hops: only the latest selection wins.
+        const seq = (this.selectSeq = (this.selectSeq || 0) + 1);
+        if (!data || !data.channel_id) { this._setChannel(null); break; }
+        this.request('GET_CHANNEL', { channel_id: data.channel_id })
+          .then((ch) => { if (seq === this.selectSeq) return this._setChannel(ch); })
+          .catch((e) => this.emit('warn', e));
         break;
+      }
       case 'VOICE_STATE_CREATE':
       case 'VOICE_STATE_UPDATE':
         this._upsert(data); this.emit('channel'); break;
