@@ -6,11 +6,12 @@ This file is everything needed to continue the project exactly where the previou
 
 ## 1. Working with the maintainer
 
-- **Language**: always answer the maintainer in **French**. Code, comments, commit messages, the README and English UI strings are in **English**. Every user-facing string must also get a **French** translation in `web/shared/i18n.js` (see §6).
+- **Language**: always answer the maintainer in **French**. Code, comments, commit messages, docs and English UI strings are in **English**; the user README also has a French copy (`README.fr.md`) that must be kept in sync with `README.md`. Every user-facing string must also get a **French** translation in `web/shared/i18n.js` (see §6).
 - **Style**:
   - direct and precise; no marketing tone;
   - technical docs must be short, factual and concise ("approche doc technique factuelle plutôt que vendeuse");
   - end each delivery with a short summary of what changed, what was tested, and what the maintainer must do.
+- **Docs layout**: `README.md` / `README.fr.md` are for end users (friends installing the app): plain language, no internals. Technical/maintainer material (Discord app setup, releases, sync formats, dev) goes in `docs/MAINTAINER.md`. When a user-visible feature changes, update both READMEs.
 - **Autonomy**: the maintainer often answers from a phone.
   - Work autonomously.
   - Only ask questions that can be answered quickly: multiple choice, one decision per question.
