@@ -3,6 +3,21 @@
   'use strict';
   root.CHANGELOG = [
     {
+      version: '0.11.0',
+      en: [
+        'Alert sounds: add several MP3 files per event (follow, sub, Prime, gifted subs, bits, raid), played at random, in order or all together, with bits/raid thresholds.',
+        'Stream widgets for OBS: followers, subs (with goals), latest follower, latest sub and the song playing in Spotify. One browser source each, so you can place them anywhere.',
+        'Streaming hub: see which crew members are live, read their chats, send messages, raid them or invite them to Stream Together, without opening Twitch.',
+        'Optional Twitch account login (a code to confirm on Twitch, no password typed in the app) for counters, follows, raids and chat.',
+      ],
+      fr: [
+        'Sons d’alerte : ajoute plusieurs MP3 par événement (follow, sub, Prime, subs offerts, bits, raid), joués au hasard, dans l’ordre ou tous ensemble, avec des paliers pour les bits et les raids.',
+        'Widgets de stream pour OBS : followers, subs (avec objectifs), dernier follower, dernier sub et la musique en cours sur Spotify. Une source navigateur chacun, à placer où tu veux.',
+        'Hub streaming : vois qui de l’équipe est en live, lis leurs chats, envoie des messages, raid-les ou invite-les en Stream Together, sans ouvrir Twitch.',
+        'Connexion optionnelle au compte Twitch (un code à confirmer sur Twitch, aucun mot de passe saisi dans l’app) pour les compteurs, les follows, les raids et le chat.',
+      ],
+    },
+    {
       version: '0.10.1',
       en: [
         'Puppets fade when your mouse comes near them (Overlay settings: on/off, opacity %, distance).',

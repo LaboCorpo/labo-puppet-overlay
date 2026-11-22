@@ -33,7 +33,7 @@ const DEFAULTS = {
     bubbleBg: '#ffffff', bubbleFg: '#1d1a1f', showOnDesktop: false,
     commandsEnabled: true, commandPrefix: '!', hideCommands: true, disabledCommands: [],
     actionCooldown: 5, styleCooldown: 10,
-    raidEffects: true, raidMax: 15, subEffects: true, bitsEffects: true,
+    raidEffects: true, raidMax: 15, subEffects: true, bitsEffects: true, followEffects: true,
     // Chat sounds: played by the desktop app ('app') or by the OBS browser source ('obs'), never both.
     sound: { mode: 'none', output: 'app', volume: 0.6, speed: 1, pitch: 1, voice: '', varyVoices: true, readNames: false, maxChars: 120, maxQueue: 4, muted: false },
   },
@@ -42,6 +42,24 @@ const DEFAULTS = {
   memberOrder: [],
   // Shared avatar file (e.g. a GitHub Gist) that every app reads periodically.
   sync: { url: '', intervalSec: 120 },
+  // Twitch account (optional, Device Code login): follower/sub counts, raids, Stream Together invites, sending chat.
+  twitchApi: { clientId: '' },
+  // Alert sounds: several audio files per event. mode: 'random' (never the same twice in a row) | 'sequence' | 'all' (layered).
+  // Each sound: { file, name, volume 0..1, min } — min = bits / raiders / gifted subs needed (tiers: the highest reached wins).
+  alerts: {
+    enabled: true, output: 'app', volume: 0.8,
+    follow: { mode: 'random', sounds: [] }, sub: { mode: 'random', sounds: [] }, prime: { mode: 'random', sounds: [] },
+    gift: { mode: 'random', sounds: [] }, bits: { mode: 'random', sounds: [] }, raid: { mode: 'random', sounds: [] },
+  },
+  // OBS widgets (one browser source each). Empty labels use the translated default.
+  widgets: {
+    font: 'Segoe UI', size: 42, color: '#ffffff', accent: '#ff7a45', style: 'pill', align: 'left', shadow: true,
+    followers: { label: '', goal: 0 }, subs: { label: '', goal: 0 },
+    latestFollower: { label: '' }, latestSub: { label: '' },
+    spotify: { enabled: false, showCover: true, hideWhenPaused: true },
+  },
+  // Streaming hub: the crew's Twitch channels (logins).
+  hub: { members: [], notify: true, pollSec: 60 },
 };
 
 const CORNERS = ['bottom-left', 'bottom-center', 'bottom-right', 'top-left', 'top-center', 'top-right', 'custom'];
@@ -59,7 +77,12 @@ const ENUMS = {
   'twitch.palette': ['vivid', 'pastel', 'mono', 'custom'],
   'twitch.sound.mode': ['none', 'gibberish', 'tts'],
   'twitch.sound.output': ['app', 'obs'],
+  'alerts.output': ['app', 'obs'],
+  'widgets.style': ['plain', 'pill', 'card'],
+  'widgets.align': ['left', 'center', 'right'],
 };
+const ALERT_KEYS = ['follow', 'sub', 'prime', 'gift', 'bits', 'raid'];
+for (const k of ALERT_KEYS) ENUMS[`alerts.${k}.mode`] = ['random', 'sequence', 'all'];
 // [min, max, integer?]
 const RANGES = {
   port: [1024, 65535, true],
@@ -73,6 +96,9 @@ const RANGES = {
   'twitch.sound.volume': [0, 1], 'twitch.sound.speed': [0.5, 2], 'twitch.sound.pitch': [0.5, 2],
   'twitch.sound.maxChars': [10, 400, true], 'twitch.sound.maxQueue': [1, 20, true],
   'sync.intervalSec': [30, 3600, true],
+  'alerts.volume': [0, 1],
+  'widgets.size': [12, 200, true], 'widgets.followers.goal': [0, 10000000, true], 'widgets.subs.goal': [0, 1000000, true],
+  'hub.pollSec': [30, 600, true],
 };
 const PATTERNS = {
   'discord.clientId': /^(\d{15,22})?$/,
@@ -81,8 +107,14 @@ const PATTERNS = {
   'twitch.bubbleBg': /^#[0-9a-f]{6}$/i,
   'twitch.bubbleFg': /^#[0-9a-f]{6}$/i,
   'twitch.commandPrefix': /^\S{1,3}$/,
+  'twitchApi.clientId': /^([a-z0-9]{20,40})?$/,
+  'widgets.color': /^#[0-9a-f]{6}$/i,
+  'widgets.accent': /^#[0-9a-f]{6}$/i,
+  'widgets.font': /^[\w .,'-]{0,60}$/, // goes into CSS font-family: no quotes, braces or semicolons
 };
 const MAX_LEN = { 'twitch.ignore': 1000, 'sync.url': 500, 'discord.redirectUri': 200, 'discord.clientSecret': 200 };
+const SOUND_FILE_RE = /^[a-f0-9]{16}\.(mp3|wav|ogg)$/;
+const LOGIN_RE = /^[a-z0-9_]{3,25}$/;
 const HOTKEY_RE = /^[\x21-\x7e]{0,60}$/; // Electron accelerator: printable ASCII, no spaces
 const ID_RE = /^\d{15,22}$/;
 const COMMAND_NAMES = ['jump', 'dance', 'wave', 'hat', 'hair', 'outfit', 'eyes', 'glasses', 'item', 'neck', 'pattern', 'color', 'hatcolor', 'reroll', 'reset', 'puppet'];
@@ -138,13 +170,32 @@ function sanitizeMembers(value, fallback) {
   return out;
 }
 
+// Alert sound lists: files must be ones the app stored (random hex names), other fields clamped.
+function sanitizeSounds(value, fallback) {
+  if (!Array.isArray(value)) return fallback;
+  const out = [];
+  for (const x of value.slice(0, 30)) {
+    if (!isObj(x) || typeof x.file !== 'string' || !SOUND_FILE_RE.test(x.file)) continue;
+    const vol = Number(x.volume), min = Number(x.min);
+    out.push({
+      file: x.file,
+      name: typeof x.name === 'string' ? x.name.slice(0, 80) : x.file,
+      volume: Number.isFinite(vol) && x.volume !== null && x.volume !== '' ? Math.min(1, Math.max(0, vol)) : 1,
+      min: Number.isFinite(min) ? Math.min(10000000, Math.max(0, Math.round(min))) : 0,
+    });
+  }
+  return out;
+}
+
 // Special-cased paths: free-form maps and arrays.
 const SPECIAL = {
   members: sanitizeMembers,
   memberOrder: (v, fb) => (Array.isArray(v) ? [...new Set(v.map(String).filter((id) => ID_RE.test(id)))].slice(0, 500) : fb),
   'twitch.colors': (v, fb) => (Array.isArray(v) ? v.filter((c) => typeof c === 'string' && /^#[0-9a-f]{3,8}$/i.test(c)).slice(0, 24) : fb),
   'twitch.disabledCommands': (v, fb) => (Array.isArray(v) ? [...new Set(v.map((c) => String(c).toLowerCase()).filter((c) => COMMAND_NAMES.includes(c)))] : fb),
+  'hub.members': (v, fb) => (Array.isArray(v) ? [...new Set(v.map((c) => String(c).trim().toLowerCase().replace(/^@/, '')).filter((c) => LOGIN_RE.test(c)))].slice(0, 100) : fb),
 };
+for (const k of ALERT_KEYS) SPECIAL[`alerts.${k}.sounds`] = sanitizeSounds;
 
 function walk(value, fallback, def, path) {
   if (SPECIAL[path]) return SPECIAL[path](value, fallback);
@@ -163,4 +214,4 @@ function sanitize(settings, previous) {
   return walk(settings, previous || DEFAULTS, DEFAULTS, '');
 }
 
-module.exports = { DEFAULTS, sanitize, deepMerge, isObj };
+module.exports = { DEFAULTS, sanitize, deepMerge, isObj, ALERT_KEYS, SOUND_FILE_RE };

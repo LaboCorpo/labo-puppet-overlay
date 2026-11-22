@@ -14,6 +14,9 @@
     <button class="tab" data-tab="avatars">Avatars</button>
     <button class="tab" data-tab="members">Members</button>
     <button class="tab" data-tab="twitch">Twitch</button>
+    <button class="tab" data-tab="alerts">Alert sounds</button>
+    <button class="tab" data-tab="stream">Stream widgets</button>
+    <button class="tab" data-tab="hub">Streaming hub</button>
     <button class="tab" data-tab="obs">OBS / Streamlabs</button>
     <button class="tab" data-tab="general">Settings</button>
     <button class="tab" data-tab="discord">Discord setup</button>
@@ -197,8 +200,82 @@
         <label>Max raiders on screen <input type="number" min="1" max="40" data-key="twitch.raidMax"></label>
         <label class="check"><input type="checkbox" data-key="twitch.subEffects"> Subs: confetti &amp; celebration</label>
         <label class="check"><input type="checkbox" data-key="twitch.bitsEffects"> Bits: confetti</label>
+        <label class="check"><input type="checkbox" data-key="twitch.followEffects"> Follows: a wave and a few confetti (needs the Twitch account)</label>
       </div>
+      <p class="muted" data-i18n-html>Sounds for these events: see <a href="#" data-goto="alerts">Alert sounds</a>.</p>
       <p class="muted">Each viewer keeps the same character across streams (it's generated from their username) until they customise it with commands. Chat is read anonymously — no Twitch login needed.</p>
+    </section>
+
+    <!-- ALERT SOUNDS -->
+    <section data-panel="alerts">
+      <h1>Alert sounds</h1>
+      <div class="card grid">
+        <label class="check"><input type="checkbox" data-key="alerts.enabled"> Play alert sounds</label>
+        <label>Played by
+          <select data-key="alerts.output"><option value="app">This app (desktop audio)</option><option value="obs">The OBS browser source</option></select></label>
+        <label>Master volume <input type="range" min="0" max="1" step="0.05" data-key="alerts.volume"><output></output></label>
+        <p class="muted wide" data-i18n-html>Add as many MP3 files as you like per event. <b>Random</b> never plays the same sound twice in a row, <b>In order</b> goes through the list, <b>All together</b> layers them. With “Played by OBS”, add the <i>Alert sounds</i> source from <a href="#" data-goto="stream">Stream widgets</a> to OBS.</p>
+      </div>
+      <div id="alertEvents" data-no-i18n></div>
+      <p class="muted">Follows need the Twitch account (Stream widgets tab) and arrive within about 20 seconds. Subs, Prime, gifts, bits and raids come from the chat, instantly.</p>
+    </section>
+
+    <!-- STREAM WIDGETS -->
+    <section data-panel="stream">
+      <h1>Stream widgets</h1>
+      <div class="card" data-twitch-account data-no-i18n></div>
+      <div class="card">
+        <p data-i18n-html>Each widget is its own <b>Browser Source</b> in OBS / Streamlabs: add the ones you want, then move and resize them freely. Transparent background, live updates.</p>
+        <div id="widgetList" class="widget-list" data-no-i18n></div>
+      </div>
+      <h2>Style</h2>
+      <div class="card grid">
+        <label>Font <input data-key="widgets.font" placeholder="Segoe UI" spellcheck="false"></label>
+        <label>Text size (px) <input type="range" min="12" max="120" step="1" data-key="widgets.size"><output></output></label>
+        <label>Look
+          <select data-key="widgets.style"><option value="plain">Text only</option><option value="pill">Pill</option><option value="card">Card</option></select></label>
+        <label>Alignment
+          <select data-key="widgets.align"><option value="left">Left</option><option value="center">Center</option><option value="right">Right</option></select></label>
+        <label>Text colour <input type="color" data-key="widgets.color"></label>
+        <label>Accent colour <input type="color" data-key="widgets.accent"></label>
+        <label class="check"><input type="checkbox" data-key="widgets.shadow"> Text shadow</label>
+      </div>
+      <h2>Counters</h2>
+      <div class="card grid">
+        <label>Followers label <input data-key="widgets.followers.label" placeholder="Followers"></label>
+        <label>Followers goal (0 = none) <input type="number" min="0" data-key="widgets.followers.goal"></label>
+        <label>Subs label <input data-key="widgets.subs.label" placeholder="Subs"></label>
+        <label>Subs goal (0 = none) <input type="number" min="0" data-key="widgets.subs.goal"></label>
+        <label>Latest follower label <input data-key="widgets.latestFollower.label" placeholder="Latest follower"></label>
+        <label>Latest sub label <input data-key="widgets.latestSub.label" placeholder="Latest sub"></label>
+        <div class="wide row"><b>Now</b><span id="statsNow" data-no-i18n>—</span></div>
+      </div>
+      <h2>Spotify</h2>
+      <div class="card grid">
+        <label class="check"><input type="checkbox" data-key="widgets.spotify.enabled"> Show the song playing in Spotify</label>
+        <label class="check"><input type="checkbox" data-key="widgets.spotify.showCover"> Album cover (looked up online)</label>
+        <label class="check"><input type="checkbox" data-key="widgets.spotify.hideWhenPaused"> Hide when nothing is playing</label>
+        <div class="wide row"><b>Spotify</b><span id="npStatus" data-no-i18n>—</span></div>
+        <p class="muted wide">Works with the Spotify desktop app on Windows, no Spotify login needed: the app reads the song from the Spotify window. Keep Spotify open or minimized (not closed to the tray).</p>
+      </div>
+    </section>
+
+    <!-- STREAMING HUB -->
+    <section data-panel="hub">
+      <h1>Streaming hub</h1>
+      <div class="card" data-twitch-account data-no-i18n></div>
+      <div class="card grid">
+        <label class="wide">The crew's Twitch channels (one per line or separated by commas)
+          <textarea id="hubMembers" rows="3" spellcheck="false" placeholder="channel_one, channel_two"></textarea></label>
+        <label class="check"><input type="checkbox" data-key="hub.notify"> Notify me when someone goes live</label>
+        <div class="btns" style="margin:0;align-self:end"><button class="ghost" id="hubRefresh">⟳ Refresh</button><span class="muted" id="hubStatus" data-no-i18n style="align-self:center"></span></div>
+      </div>
+      <div id="raidBanner" class="banner hidden" data-no-i18n></div>
+      <div id="hubList" class="hub-grid" data-no-i18n></div>
+      <h2>Chats</h2>
+      <div id="chats" class="chats" data-no-i18n></div>
+      <p class="muted" id="chatsEmpty">Click “Chat” on a channel to read it here (up to 4 at once). Sending messages needs the Twitch account.</p>
+      <p class="muted" data-i18n-html><b>Raid</b>: Twitch shows the usual countdown on your stream, then sends your viewers. <b>Stream Together</b>: open Stream Together (Collaboration) in your Twitch Stream Manager first, then invite; the guest accepts on Twitch.</p>
     </section>
 
     <!-- OBS -->
@@ -320,6 +397,10 @@
 <script src="shared/puppet/hair.js"></script>
 <script src="shared/puppet/render.js"></script>
 <script src="shared/chatsound.js"></script>
+<script src="shared/alertsound.js"></script>
 <script src="panel.js"></script>
+<script src="panel-alerts.js"></script>
+<script src="panel-stream.js"></script>
+<script src="panel-hub.js"></script>
 </body>
 </html>

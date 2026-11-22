@@ -82,6 +82,13 @@
     sound.configure(snd);
   }
 
+  // ---------- Alert sounds (follow, sub, bits, raid…) ----------
+  // Output 'app': the desktop overlay plays them. Output 'obs': the dedicated widget source does (widget.html?w=alerts).
+  const alerts = new AlertSound();
+  function onAlertSound(a) {
+    if (DESKTOP && !TEST && !DEMO && a.output !== 'obs') alerts.play(a);
+  }
+
   // ---------- Events ----------
   let lastRealChat = 0;
   function onChat(m) {
@@ -132,6 +139,7 @@
     on('viewer', (d) => twitch.setOverride(d.login, d.override));
     on('viewers-reset', () => twitch.setOverrides({}));
     on('fx-test', () => { discord.replay(); wake(); });
+    on('alert-sound', onAlertSound);
     es.onerror = () => { if (!DESKTOP) return; hint.style.display = 'block'; hint.textContent = t('Puppet Overlay app not reachable — retrying…'); };
     es.onopen = () => { hint.style.display = 'none'; };
   }

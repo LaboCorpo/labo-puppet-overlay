@@ -207,7 +207,14 @@ class TwitchChat extends EventEmitter {
     if (id === 'raid') {
       this.emit('event', Object.assign({ type: 'raid', count: Math.max(1, Number(tags['msg-param-viewerCount']) || 1), text: sys }, base));
     } else if (/^(sub|resub|subgift|submysterygift|giftpaidupgrade|primepaidupgrade|anongiftpaidupgrade)$/.test(id)) {
-      this.emit('event', Object.assign({ type: 'sub', text: String(text || sys).slice(0, MAX_TEXT) }, base));
+      // kind drives the alert sound: Prime subs, gifted subs and regular subs can each have their own sounds.
+      const gift = id === 'subgift' || id === 'submysterygift';
+      const kind = gift ? 'gift' : tags['msg-param-sub-plan'] === 'Prime' ? 'prime' : 'sub';
+      const e = { type: 'sub', kind, text: String(text || sys).slice(0, MAX_TEXT) };
+      if (gift) e.count = Math.max(1, Math.min(1000, Number(tags['msg-param-mass-gift-count']) || 1));
+      // A "gift 5 subs" notice is followed by 5 single subgift notices: those belong to the bundle (one alert, not six).
+      if (id === 'subgift' && tags['msg-param-community-gift-id']) e.bundled = true;
+      this.emit('event', Object.assign(e, base));
     }
   }
 
@@ -217,7 +224,9 @@ class TwitchChat extends EventEmitter {
     const n = names[Math.floor(Math.random() * names.length)];
     const base = { login: n.toLowerCase(), display: n, color: null };
     if (kind === 'raid') return this.emit('event', Object.assign({ type: 'raid', count: 12, text: n + ' is raiding with 12 viewers!' }, base));
-    if (kind === 'sub') return this.emit('event', Object.assign({ type: 'sub', text: 'Thanks for the sub!' }, base));
+    if (kind === 'sub') return this.emit('event', Object.assign({ type: 'sub', kind: 'sub', text: 'Thanks for the sub!' }, base));
+    if (kind === 'prime') return this.emit('event', Object.assign({ type: 'sub', kind: 'prime', text: n + ' subscribed with Prime!' }, base));
+    if (kind === 'gift') return this.emit('event', Object.assign({ type: 'sub', kind: 'gift', count: 5, text: n + ' is gifting 5 subs!' }, base));
     if (kind === 'bits') return this.emit('event', Object.assign({ type: 'bits', amount: 100 }, base));
     if (kind === 'command') {
       const c = ['jump', 'dance', 'wave', 'hat crown', 'color pink', 'hair afro'][Math.floor(Math.random() * 6)];

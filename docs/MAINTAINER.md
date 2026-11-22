@@ -6,7 +6,7 @@ Windows desktop overlay that shows the members of your current Discord voice cha
 
 - Electron app with a tray icon, a settings panel and a transparent, click-through overlay window.
 - Voice data comes from the local Discord client over RPC. There is no bot and no server.
-- Twitch chat is read anonymously (read-only IRC).
+- Twitch chat is read anonymously (read-only IRC). An optional Twitch account login (Device Code flow) adds counters, follows, raids, Stream Together invites and sending chat messages.
 - Avatars are created in the built-in creator and shared as `.puppet` files, `PUP1.…` codes, or a shared sync file.
 
 ## Setup
@@ -19,6 +19,18 @@ Windows desktop overlay that shows the members of your current Discord voice cha
 3. **App Testers**: add every person who will **run** the app (max 50). Each tester must accept the invite.
    - Discord only exposes voice data over RPC to approved testers of the application.
    - People who only appear in someone else's channel need nothing.
+
+### 1b. Twitch application (once, by the maintainer — only for the Twitch account features)
+1. In the [Twitch Developer Console](https://dev.twitch.tv/console/apps) (two-factor authentication must be on), **Register Your Application**:
+   - OAuth Redirect URL: `http://localhost` (required by the form, not used);
+   - Category: *Application Integration*;
+   - Client Type: **Public** (the app logs in with the Device Code flow: no client secret ships with it).
+2. Copy the **Client ID** and either:
+   - put it in `electron/app-config.json` as `"twitchApi": { "clientId": "…" }`, or
+   - set the repository variable `TWITCH_CLIENT_ID` (merged into `app-config.json` at build time), or
+   - give it to users, who paste it in the panel (Stream widgets / Streaming hub tabs).
+3. Scopes requested at login: `moderator:read:followers`, `channel:read:subscriptions`, `channel:manage:raids`, `channel:manage:guest_star`, `user:write:chat`.
+   - Public-client refresh tokens expire after 30 days without use: users then simply log in again.
 
 ### 2. Release
 - Every push to `main` builds Windows binaries; they appear under *Actions → Build Windows → Artifacts*.
@@ -71,7 +83,14 @@ Windows desktop overlay that shows the members of your current Discord voice cha
 | `reroll` / `reset` | New random look / back to the original |
 | `puppet` | List the commands |
 
-- Raids, subs and bits trigger effects (each can be toggled).
+- Raids, subs, bits and follows trigger effects (each can be toggled). Follows need the Twitch account (polled every 20 s).
+- **Alert sounds** (`alerts` settings): up to 30 files per event (`follow`, `sub`, `prime`, `gift`, `bits`, `raid`), uploaded to `%APPDATA%\Puppet Overlay\sounds\` under random names (MP3/WAV/Ogg checked by content, 20 MB max).
+  - Modes: `random` (no immediate repeat), `sequence`, `all` (layered). Each sound has a volume and a `min` threshold (bits, raiders, gifted subs); only the highest threshold reached plays.
+  - Prime and gifted subs fall back to the sub sounds when they have none. A "gift N subs" plays once (the N single-gift notices that follow are ignored).
+  - Picked in the main process, played by the desktop overlay (`output: app`) or by the `widget.html?w=alerts` OBS source (`output: obs`). One alert at a time, queue of 10.
+- **Stream widgets**: `widget.html?w=followers|subs|latest-follower|latest-sub|spotify|alerts`, one OBS browser source each. Counters come from Helix (Get Channel Followers / Get Broadcaster Subscriptions, every 20 s; sub count needs Affiliate/Partner). Latest sub comes from chat.
+  - Spotify: a long-lived hidden PowerShell process reads the Spotify window title (“Artist - Title”) every 1.5 s, only while the widget is enabled. Cover art from the public iTunes Search API (optional). Windows only.
+- **Streaming hub** (`hub.members`): Helix Get Streams every 60 s, desktop notification when a member goes live, raid (Start/Cancel a raid), Stream Together invite (Guest Star API, beta: reuses or creates the session; the host must have Stream Together open on Twitch, otherwise Twitch ends the session), chat read by the panel over anonymous IRC (4 chats max) and sent with Send Chat Message.
 - **Chat sound**: `None`, `Gibberish` (synthesised, with a distinct voice per viewer) or `Text-to-speech` (installed Windows voices).
   - Settings: volume, speed, pitch, voice, a different voice per viewer, reading the name first, maximum characters, queue length.
   - Played by the app (captured by OBS Desktop Audio) **or** by the OBS source (enable *Control audio via OBS*), never both.
@@ -93,7 +112,8 @@ These settings persist when the person is offline.
 ## Files
 | Path | Content |
 |---|---|
-| `%APPDATA%\Puppet Overlay\config.json` | Settings, avatars, known members, Twitch viewer looks, Discord token |
+| `%APPDATA%\Puppet Overlay\config.json` | Settings, avatars, known members, Twitch viewer looks, Discord token, Twitch account token |
+| `%APPDATA%\Puppet Overlay\sounds\` | Uploaded alert sounds |
 | `%APPDATA%\Puppet Overlay\logs\main.log` | Log (rotated at 1 MB); Settings → *Open logs folder* |
 
 ## Troubleshooting

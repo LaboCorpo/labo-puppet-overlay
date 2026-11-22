@@ -47,10 +47,12 @@ class Store {
       viewers: obj(saved.viewers),
       known: obj(saved.known),
       token: isObj(saved.token) ? saved.token : null,
+      twitchToken: isObj(saved.twitchToken) ? saved.twitchToken : null, // Twitch account (Device Code login)
       // Last version whose "What's new" was acknowledged ('' = installed before v0.9.0 tracked it).
       lastVersion: typeof saved.lastVersion === 'string' ? saved.lastVersion.slice(0, 20) : isObj(saved.settings) ? '' : null,
     };
     if (!this.data.settings.discord.clientId) this.data.settings.discord.clientId = defaults.discord.clientId;
+    if (!this.data.settings.twitchApi.clientId) this.data.settings.twitchApi.clientId = defaults.twitchApi.clientId;
     // Before v0.9.0 there was no bundled sync URL, so an empty one there means "never set": use the crew file.
     if (this.data.lastVersion === '' && !this.data.settings.sync.url) this.data.settings.sync.url = defaults.sync.url;
   }

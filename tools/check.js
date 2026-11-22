@@ -73,11 +73,14 @@ const PUPPET_FILES = ['avatar', 'gfx', 'animator', 'body', 'face', 'hair', 'rend
 
   // Every web page loads scripts that exist, in an order where dependencies come first.
   await test('pages reference existing scripts', () => {
-    for (const page of ['web/overlay.html', 'web/panel.html', 'web/creator.html']) {
+    for (const page of ['web/overlay.html', 'web/panel.html', 'web/creator.html', 'web/widget.html']) {
       const srcs = [...read(page).matchAll(/<script src="([^"]+)"/g)].map((m) => m[1]);
       for (const s of srcs) assert.ok(fs.existsSync(rel('web', s)), `${page}: missing ${s}`);
       const puppet = srcs.filter((s) => s.startsWith('shared/puppet/'));
-      assert.deepEqual(puppet, PUPPET_FILES.map((f) => f.replace('web/', '')), `${page}: puppet modules missing or out of order`);
+      if (page !== 'web/widget.html') assert.deepEqual(puppet, PUPPET_FILES.map((f) => f.replace('web/', '')), `${page}: puppet modules missing or out of order`);
+      // panel-*.js and widget.js use shared modules: those must load first.
+      const at = (f) => srcs.indexOf(f);
+      for (const extra of srcs.filter((f) => /^(panel-|widget\.js)/.test(f))) assert.ok(at('shared/i18n.js') < at(extra) && (extra === 'widget.js' || at('panel.js') < at(extra)), `${page}: ${extra} loads too early`);
     }
   });
 
@@ -346,6 +349,228 @@ const PUPPET_FILES = ['avatar', 'gfx', 'animator', 'body', 'face', 'hair', 'rend
     }
   });
 
+  // ---------- Alerts, Twitch account, widgets, hub ----------
+  await test('settings: alert sounds, widgets and hub lists are validated', () => {
+    const f = '0123456789abcdef.mp3';
+    const s = sanitize({
+      alerts: { output: 'nope', volume: 3, bits: { mode: 'all', sounds: [{ file: f, name: 'x'.repeat(200), volume: -1, min: '250' }, { file: '../../evil.mp3' }, { file: 'abc.exe' }, 'junk'] }, sub: { mode: 'weird' } },
+      widgets: { font: 'Comic"; } body{', size: 999, color: 'red', style: 'pill' },
+      hub: { members: ['@LaboCorpo', 'https://twitch.tv/x', 'ok_name', 'ok_name', 'a b'], pollSec: 1 },
+      twitchApi: { clientId: 'NOT VALID' },
+    });
+    assert.equal(s.alerts.output, 'app'); assert.equal(s.alerts.volume, 1);
+    assert.deepEqual(s.alerts.bits, { mode: 'all', sounds: [{ file: f, name: 'x'.repeat(80), volume: 0, min: 250 }] });
+    assert.equal(s.alerts.sub.mode, 'random');
+    assert.equal(s.widgets.font, 'Segoe UI'); assert.equal(s.widgets.size, 200); assert.equal(s.widgets.color, '#ffffff');
+    assert.deepEqual(s.hub.members, ['labocorpo', 'ok_name']); assert.equal(s.hub.pollSec, 30);
+    assert.equal(s.twitchApi.clientId, '');
+    assert.deepEqual(sanitize({ alerts: { bits: { sounds: 'x' } } }).alerts.bits.sounds, [], 'non-array falls back');
+  });
+
+  const { alertKey, amountOf, AlertPicker } = require('../electron/alerts');
+  await test('alerts: tiers, modes, fallbacks and gift bundles', () => {
+    const snd = (file, min = 0, volume = 1) => ({ file: file.padEnd(16, '0') + '.mp3', name: file, volume, min });
+    const cfg = sanitize({ alerts: {
+      volume: 0.5,
+      bits: { mode: 'random', sounds: [snd('a', 1), snd('b', 100), snd('c', 100), snd('d', 1000)] },
+      sub: { mode: 'sequence', sounds: [snd('e1'), snd('e2')] },
+      raid: { mode: 'all', sounds: [snd('f1', 0, 0.8), snd('f2', 0)] },
+    } }).alerts;
+    const pick = new AlertPicker(() => 0);
+    const files = (l) => l.map((x) => x.file[0]);
+    assert.deepEqual(files(pick.pick(cfg, 'bits', 50)), ['a']);
+    assert.deepEqual(files(pick.pick(cfg, 'bits', 5000)), ['d'], 'highest tier wins');
+    assert.deepEqual(files(pick.pick(cfg, 'bits', 0)), [], 'below every threshold');
+    const tier = [pick.pick(cfg, 'bits', 150), pick.pick(cfg, 'bits', 150), pick.pick(cfg, 'bits', 150)].map((l) => l[0].file[0]);
+    assert.deepEqual(tier, ['b', 'c', 'b'], 'random never repeats the last sound');
+    assert.deepEqual([1, 2, 3].map(() => files(pick.pick(cfg, 'sub', 0))[0]), ['e', 'e', 'e']);
+    const seq = new AlertPicker(); assert.deepEqual([1, 2, 3].map(() => seq.pick(cfg, 'sub', 0)[0].file.slice(0, 2)), ['e1', 'e2', 'e1']);
+    assert.deepEqual(pick.pick(cfg, 'raid', 3).map((x) => x.volume), [0.4, 0.5], 'all together, master volume applied');
+    assert.equal(seq.pick(cfg, 'prime', 0)[0].file.slice(0, 2), 'e2', 'prime falls back to sub sounds (same sequence)');
+    assert.deepEqual(pick.pick(cfg, 'follow', 0), []);
+    assert.deepEqual(pick.pick(Object.assign({}, cfg, { enabled: false }), 'raid', 3), []);
+    assert.equal(alertKey({ type: 'sub', kind: 'gift', bundled: true }), null);
+    assert.equal(alertKey({ type: 'sub', kind: 'prime' }), 'prime');
+    assert.equal(alertKey({ type: 'chat' }), null);
+    assert.equal(amountOf({ type: 'raid', count: 12 }, 'raid'), 12);
+  });
+
+  await test('twitch: Prime, gifted and bundled subs are told apart', () => {
+    const cfg = sanitize({ twitch: { enabled: true, channel: 'test' } }).twitch;
+    const events = [];
+    const tc = new TwitchChat({ getSettings: () => cfg, setOverride() {} });
+    tc.on('event', (e) => events.push(e));
+    tc.handle('@msg-id=sub;login=a;msg-param-sub-plan=Prime :tmi.twitch.tv USERNOTICE #test');
+    tc.handle('@msg-id=resub;login=b;msg-param-sub-plan=1000 :tmi.twitch.tv USERNOTICE #test :hi');
+    tc.handle('@msg-id=submysterygift;login=c;msg-param-mass-gift-count=5 :tmi.twitch.tv USERNOTICE #test');
+    tc.handle('@msg-id=subgift;login=c;msg-param-community-gift-id=123 :tmi.twitch.tv USERNOTICE #test');
+    tc.handle('@msg-id=subgift;login=d :tmi.twitch.tv USERNOTICE #test');
+    assert.deepEqual(events.map((e) => [e.kind, e.count || 0, !!e.bundled]), [['prime', 0, false], ['sub', 0, false], ['gift', 5, false], ['gift', 1, true], ['gift', 1, false]]);
+    tc.close();
+  });
+
+  // Fake fetch: routes 'METHOD url-prefix' to handlers returning [status, json].
+  function fakeFetch(routes, calls) {
+    return async (url, opts = {}) => {
+      const m = (opts.method || 'GET') + ' ' + url;
+      calls && calls.push({ m, opts });
+      const key = Object.keys(routes).find((k) => m.startsWith(k));
+      if (!key) throw new Error('unexpected request ' + m);
+      const [status, json] = await routes[key](opts, url);
+      return { ok: status >= 200 && status < 300, status, json: async () => json };
+    };
+  }
+  const { TwitchApi } = require('../electron/twitch-api');
+  const CLIENT = 'abcdefghij0123456789abcd';
+  await test('twitch account: device code login, validate, refresh on 401, logout', async () => {
+    let tok = null, pending = 1, accessValid = 'AT1';
+    const calls = [];
+    const api = new TwitchApi({
+      getClientId: () => CLIENT, getToken: () => tok, saveToken: (x) => { tok = x; },
+      fetch: fakeFetch({
+        'POST https://id.twitch.tv/oauth2/device': () => [200, { device_code: 'DC', user_code: 'ABCD-EFGH', verification_uri: 'https://www.twitch.tv/activate?device-code=ABCD-EFGH', interval: 0.001, expires_in: 1800 }],
+        'POST https://id.twitch.tv/oauth2/token': (o) => {
+          const b = new URLSearchParams(o.body);
+          if (b.get('grant_type') === 'refresh_token') { accessValid = 'AT2'; return [200, { access_token: 'AT2', refresh_token: 'RT2', expires_in: 14000, scope: ['x'] }]; }
+          return pending-- > 0 ? [400, { status: 400, message: 'authorization_pending' }] : [200, { access_token: 'AT1', refresh_token: 'RT1', expires_in: 14000, scope: ['moderator:read:followers'] }];
+        },
+        'GET https://id.twitch.tv/oauth2/validate': (o) => (o.headers.Authorization === 'OAuth ' + accessValid ? [200, { login: 'me', user_id: '42', scopes: ['moderator:read:followers'] }] : [401, {}]),
+        'GET https://api.twitch.tv/helix/users': (o) => (o.headers.Authorization === 'Bearer ' + accessValid ? [200, { data: [{ id: '1' }] }] : [401, {}]),
+        'POST https://id.twitch.tv/oauth2/revoke': () => [200, {}],
+      }, calls),
+    });
+    await api.start();
+    assert.equal(api.status, 'off');
+    const r = await api.beginLogin();
+    assert.equal(r.userCode, 'ABCD-EFGH'); assert.equal(api.snapshot().status, 'pending');
+    for (let i = 0; i < 60 && api.status !== 'connected'; i++) await new Promise((res) => setTimeout(res, 100)); // 1 s minimum poll interval
+    assert.equal(api.status, 'connected'); assert.equal(api.login, 'me'); assert.equal(api.userId, '42');
+    assert.ok(api.snapshot().missingScopes.length > 0, 'missing scopes reported');
+    accessValid = 'EXPIRED';
+    const u = await api.helix('GET', 'users', { login: ['a', 'b'] });
+    assert.equal(u.data[0].id, '1');
+    assert.equal(tok.access_token, 'AT2'); assert.equal(tok.refresh_token, 'RT2');
+    assert.ok(calls.some((c) => c.m.includes('users?login=a&login=b')), 'repeated query params');
+    await api.logout();
+    assert.equal(tok, null); assert.equal(api.status, 'off');
+    await assert.rejects(api.helix('GET', 'users'), /Log in with Twitch first/);
+    api.stop();
+  });
+
+  const { StreamStats } = require('../electron/stream-stats');
+  await test('stream stats: counters, new follower detection, errors', async () => {
+    let followers = { total: 10, data: [{ user_id: '1', user_login: 'old', user_name: 'Old', followed_at: '2026-01-01T00:00:00Z' }] };
+    const fakeApi = { connected: true, userId: '42', helix: async (m, p) => { if (p === 'channels/followers') return followers; const e = new Error('nope'); e.status = 400; throw e; } };
+    const st = new StreamStats({ api: fakeApi, intervalMs: 1e9 });
+    const follows = [];
+    st.on('follow', (f) => follows.push(f));
+    await st.poll();
+    assert.equal(st.data.followers, 10); assert.equal(follows.length, 0, 'first poll is not a new follow');
+    assert.equal(st.data.errors.subs, 'Sub count needs Twitch Affiliate or Partner');
+    followers = { total: 11, data: [{ user_id: '2', user_login: 'new', user_name: 'New', followed_at: '2026-01-02T00:00:00Z' }] };
+    await st.poll();
+    assert.deepEqual(follows.map((f) => f.login), ['new']); assert.equal(st.data.latestFollower.display, 'New');
+    st.onSub({ login: 'x', display: 'X', kind: 'prime' });
+    assert.equal(st.data.latestSub.kind, 'prime');
+    st.onSub({ login: 'y', display: 'Y', bundled: true });
+    assert.equal(st.data.latestSub.display, 'X', 'bundled gift notices ignored');
+    st.stop();
+  });
+
+  const { Hub } = require('../electron/hub');
+  await test('hub: live list, go-live notice, raid, Stream Together, chat', async () => {
+    const calls = [];
+    let streams = [];
+    let session = [];
+    const fakeApi = {
+      connected: true, userId: '42', login: 'myself',
+      helix: async (m, p, q, b) => {
+        calls.push([m, p, q, b]);
+        if (p === 'users') return { data: [].concat(q.login).map((l, i) => ({ id: l === 'myself' ? '42' : String(100 + i), login: l, display_name: l.toUpperCase(), profile_image_url: 'https://x/' + l + '.png' })) };
+        if (p === 'streams') return { data: streams };
+        if (p === 'guest_star/session' && m === 'GET') return { data: session };
+        if (p === 'guest_star/session' && m === 'POST') { session = [{ id: 'S1' }]; return { data: session }; }
+        if (p === 'chat/messages') return { data: [{ is_sent: true }] };
+        return {};
+      },
+    };
+    const hub = new Hub({ api: fakeApi, getSettings: () => ({ members: ['ana', 'bob', 'myself'], notify: true, pollSec: 60 }) });
+    const lives = [];
+    hub.on('live', (x) => lives.push(x.login));
+    await hub.poll();
+    assert.equal(hub.list.length, 3); assert.equal(hub.list.find((m) => m.login === 'myself').me, true);
+    streams = [{ user_login: 'ana', user_name: 'Ana', title: 'Hi', game_name: 'Chess', viewer_count: 7, started_at: new Date().toISOString(), thumbnail_url: 'https://t/{width}x{height}.jpg' }];
+    await hub.poll();
+    assert.deepEqual(lives, ['ana']);
+    const ana = hub.list.find((m) => m.login === 'ana');
+    assert.equal(ana.live, true); assert.equal(ana.thumb, 'https://t/320x180.jpg');
+    await hub.startRaid('ana');
+    assert.deepEqual(calls.find((c) => c[1] === 'raids').slice(0, 3), ['POST', 'raids', { from_broadcaster_id: '42', to_broadcaster_id: '100' }]);
+    assert.equal(hub.snapshot().raid.login, 'ana');
+    await assert.rejects(hub.startRaid('myself'), /raid yourself/);
+    await hub.inviteStreamTogether('bob');
+    const inv = calls.find((c) => c[1] === 'guest_star/invites');
+    assert.deepEqual(inv[2], { broadcaster_id: '42', moderator_id: '42', session_id: 'S1', guest_id: '101' });
+    await hub.say('ana', '  hello  ');
+    assert.deepEqual(calls.find((c) => c[1] === 'chat/messages')[3], { broadcaster_id: '100', sender_id: '42', message: 'hello' });
+    await assert.rejects(hub.say('ana', '   '), /Empty message/);
+    await assert.rejects(hub.startRaid('bad name!'), /Invalid channel name/);
+    hub.stop();
+  });
+
+  const { NowPlaying, parseTitle } = require('../electron/nowplaying');
+  await test('now playing: Spotify window titles, process lifecycle, cover lookup', async () => {
+    assert.deepEqual(parseTitle('Daft Punk - One More Time - Radio Edit'), { playing: true, artist: 'Daft Punk', title: 'One More Time - Radio Edit' });
+    for (const idle of ['Spotify', 'Spotify Premium', 'Spotify Free', '']) assert.equal(parseTitle(idle).playing, false);
+    assert.deepEqual(parseTitle('Advertisement'), { playing: true, artist: '', title: 'Advertisement' });
+    const { EventEmitter } = require('events');
+    const { PassThrough } = require('stream');
+    let proc = null;
+    const np = new NowPlaying({
+      platform: 'win32', getSettings: () => ({ showCover: true }),
+      spawn: (cmd, args) => { assert.equal(cmd, 'powershell.exe'); proc = new EventEmitter(); proc.stdout = new PassThrough(); proc.kill = () => proc.emit('exit'); return proc; },
+      fetch: fakeFetch({ 'GET https://itunes.apple.com/search': () => [200, { results: [{ artworkUrl100: 'https://img/100x100bb.jpg' }] }] }),
+    });
+    np.setEnabled(true);
+    assert.equal(np.state.status, 'waiting');
+    proc.stdout.write('T:Artist - Song\n');
+    for (let i = 0; i < 20 && !np.state.cover; i++) await new Promise((r) => setTimeout(r, 5));
+    assert.equal(np.state.title, 'Song'); assert.equal(np.state.cover, 'https://img/300x300bb.jpg');
+    proc.stdout.write('T:Spotify Premium\n');
+    await new Promise((r) => setTimeout(r, 5));
+    assert.equal(np.state.playing, false);
+    np.setEnabled(false);
+    assert.equal(np.state.status, 'off');
+    const other = new NowPlaying({ platform: 'linux' }); other.setEnabled(true);
+    assert.equal(other.state.status, 'unsupported');
+  });
+
+  await test('server: alert sound upload, serving, deletion', async () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'po-snd-'));
+    const store = new Store(dir, {});
+    const srv = createServer({ webDir: rel('web'), soundsDir: path.join(dir, 'sounds'), store, getState: () => ({ app: {} }), onSettings() {}, onAction: async () => {}, onAvatarsChanged() {} });
+    await new Promise((r) => srv.server.listen(0, '127.0.0.1', r));
+    const base = `http://127.0.0.1:${srv.server.address().port}`;
+    try {
+      const mp3 = Buffer.concat([Buffer.from('ID3'), Buffer.alloc(200, 1)]);
+      let r = await fetch(base + '/api/sounds?name=Tada', { method: 'POST', body: mp3 });
+      const j = await r.json();
+      assert.equal(r.status, 200); assert.match(j.file, /^[a-f0-9]{16}\.mp3$/); assert.equal(j.name, 'Tada');
+      r = await fetch(base + '/sounds/' + j.file);
+      assert.equal(r.status, 200); assert.equal(r.headers.get('content-type'), 'audio/mpeg'); assert.equal((await r.arrayBuffer()).byteLength, mp3.length);
+      assert.equal((await fetch(base + '/api/sounds', { method: 'POST', body: Buffer.from('MZ not audio at all') })).status, 400, 'not audio');
+      assert.equal((await fetch(base + '/api/sounds', { method: 'POST', body: mp3, headers: { Origin: 'https://evil.example' } })).status, 403);
+      assert.equal((await fetch(base + '/sounds/..%2fconfig.json')).status, 404);
+      assert.equal((await fetch(base + '/api/sounds/' + j.file, { method: 'DELETE' })).status, 200);
+      assert.equal((await fetch(base + '/sounds/' + j.file)).status, 404);
+      assert.equal((await fetch(base + '/api/sounds/evil.exe', { method: 'DELETE' })).status, 400);
+      assert.equal((await fetch(base + '/widget.html')).status, 200);
+    } finally {
+      srv.close(); store.flush();
+      fs.rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
   // ---------- Translations ----------
   await test('i18n: every UI string has a French translation', () => {
     const I = globalThis.I18N;
@@ -358,14 +583,19 @@ const PUPPET_FILES = ['avatar', 'gfx', 'animator', 'body', 'face', 'hair', 'rend
     // Strings that are identical in French.
     const SAME = new Set(['Discord', 'Twitch', 'Overlay', 'Avatars', 'OBS / Streamlabs', 'Position', 'Pastel', 'Monochrome', 'Sub', 'Bits', 'Raid', 'Zoom', 'Puppet Overlay',
       'English', 'Français', 'Application ID', 'Client Secret', 'Redirect URI', 'Public Client', 'Normal', 'portable', 'Puppet', 'Discord + Twitch', 'Version', 'Timo', 'PUP1.…', '🌐 Auto',
-      'OK', 'Monocle', 'Long', 'Afro', 'Cowboy', 'Bandana', 'Pirate', 'Cape', 'Kimono', 'Pizza']);
+      'OK', 'Spotify', 'Stream Together', 'Segoe UI', 'Volume', 'Followers', 'Subs', 'Follow', 'Chat', 'Chats', 'Style', '{n} min', '{h} h {m} min', '{n} viewers', 'Monocle', 'Long', 'Afro', 'Cowboy', 'Bandana', 'Pirate', 'Cape', 'Kimono', 'Pizza']);
     // JS: literal arguments of t(), creator tab/item labels, panel command help.
-    for (const f of ['web/panel.js', 'web/creator.js', 'web/overlay.js', 'web/overlay/placement.js', 'electron/main.js', 'electron/windows.js', 'electron/desktop.js']) {
+    for (const f of ['web/panel.js', 'web/creator.js', 'web/overlay.js', 'web/overlay/placement.js', 'electron/main.js', 'electron/windows.js', 'electron/desktop.js',
+      'web/panel-alerts.js', 'web/panel-stream.js', 'web/panel-hub.js', 'web/widget.js']) {
       const src = read(f);
       for (const m of src.matchAll(/\bt\(\s*'((?:[^'\\]|\\.)+)'/g)) need(m[1].replace(/\\'/g, "'"));
       for (const m of src.matchAll(/\bt\(\s*"((?:[^"\\]|\\.)+)"/g)) need(m[1]);
       if (f === 'web/creator.js') for (const m of src.matchAll(/label: '([^']+)'/g)) need(m[1]);
       if (f === 'web/panel.js') for (const m of src.match(/const COMMANDS = (.*);/)[1].matchAll(/\['\w+', '([^']+)'\]/g)) need(m[1]);
+      // Labels in the new tabs' tables: ['key', 'Label', …]
+      if (/panel-(alerts|stream)\.js$/.test(f)) for (const m of src.matchAll(/\['[\w-]+', '([^']+)'(?:, '([^']+)')?(?:, ('[^']+'|null))?\]/g)) { need(m[1]); if (m[2] && !/^\d/.test(m[2])) need(m[2]); if (m[3] && m[3] !== 'null') need(m[3].slice(1, -1)); }
+      // Status texts and error messages shown through t(variable).
+      if (/panel-(stream|hub)\.js$/.test(f)) for (const m of src.matchAll(/const (?:NP|STATUS) = \{([^}]*)\}/g)) for (const v of m[1].matchAll(/: '([^']+)'/g)) need(v[1]);
     }
     for (const values of Object.values(P.OPTIONS)) for (const v of values) need(P.prettyLabel(v));
     // HTML: text nodes and placeholders/titles outside data-no-i18n, rich blocks as a whole.

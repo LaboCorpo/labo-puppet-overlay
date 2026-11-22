@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Puppet Overlay widget</title>
+<style>
+  html, body { margin: 0; background: transparent; overflow: hidden; }
+  body { --size: 42px; --color: #fff; --accent: #ff7a45; --font: "Segoe UI", system-ui, sans-serif; font-family: var(--font); color: var(--color); padding: 8px; }
+  body.align-center { text-align: center; } body.align-right { text-align: right; }
+  .w { display: inline-flex; flex-direction: column; gap: 4px; max-width: calc(100vw - 16px); box-sizing: border-box; transition: opacity .4s; vertical-align: top; }
+  body.shadow .w { text-shadow: 0 2px 6px #000c, 0 0 2px #000; }
+  body.style-pill .w { background: #000000a0; border-radius: calc(var(--size) * 0.9); padding: calc(var(--size) * 0.22) calc(var(--size) * 0.6); }
+  body.style-card .w { background: #000000a0; border-radius: 14px; padding: calc(var(--size) * 0.3) calc(var(--size) * 0.5); border-left: 6px solid var(--accent); }
+  .row { display: flex; align-items: baseline; gap: .45em; font-size: var(--size); line-height: 1.15; white-space: nowrap; }
+  body.align-center .row { justify-content: center; } body.align-right .row { justify-content: flex-end; }
+  .label { font-weight: 600; opacity: .85; font-size: .62em; text-transform: uppercase; letter-spacing: .06em; }
+  .value { font-weight: 800; font-variant-numeric: tabular-nums; overflow: hidden; text-overflow: ellipsis; }
+  .value .goal { font-weight: 600; opacity: .7; font-size: .7em; }
+  .bar { height: calc(var(--size) * 0.16); min-height: 4px; background: #ffffff30; border-radius: 99px; overflow: hidden; }
+  .bar i { display: block; height: 100%; width: 0; background: var(--accent); border-radius: 99px; transition: width .8s ease; }
+  .bump { animation: bump .6s ease; }
+  @keyframes bump { 30% { transform: scale(1.18); color: var(--accent); } }
+  /* Now playing */
+  .np { display: flex; align-items: center; gap: calc(var(--size) * 0.35); font-size: var(--size); }
+  .np img { width: calc(var(--size) * 1.7); height: calc(var(--size) * 1.7); border-radius: 8px; object-fit: cover; box-shadow: 0 2px 10px #0008; flex: none; }
+  .np .txt { min-width: 0; overflow: hidden; }
+  .np .title { font-weight: 800; white-space: nowrap; line-height: 1.15; }
+  .np .artist { font-size: .62em; opacity: .85; white-space: nowrap; }
+  .np .note { color: var(--accent); flex: none; }
+  .scroll > span { display: inline-block; padding-right: 3em; animation: marquee var(--dur, 12s) linear infinite; }
+  @keyframes marquee { from { transform: translateX(0); } to { transform: translateX(-50%); } }
+  .hide { opacity: 0; }
+  .placeholder { font: 13px system-ui; color: #fff; background: #00000080; padding: 6px 10px; border-radius: 8px; display: inline-block; }
+</style>
+</head>
+<body>
+<div id="root" data-no-i18n></div>
+<script src="shared/i18n.js"></script>
+<script src="shared/alertsound.js"></script>
+<script src="widget.js"></script>
+</body>
+</html>

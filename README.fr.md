@@ -73,7 +73,15 @@ Tu peux les changer dans **Réglages**.
 
 Les raids, subs et bits déclenchent des effets. Les messages du chat peuvent aussi être lus à voix haute ou transformés en charabia rigolo (dans l'onglet Twitch).
 
-## 8. Autres réglages
+## 8. Sons d'alerte, widgets de stream et hub streaming
+
+- Onglet **Sons d'alerte** : ajoute autant de MP3 que tu veux pour les follows, subs, subs Prime, subs offerts, bits et raids. Choisis *Aléatoire*, *Dans l'ordre* ou *Tous ensemble*. Pour les bits et les raids, « À partir de » fixe un palier (ex. un son plus gros à partir de 1000 bits). Clique sur **Tester** pour écouter.
+- Onglet **Widgets de stream** : followers, subs, dernier follower, dernier sub et la musique en cours sur Spotify. Chacun est sa propre source **Navigateur** dans OBS : copie son adresse, puis déplace-le et redimensionne-le comme tu veux.
+- Onglet **Hub streaming** : tape les chaînes Twitch de l'équipe pour voir qui est en live. De là, tu peux lire leurs chats, envoyer des messages, les **raid** (deux clics pour confirmer) ou les inviter en **Stream Together** (ouvre d'abord Stream Together dans ton Gestionnaire de stream Twitch).
+- Les compteurs, les follows, les raids, Stream Together et l'envoi de messages demandent de **te connecter avec Twitch** (dans ces onglets). Twitch affiche un code à confirmer sur son site ; tu ne tapes jamais ton mot de passe dans l'app.
+- Spotify : fonctionne avec l'application Spotify pour PC, sans connexion Spotify. Garde Spotify ouvert ou réduit.
+
+## 9. Autres réglages
 
 - Onglet **Overlay** : disposition (ligne ou colonne), taille, effets d'entrée et de sortie, noms, etc.
 - Onglet **Membres** : masquer quelqu'un, lui donner un surnom, le grossir ou le rétrécir, changer l'ordre.
@@ -87,6 +95,9 @@ Les raids, subs et bits déclenchent des effets. Les messages du chat peuvent au
 | Erreur qui parle de « tester » ou d'« autorisation » | Vérifie que tu as accepté l'invitation de testeur, puis clique sur **Reconnecter / réautoriser Discord** dans l'onglet Statut |
 | Je ne vois pas les marionnettes en jeu | Mets le jeu en mode **fenêtré sans bordure**. Le plein écran exclusif cache l'overlay |
 | Rien ne s'affiche dans OBS | Puppet Overlay doit être lancé. Vérifie l'adresse dans l'onglet **OBS / Streamlabs** |
+| « Se connecter avec Twitch » demande un Client ID | Demande le Client ID Twitch à la personne qui t'a partagé l'app et colle-le |
+| Pas de son d'alerte dans OBS | Dans **Sons d'alerte**, « Joué par » doit correspondre : *Cette app* (OBS l'entend via l'Audio du bureau) ou *OBS* (ajoute la source widget *Sons d'alerte*) |
+| Le widget Spotify reste vide | Ouvre l'application Spotify **pour PC** (pas le lecteur web) et garde sa fenêtre ouverte ou réduite |
 | Autre chose | **Réglages → Ouvrir le dossier des logs** et envoie le fichier `main.log` à la personne qui t'a partagé l'app |
 
 ---

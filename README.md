@@ -170,7 +170,15 @@ You can change these in **Settings**.
 
 Raids, subs and bits trigger effects. Chat messages can also be read aloud or turned into funny gibberish (in the Twitch tab).
 
-## 8. Other things you can tweak
+## 8. Alert sounds, stream widgets and the streaming hub
+
+- **Alert sounds** tab: add as many MP3 files as you like for follows, subs, Prime subs, gifted subs, bits and raids. Pick *Random*, *In order* or *All together*. For bits and raids, “From” sets a threshold (e.g. a bigger sound from 1000 bits). Use **Test** to hear it.
+- **Stream widgets** tab: followers, subs, latest follower, latest sub and the song playing in Spotify. Each one is its own **Browser** source in OBS: copy its address, then move and resize it as you like.
+- **Streaming hub** tab: type the crew's Twitch channels to see who is live. From there you can read their chats, send messages, **raid** them (click twice to confirm) or invite them to **Stream Together** (open Stream Together in your Twitch Stream Manager first).
+- Counters, follows, raids, Stream Together and sending messages need you to **log in with Twitch** (in those tabs). Twitch shows a code to confirm on its website; you never type your password in the app.
+- Spotify: works with the Spotify desktop app, no Spotify login. Keep Spotify open or minimized.
+
+## 9. Other things you can tweak
 
 - **Overlay** tab: layout (row or column), size, entrance and exit effects, names, and more.
 - **Members** tab: hide someone, give them a nickname, make them bigger or smaller, change the order.
@@ -184,6 +192,9 @@ Raids, subs and bits trigger effects. Chat messages can also be read aloud or tu
 | Error about "tester" or "authorization" | Check that you accepted the tester invite, then click **Reconnect / re-authorize Discord** in the Status tab |
 | I can't see the puppets in my game | Set the game to **borderless window** mode. Exclusive fullscreen hides the overlay |
 | Nothing shows in OBS | Puppet Overlay must be running. Check the address in the **OBS / Streamlabs** tab |
+| “Log in with Twitch” asks for a Client ID | Ask the person who shared the app for the Twitch Client ID and paste it |
+| No alert sound in OBS | In **Alert sounds**, “Played by” must match: *This app* (OBS hears it through Desktop Audio) or *OBS* (add the *Alert sounds* widget source) |
+| The Spotify widget stays empty | Open the Spotify **desktop** app (not the web player) and keep its window open or minimized |
 | Something else | **Settings → Open logs folder** and send the `main.log` file to the person who shared the app |
 
 ---

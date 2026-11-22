@@ -5,9 +5,21 @@
 const http = require('http');
 const fs = require('fs');
 const path = require('path');
+const crypto = require('crypto');
 const { cleanAvatar } = require('./avatars');
+const { SOUND_FILE_RE } = require('./settings');
 
-const MIME = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8', '.png': 'image/png', '.svg': 'image/svg+xml', '.ico': 'image/x-icon', '.json': 'application/json' };
+const MIME = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8', '.png': 'image/png', '.svg': 'image/svg+xml', '.ico': 'image/x-icon', '.json': 'application/json', '.mp3': 'audio/mpeg', '.wav': 'audio/wav', '.ogg': 'audio/ogg' };
+const MAX_SOUND = 20 * 1024 * 1024;
+
+// Alert sounds are stored under a random name; the content must really be MP3, WAV or Ogg.
+function soundType(buf) {
+  if (buf.length < 12) return null;
+  if (buf.slice(0, 3).toString('latin1') === 'ID3' || (buf[0] === 0xff && (buf[1] & 0xe0) === 0xe0)) return 'mp3';
+  if (buf.slice(0, 4).toString('latin1') === 'RIFF' && buf.slice(8, 12).toString('latin1') === 'WAVE') return 'wav';
+  if (buf.slice(0, 4).toString('latin1') === 'OggS') return 'ogg';
+  return null;
+}
 const LOCAL_HOST = /^(localhost|127\.0\.0\.1)(:\d+)?$/;
 const LOCAL_ORIGIN = /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/;
 const MAX_CLIENTS = 32;
@@ -16,7 +28,7 @@ const MAX_CLIENTS = 32;
  * store: Store; getState(): runtime state merged into every 'state' event;
  * onSettings(patch); onAction(name, body) -> optional result object; onAvatarsChanged()
  */
-function createServer({ webDir, store, getState, onSettings, onAction, onAvatarsChanged }) {
+function createServer({ webDir, soundsDir, store, getState, onSettings, onAction, onAvatarsChanged }) {
   const root = path.resolve(webDir);
   const clients = new Set();
 
@@ -64,6 +76,18 @@ function createServer({ webDir, store, getState, onSettings, onAction, onAvatars
       req.on('error', reject);
     });
   }
+  function readRaw(req, limit) {
+    return new Promise((resolve, reject) => {
+      let size = 0, tooBig = false; const chunks = [];
+      req.on('data', (c) => {
+        if (tooBig) return;
+        size += c.length;
+        if (size > limit) { tooBig = true; chunks.length = 0; reject(Object.assign(new Error('File too large (max 20 MB)'), { status: 413 })); } else chunks.push(c);
+      });
+      req.on('end', () => { if (!tooBig) resolve(Buffer.concat(chunks)); });
+      req.on('error', reject);
+    });
+  }
   function json(res, code, obj) { res.writeHead(code, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' }); res.end(JSON.stringify(obj)); }
 
   function openEvents(req, res) {
@@ -88,6 +112,15 @@ function createServer({ webDir, store, getState, onSettings, onAction, onAvatars
     });
   }
 
+  function serveSound(name, res) {
+    if (!SOUND_FILE_RE.test(name)) { res.writeHead(404); return res.end(); }
+    fs.readFile(path.join(soundsDir, name), (err, data) => {
+      if (err) { res.writeHead(404); return res.end('Not found'); }
+      res.writeHead(200, { 'Content-Type': MIME[path.extname(name)], 'Content-Length': data.length, 'Cache-Control': 'max-age=86400', 'X-Content-Type-Options': 'nosniff' });
+      res.end(data);
+    });
+  }
+
   const server = http.createServer(async (req, res) => {
     // Host check blocks DNS-rebinding pages from reading the API through a hostname they control.
     if (!LOCAL_HOST.test(req.headers.host || '')) { res.writeHead(421); return res.end(); }
@@ -98,6 +131,7 @@ function createServer({ webDir, store, getState, onSettings, onAction, onAvatars
     try {
       if (!p.startsWith('/api/')) {
         if (m !== 'GET' && m !== 'HEAD') { res.writeHead(405); return res.end(); }
+        if (p.startsWith('/sounds/') && soundsDir) return serveSound(p.slice(8), res);
         return serveStatic(p, res);
       }
       // Mutations only from pages served here (or non-browser clients): other websites can't poke the API.
@@ -122,6 +156,22 @@ function createServer({ webDir, store, getState, onSettings, onAction, onAvatars
         if (onAvatarsChanged) onAvatarsChanged();
         return json(res, 200, { ok: true });
       }
+      if (p === '/api/sounds' && m === 'POST' && soundsDir) {
+        const buf = await readRaw(req, MAX_SOUND);
+        const type = soundType(buf);
+        if (!type) throw new Error('Not an MP3, WAV or Ogg file');
+        const file = crypto.randomBytes(8).toString('hex') + '.' + type;
+        await fs.promises.mkdir(soundsDir, { recursive: true });
+        await fs.promises.writeFile(path.join(soundsDir, file), buf);
+        const name = String(url.searchParams.get('name') || file).slice(0, 80);
+        return json(res, 200, { ok: true, file, name });
+      }
+      if (p.startsWith('/api/sounds/') && m === 'DELETE' && soundsDir) {
+        const file = decodeURIComponent(p.slice('/api/sounds/'.length));
+        if (!SOUND_FILE_RE.test(file)) throw new Error('Invalid file name');
+        await fs.promises.unlink(path.join(soundsDir, file)).catch(() => {});
+        return json(res, 200, { ok: true });
+      }
       if (p === '/api/action' && m === 'POST') {
         const b = await readBody(req, 10_000);
         if (!b || typeof b.name !== 'string') throw new Error('Missing action name');
@@ -143,4 +193,4 @@ function createServer({ webDir, store, getState, onSettings, onAction, onAvatars
   return { server, broadcast, pushState, close };
 }
 
-module.exports = { createServer };
+module.exports = { createServer, soundType };

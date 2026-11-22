@@ -14,7 +14,12 @@
   // ---------- Tabs (remembered between openings) ----------
   const preview = $('#preview');
   const PREVIEW_SRC = preview.getAttribute('src');
+  // Extra tabs (panel-*.js) register here: called on every state update and tab change.
+  const hooks = { state: [], tab: [] };
+  let currentTab = 'status';
   function showTab(name) {
+    currentTab = name;
+    hooks.tab.forEach((fn) => fn(name));
     $$('.tab').forEach((x) => x.classList.toggle('active', x.dataset.tab === name));
     $$('section').forEach((s) => s.classList.toggle('active', s.dataset.panel === name));
     // The live preview only runs while its tab is shown (a hidden iframe would keep animating).
@@ -24,6 +29,22 @@
   }
   $$('.tab').forEach((b) => b.addEventListener('click', () => showTab(b.dataset.tab)));
   try { const t = localStorage.getItem('tab'); if (t && $(`.tab[data-tab="${t}"]`)) showTab(t); } catch (e) {}
+
+  // ---------- Shared with panel-*.js ----------
+  window.Panel = {
+    $, $$, t, api, action, toast, escapeHtml, showTab,
+    save: (key, value) => save(key, value),
+    get state() { return state; },
+    onState(fn) { hooks.state.push(fn); if (state.settings) fn(state, true); },
+    onTab(fn) { hooks.tab.push(fn); fn(currentTab); },
+    // Runs an action and shows its error (translated) as a toast; resolves to the result or null.
+    async run(name, extra, okText) {
+      const r = await action(name, extra);
+      if (!r || !r.ok) { toast(t((r && r.error) || 'Something went wrong')); return null; }
+      if (okText) toast(t(okText));
+      return r;
+    },
+  };
 
   // ---------- Settings binding ----------
   const get = (obj, key) => key.split('.').reduce((o, k) => (o ? o[k] : undefined), obj);
@@ -470,6 +491,7 @@
       if (!state.settings.app.welcomeDone && !welcomeShown) { welcomeShown = true; openWelcome(); }
       renderWelcome();
       checkWhatsNew();
+      hooks.state.forEach((fn) => { try { fn(state, langChanged); } catch (err) { console.error(err); } });
     });
     es.addEventListener('speaking', (e) => {
       const d = JSON.parse(e.data);

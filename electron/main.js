@@ -9,6 +9,11 @@ const { Store } = require('./store');
 const { createServer } = require('./server');
 const { DiscordVoiceRPC } = require('./discord-rpc');
 const { TwitchChat } = require('./twitch');
+const { TwitchApi } = require('./twitch-api');
+const { StreamStats } = require('./stream-stats');
+const { NowPlaying } = require('./nowplaying');
+const { Hub } = require('./hub');
+const { alertKey, amountOf, AlertPicker } = require('./alerts');
 const { AvatarSync } = require('./sync');
 const { Updater, cmpVersion } = require('./updater');
 const { buildDiagnostics } = require('./diagnostics');
@@ -29,6 +34,8 @@ const ICON = path.join(__dirname, '..', 'build', 'icon.png');
 const START_HIDDEN = process.argv.includes('--hidden');
 
 let log, store, srv, rpc, twitch, sync, updater, windows, desktop;
+let twitchApi, stats, nowPlaying, hub;
+const alertPicker = new AlertPicker();
 let port;
 let quitting = false;
 
@@ -50,6 +57,10 @@ function appState() {
     known: store.data.known,
     syncStatus: sync ? sync.status : { status: 'off' },
     twitchStatus: twitch ? twitch.snapshot() : { status: 'off' },
+    twitchAccount: twitchApi ? twitchApi.snapshot() : { status: 'off' },
+    stats: stats ? stats.snapshot() : null,
+    nowPlaying: nowPlaying ? nowPlaying.snapshot() : null,
+    hub: hub ? hub.snapshot() : null,
     app: {
       version: app.getVersion(), placement: windows ? windows.placement : false, lang: I18N.lang,
       hotkeyErrors: desktop ? desktop.hotkeyErrors : {},
@@ -97,8 +108,46 @@ function startTwitch() {
   });
   twitch.on('status', () => { log.info(`[twitch] ${twitch.status} ${twitch.detail || ''}`); push(); });
   twitch.on('chat', (m) => srv.broadcast('chat', m));
-  twitch.on('event', (e) => srv.broadcast('twitch-event', e));
+  twitch.on('event', onTwitchEvent);
   twitch.sync();
+}
+
+// Every Twitch event (IRC or Helix follow): overlay effects, alert sounds, latest-sub widget.
+function onTwitchEvent(e) {
+  srv.broadcast('twitch-event', e);
+  if (e.type === 'sub' && stats) stats.onSub(e);
+  playAlert(e);
+}
+function playAlert(e) {
+  const key = alertKey(e);
+  if (!key) return;
+  const sounds = alertPicker.pick(store.settings.alerts, key, amountOf(e, key));
+  if (sounds.length) srv.broadcast('alert-sound', { key, sounds, output: store.settings.alerts.output });
+}
+
+// ---------- Twitch account, counters, now playing, hub ----------
+function startStreamTools() {
+  twitchApi = new TwitchApi({
+    getClientId: () => store.settings.twitchApi.clientId,
+    getToken: () => store.data.twitchToken,
+    saveToken: (tok) => { store.data.twitchToken = tok; store.save(); },
+    log,
+  });
+  stats = new StreamStats({ api: twitchApi, log });
+  hub = new Hub({ api: twitchApi, getSettings: () => store.settings.hub, log });
+  twitchApi.on('status', () => { stats.sync(); hub.schedule(); push(); });
+  stats.on('change', () => push());
+  stats.on('follow', (e) => onTwitchEvent(e));
+  hub.on('change', () => push());
+  hub.on('live', (s) => {
+    if (!store.settings.hub.notify || !Notification.isSupported()) return;
+    new Notification({ title: t('{name} is live on Twitch', { name: s.display }), body: [s.game, s.title].filter(Boolean).join(' — ').slice(0, 200), icon: ICON }).show();
+  });
+  nowPlaying = new NowPlaying({ log, getSettings: () => store.settings.widgets.spotify });
+  nowPlaying.on('change', () => push());
+  nowPlaying.setEnabled(store.settings.widgets.spotify.enabled);
+  twitchApi.start();
+  hub.schedule();
 }
 
 // ---------- Settings & actions ----------
@@ -116,6 +165,11 @@ function applySettings(patch) {
   else windows.updateOverlayVisibility();
   if (changed(prev.sync, s.sync)) sync.schedule();
   if (changed(prev.twitch, s.twitch)) twitch.sync();
+  if (twitchApi) {
+    if (prev.twitchApi.clientId !== s.twitchApi.clientId) twitchApi.start();
+    if (changed(prev.hub, s.hub)) hub.schedule();
+    nowPlaying.setEnabled(s.widgets.spotify.enabled);
+  }
   if (changed(prev.app.hotkeys, s.app.hotkeys)) desktop.registerHotkeys();
   if (prev.app.launchAtStartup !== s.app.launchAtStartup) desktop.applyLoginItem();
   if (prev.app.language !== s.app.language) syncLang();
@@ -157,7 +211,26 @@ async function onAction(name, b) {
     case 'update-install': updater.install(); return;
     case 'open-logs': shell.openPath(log.dir); return;
     case 'open-url': if (/^https:\/\/\S+$/.test(b.url || '')) shell.openExternal(b.url); return;
-    case 'twitch-test': twitch.simulate(String(b.kind || 'chat')); return;
+    case 'twitch-test':
+      if (b.kind === 'follow') { onTwitchEvent({ type: 'follow', login: 'pixelcat', display: 'pixelcat', color: null }); return; }
+      twitch.simulate(String(b.kind || 'chat')); return;
+    // Alert sound test: plays where the alerts play (app or OBS), with a fake amount high enough for every tier.
+    case 'alert-test': {
+      const key = String(b.key || '');
+      const sounds = alertPicker.pick(Object.assign({}, store.settings.alerts, { enabled: true }), key, 1e7);
+      if (!sounds.length) throw new Error('No sound for this event yet');
+      srv.broadcast('alert-sound', { key, sounds, output: store.settings.alerts.output, test: true });
+      return;
+    }
+    case 'twitch-login': return { login: await twitchApi.beginLogin() };
+    case 'twitch-login-cancel': twitchApi.cancelLogin(); return;
+    case 'twitch-logout': await twitchApi.logout(); return;
+    case 'stats-refresh': await stats.poll(); return;
+    case 'hub-refresh': await hub.poll(); return;
+    case 'hub-raid': await hub.startRaid(String(b.login || '')); return;
+    case 'hub-raid-cancel': await hub.cancelRaid(); return;
+    case 'hub-invite': await hub.inviteStreamTogether(String(b.login || '')); return;
+    case 'hub-say': await hub.say(String(b.login || ''), String(b.text || '')); return;
     case 'fx-test': replayFx(); return;
     case 'sync-now': await sync.now(); return;
     case 'forget-member': store.forgetMember(String(b.id || '')); push(); return;
@@ -189,6 +262,10 @@ app.on('before-quit', () => {
   quitting = true;
   if (rpc) rpc.stop();
   if (twitch) twitch.close();
+  if (twitchApi) twitchApi.stop();
+  if (stats) stats.stop();
+  if (hub) hub.stop();
+  if (nowPlaying) nowPlaying.setEnabled(false);
   if (sync) sync.stop();
   if (srv) srv.close();
   if (store) store.flush();
@@ -205,7 +282,7 @@ app.whenReady().then(async () => {
   if (store.data.lastVersion === null) { store.data.lastVersion = app.getVersion(); store.save(); } // fresh install: nothing new to show
   syncLang();
 
-  srv = createServer({ webDir: WEB_DIR, store, getState: appState, onSettings: applySettings, onAction, onAvatarsChanged: () => push({ avatars: true }) });
+  srv = createServer({ webDir: WEB_DIR, soundsDir: path.join(app.getPath('userData'), 'sounds'), store, getState: appState, onSettings: applySettings, onAction, onAvatarsChanged: () => push({ avatars: true }) });
   try { await listen(store.settings.port); } catch (e) {
     dialog.showErrorBox('Puppet Overlay', 'Could not start the local server: ' + e.message);
     app.exit(1);
@@ -248,6 +325,7 @@ app.whenReady().then(async () => {
   desktop.createTray();
   startDiscord();
   startTwitch();
+  startStreamTools();
   windows.createOverlay();
   sync.schedule();
   desktop.registerHotkeys();

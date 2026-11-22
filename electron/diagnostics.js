@@ -30,6 +30,8 @@ function buildDiagnostics(info) {
     `Displays: ${(state.app.displays || []).map((x) => x.label).join(', ')}`,
     `Discord: ${d.status || '?'}${d.detail ? ' — ' + d.detail : ''} · in a channel: ${d.channel ? 'yes' : 'no'} · members: ${(d.members || []).length} · signed in: ${d.me ? 'yes' : 'no'}`,
     `Twitch: ${tw.status || '?'}${tw.detail ? ' — ' + tw.detail : ''}`,
+    `Twitch account: ${(state.twitchAccount || {}).status || '?'}${(state.twitchAccount || {}).login ? ' · ' + state.twitchAccount.login : ''}${(state.twitchAccount || {}).hasClientId === false ? ' · no client ID' : ''}`,
+    `Spotify widget: ${(state.nowPlaying || {}).status || 'off'} · hub: ${(state.hub || {}).status || 'off'}${(state.hub || {}).detail ? ' — ' + state.hub.detail : ''}`,
     `Sync: ${sy.status || '?'}${sy.count !== undefined ? ' · ' + sy.count + ' avatars' : ''}${sy.error ? ' — ' + sy.error : ''}`,
     `Update: ${up.status || '?'}${up.latest ? ' · latest ' + up.latest : ''}${up.error ? ' — ' + up.error : ''}`,
     `Avatars: ${Object.keys(store.data.avatars).length} imported, ${Object.keys(store.data.syncedAvatars).length} synced · known members: ${Object.keys(store.data.known).length}`,
