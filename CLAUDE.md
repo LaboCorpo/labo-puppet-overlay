@@ -29,7 +29,9 @@ This file is everything needed to continue the project exactly where the previou
 
 ## 2. Project summary
 
-> **Current state (v0.11.0, branch `feature/alerts-stream-hub`, PR to review — not merged)**: alert sounds (several audio files per Twitch event), OBS stream widgets (followers, subs, latest follower/sub, Spotify now playing) and a streaming hub (crew live list, raid, Stream Together invite, chats), with an optional Twitch account login (Device Code flow). Needs a Twitch application Client ID (§3) and testing on Windows.
+> **Current state (LaboHub 1.6.0, branch `labohub`, PR to `main` for F4ilortrue to review — do not merge yourself)**: the app is now **LaboHub** (`appId fr.labo.hub`, data in `%APPDATA%/LaboHub`, imports the Puppet Overlay config on first run). Top tabs: Puppet Overlay, HUD Twitch (widgets, scenes, alert sounds), Hub Labo (friends' streams, multi-stream with merged chats + moderation, clips/timestamps), La savane 🍌 (VDO.Ninja video room + OBS scene), BabaDeck (Stream Deck clone, OBS WebSocket v5), Labo test (experiments, chat bot, viewer games, streamer tools). Release notes per version: `web/shared/changelog.js`; maintainer notes per version: `docs/MAINTAINER.md` (“LaboHub 1.5 notes”, “LaboHub 1.6 notes”). The maintainer installs test builds with a hand-made `app.asar` + `Installer LaboHub.bat` that reuses the Puppet Overlay Electron runtime (no CI build needed).
+>
+> **Before that (v0.11.0, commit on this branch)**: alert sounds, OBS stream widgets, streaming hub, optional Twitch account login (Device Code flow).
 >
 > **Before that (v0.10.1)**: hover fade (puppets fade near the mouse on the desktop overlay; `setIgnoreMouseEvents(true, {forward:true})` forwards mouse moves to the page) and configurable close behaviour (`app.closeAction`). Before that, **v0.9.0**: friends release done: first-run guide, bundled avatar sync URL (`LaboCorpo/labo-puppet-avatars`, `avatars.txt`; the repo must be created by the maintainer), "Share" buttons on avatars, "Copy diagnostics", "What's new" after an update, French welcome message in `docs/welcome-fr.md`. v0.8.1 was the clean-up/hardening pass. Next: optional follow-ups or the public release (§9).
 
@@ -85,9 +87,8 @@ The app is a Windows desktop overlay that shows people in your **Discord voice c
   ```
   - Never force-push, and never move existing tags: create a new patch version instead.
   - The GitHub REST API was not reachable from the previous environment, so build status had to be confirmed by the maintainer.
-- **Updater**: `electron/updater.js`, with OWNER/REPO = LaboCorpo/labo-puppet-overlay.
-  - The installed (NSIS) build uses `electron-updater`.
-  - The portable build only checks `releases/latest` and opens the download page.
+- **Updater (LaboHub)**: `electron/updater.js` lists the GitHub releases of `settings.updates.repo` (default LaboCorpo/labo-puppet-overlay) whose tag starts with `labohub-v` and that carry an `app.asar` asset (sha256 checked against GitHub's `digest`), downloads it next to the app and swaps it after exit. Publish those as **pre-releases** so old Puppet Overlay installs (`releases/latest`) ignore them. Nothing is published yet: ask the maintainer first.
+  - The CI workflow still builds `electron-builder` installers on PRs (artifacts only) and publishes a release on `v*` tags: do not push a `v*` tag from this branch without asking (it would become “latest” for Puppet Overlay users).
   - The repo must be public for friends to download releases and for updates to work.
 - **Versions so far**:
   - v0.1.0 initial; v0.1.1 YAML fix;
@@ -99,7 +100,10 @@ The app is a Windows desktop overlay that shows people in your **Discord voice c
   - v0.8.1 screen-share display and voice effects removed; clean-up/hardening pass, module split, `npm test`;
   - v0.9.0 friends release: first-run guide, bundled sync URL, avatar sharing, diagnostics, "What's new";
   - v0.10.0 hover fade near the mouse (desktop overlay), close behaviour setting (minimize to taskbar / tray / quit) — build failed (stray file with an invalid Windows name); v0.10.1 same features, fixed;
-  - v0.11.0 (branch + PR, not tagged): alert sounds, stream widgets, streaming hub, Twitch account. CI now also builds pull requests (artifacts only, no release).
+  - v0.11.0 (not tagged): alert sounds, stream widgets, streaming hub, Twitch account. CI now also builds pull requests (artifacts only, no release).
+  - LaboHub 1.0–1.4 (installed by hand on the maintainer's PC): rename to LaboHub, tabbed shell, widget editor with themes/share codes, Spotify via Windows media session, multi-stream hub, timestamps/clips;
+  - LaboHub 1.5.0: La savane, BabaDeck + OBS WebSocket, Labo test, Discord bot (`/puppet`), scenes, chat widget, moderation, new accessories, logo, `app.asar` updates;
+  - LaboHub 1.6.0 (branch `labohub`, PR): La savane window closable, own device picker, drag/resize free layout, OBS links per camera; Labo test chat bot, viewer games (giveaway, poll, counters, queue, emote rain, hype, end screen), streamer tools (title/category presets, ads, Discord go-live, summary, checklist).
 
 ## 4. Architecture
 
@@ -143,6 +147,13 @@ web/
   shared/changelog.js  window.CHANGELOG: release notes (EN + FR per entry, newest first) for the "What's new" dialog
   shared/ui.css    shared dark UI styles (incl. .modal)
 build/             icon.png/.ico, taskbar badges (badge-*.png), thumbnail icons (thumb-*.png)
+
+LaboHub additions (see the header comment of each file):
+electron/  obs.js (obs-websocket v5), deck.js (BabaDeck actions), lab.js (experiments), lab-chat.js (chat bot, games, session),
+           lab-tools.js (ads, Discord webhook, title/category), markers.js (timestamps/clips), discord-bot.js, secrets.js (safeStorage)
+web/       savane.html/.js (+ shared/savane-id.js), lab.html + lab-widget.js (viewer-game overlays), scene.html/.js, deck.html/.js,
+           countdown.html, render.html, widget-chat.js, panel-*.js (one file per panel page), shared/twitchchat.js, shared/widget-schema.js,
+           shared/puppet/extras.js
 tools/check.js     automated checks (`npm test`, also in CI)
 tools/mock-discord.js   fake Discord IPC server for tests (Windows named pipe or $XDG_RUNTIME_DIR)
 ```
@@ -293,6 +304,8 @@ tools/mock-discord.js   fake Discord IPC server for tests (Windows named pipe or
 ## 9. Backlog / next steps (agreed or proposed, not done)
 
 **Done in v0.8.1**: clean-up/hardening pass (dead code removed, module split, `settings.js` validation, hardened API/RPC/IRC, `npm test` in CI, CPU reductions). Keep FR translations complete, old avatar codes/files loadable (`normalize()`) and old configs readable (`migrate()` + `sanitize()`).
+
+**To verify on Windows (LaboHub 1.6)**: La savane with several real guests (join/leave events, `getStreamIDs`, device names passed to `&videodevice`/`&audiodevice`, mic toggle, speaking highlight in OBS); chat bot replies and rate; ad schedule + snooze (Affiliate/Partner); Discord webhook; emote rain images in OBS.
 
 **To verify on Windows (v0.11)**: Twitch Device Code login with the real Client ID; follower/sub counts; raid + cancel; Stream Together invite (beta API); sending chat; Spotify title watcher (PowerShell execution policy, window closed to tray); alert sounds from the desktop overlay and from the OBS source; widget sizes in OBS.
 

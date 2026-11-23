@@ -52,7 +52,7 @@ globalThis.addEventListener = () => {};
 globalThis.Image = class { constructor() { this.onload = null; this.onerror = null; } set src(v) { this._src = v; } get src() { return this._src; } };
 const loadWeb = (file) => vm.runInThisContext(read(file), { filename: file });
 
-const PUPPET_FILES = ['avatar', 'gfx', 'animator', 'body', 'face', 'hair', 'render'].map((f) => `web/shared/puppet/${f}.js`);
+const PUPPET_FILES = ['avatar', 'gfx', 'animator', 'body', 'face', 'hair', 'extras', 'render'].map((f) => `web/shared/puppet/${f}.js`);
 
 (async () => {
   // ---------- Syntax ----------
@@ -304,6 +304,7 @@ const PUPPET_FILES = ['avatar', 'gfx', 'animator', 'body', 'face', 'hair', 'rend
     tc.handle('@msg-id=resub;login=subber;display-name=Subber :tmi.twitch.tv USERNOTICE #test :great stream');
     assert.equal(events.pop().text, 'great stream');
     msg('eve', 'x'.repeat(2000)); assert.equal(chat.pop().text.length, 500);
+    tc.channel = 'test'; msg('test', 'my own message'); assert.equal(chat.pop().self, true, 'streamer messages are flagged (no chat sound)');
     tc.handle('garbage line'); tc.handle('');
     tc.close();
   });
@@ -354,14 +355,17 @@ const PUPPET_FILES = ['avatar', 'gfx', 'animator', 'body', 'face', 'hair', 'rend
     const f = '0123456789abcdef.mp3';
     const s = sanitize({
       alerts: { output: 'nope', volume: 3, bits: { mode: 'all', sounds: [{ file: f, name: 'x'.repeat(200), volume: -1, min: '250' }, { file: '../../evil.mp3' }, { file: 'abc.exe' }, 'junk'] }, sub: { mode: 'weird' } },
-      widgets: { font: 'Comic"; } body{', size: 999, color: 'red', style: 'pill' },
+      widgets: { looks: { followers: { font: 'Comic"; } body{', size: 999, textColor: 'red', frame: 'pill', layout: 'gallery' }, spotify: { layout: 'gallery', cover: 'vinyl' } } },
       hub: { members: ['@LaboCorpo', 'https://twitch.tv/x', 'ok_name', 'ok_name', 'a b'], pollSec: 1 },
       twitchApi: { clientId: 'NOT VALID' },
     });
     assert.equal(s.alerts.output, 'app'); assert.equal(s.alerts.volume, 1);
     assert.deepEqual(s.alerts.bits, { mode: 'all', sounds: [{ file: f, name: 'x'.repeat(80), volume: 0, min: 250 }] });
     assert.equal(s.alerts.sub.mode, 'random');
-    assert.equal(s.widgets.font, 'Segoe UI'); assert.equal(s.widgets.size, 200); assert.equal(s.widgets.color, '#ffffff');
+    const fl = s.widgets.looks.followers;
+    assert.equal(fl.font, 'Segoe UI'); assert.equal(fl.size, 200); assert.equal(fl.textColor, '#ffffff'); assert.equal(fl.layout, 'inline', 'spotify-only layout refused for a counter');
+    assert.equal(s.widgets.looks.spotify.layout, 'gallery'); assert.equal(s.widgets.looks.spotify.cover, 'vinyl');
+    assert.equal(fl.cover, undefined, 'cover only exists for the Spotify widget');
     assert.deepEqual(s.hub.members, ['labocorpo', 'ok_name']); assert.equal(s.hub.pollSec, 30);
     assert.equal(s.twitchApi.clientId, '');
     assert.deepEqual(sanitize({ alerts: { bits: { sounds: 'x' } } }).alerts.bits.sounds, [], 'non-array falls back');
@@ -460,7 +464,11 @@ const PUPPET_FILES = ['avatar', 'gfx', 'animator', 'body', 'face', 'hair', 'rend
   const { StreamStats } = require('../electron/stream-stats');
   await test('stream stats: counters, new follower detection, errors', async () => {
     let followers = { total: 10, data: [{ user_id: '1', user_login: 'old', user_name: 'Old', followed_at: '2026-01-01T00:00:00Z' }] };
-    const fakeApi = { connected: true, userId: '42', helix: async (m, p) => { if (p === 'channels/followers') return followers; const e = new Error('nope'); e.status = 400; throw e; } };
+    const fakeApi = { connected: true, userId: '42', helix: async (m, p, q) => {
+      if (p === 'channels/followers') return followers;
+      if (p === 'users') return { data: [{ login: q.login, profile_image_url: 'https://static-cdn.example/' + q.login + '-300x300.png' }] };
+      const e = new Error('nope'); e.status = 400; throw e;
+    } };
     const st = new StreamStats({ api: fakeApi, intervalMs: 1e9 });
     const follows = [];
     st.on('follow', (f) => follows.push(f));
@@ -470,8 +478,12 @@ const PUPPET_FILES = ['avatar', 'gfx', 'animator', 'body', 'face', 'hair', 'rend
     followers = { total: 11, data: [{ user_id: '2', user_login: 'new', user_name: 'New', followed_at: '2026-01-02T00:00:00Z' }] };
     await st.poll();
     assert.deepEqual(follows.map((f) => f.login), ['new']); assert.equal(st.data.latestFollower.display, 'New');
+    await new Promise((r) => setTimeout(r, 5));
+    assert.equal(st.data.latestFollower.avatar, 'https://static-cdn.example/new-300x300.png', 'profile picture added');
     st.onSub({ login: 'x', display: 'X', kind: 'prime' });
     assert.equal(st.data.latestSub.kind, 'prime');
+    await new Promise((r) => setTimeout(r, 5));
+    assert.match(st.data.latestSub.avatar, /\/x-300x300\.png$/);
     st.onSub({ login: 'y', display: 'Y', bundled: true });
     assert.equal(st.data.latestSub.display, 'X', 'bundled gift notices ignored');
     st.stop();
@@ -535,7 +547,7 @@ const PUPPET_FILES = ['avatar', 'gfx', 'animator', 'body', 'face', 'hair', 'rend
     assert.equal(np.state.status, 'waiting');
     proc.stdout.write('T:Artist - Song\n');
     for (let i = 0; i < 20 && !np.state.cover; i++) await new Promise((r) => setTimeout(r, 5));
-    assert.equal(np.state.title, 'Song'); assert.equal(np.state.cover, 'https://img/300x300bb.jpg');
+    assert.equal(np.state.title, 'Song'); assert.equal(np.state.cover, 'https://img/600x600bb.jpg');
     proc.stdout.write('T:Spotify Premium\n');
     await new Promise((r) => setTimeout(r, 5));
     assert.equal(np.state.playing, false);
@@ -543,6 +555,136 @@ const PUPPET_FILES = ['avatar', 'gfx', 'animator', 'body', 'face', 'hair', 'rend
     assert.equal(np.state.status, 'off');
     const other = new NowPlaying({ platform: 'linux' }); other.setEnabled(true);
     assert.equal(other.state.status, 'unsupported');
+  });
+
+  await test('v1.5: OBS auth, BabaDeck, scenes, Twitch chat parsing, hype detector, Discord bot editor', async () => {
+    const { authString } = require('../electron/obs');
+    // Example from the obs-websocket v5 protocol documentation.
+    assert.equal(authString('supersecretpassword', 'lM1GncleQOaCu9lT1yeUZhFYnqhsLLP1G5lAGo3ixaI=', '+IxH4CnCiqpX1rM9scsNynZzbOe4KhDeYcTNS3PDaeY='), '1Ct943GAT+6YQUUX47Ia/ncufilbe6+oD6lY+5kaCu4=');
+    const { cleanDeck, Deck } = require('../electron/deck');
+    const d = cleanDeck({ cols: 3, rows: 1, pages: [{ name: 'P', buttons: [{ id: 'abcd1', label: 'Go', actions: [{ type: 'obs.scene', scene: 'Game' }, { type: 'delay', ms: 5 }, { type: 'evil' }, { type: 'url', url: 'javascript:alert(1)' }] }] }] });
+    assert.deepEqual(d.pages[0].buttons[0].actions.map((x) => x.type), ['obs.scene', 'delay', 'url']);
+    assert.equal(d.pages[0].buttons[0].actions[2].url, '', 'only http(s) links');
+    const ran = [];
+    const deck = new Deck({ getSettings: () => d, run: async (a) => ran.push(a.type) });
+    await deck.press('abcd1');
+    assert.deepEqual(ran, ['obs.scene', 'url']);
+    await assert.rejects(deck.press('nope'));
+    const st = sanitize({ scenes: [{ id: 'abc123', name: 'Main', width: 99999, items: [{ w: 'chat', x: 1, y: 2, width: 3, height: 400 }, { w: 'evil' }] }, { id: '../x' }] }).scenes;
+    assert.equal(st.length, 1); assert.equal(st[0].width, 3840); assert.equal(st[0].items.length, 1); assert.equal(st[0].items[0].width, 40);
+    globalThis.window = globalThis;
+    require('../web/shared/twitchchat.js');
+    const TC = globalThis.TwitchChat;
+    const chat = new TC(); chat.channels = new Set(['labo']);
+    const got = [];
+    chat.on('message', (m) => got.push(m)); chat.on('delete', (m) => got.push(m));
+    chat.onLine('@badges=moderator/1;color=#FF0000;display-name=Kiwi;emotes=25:0-4;id=abc-123;room-id=42;user-id=7;first-msg=1 :kiwi!kiwi@kiwi.tmi.twitch.tv PRIVMSG #labo :Kappa <b>hi</b>');
+    chat.onLine('@target-msg-id=abc-123 :tmi.twitch.tv CLEARMSG #labo :x');
+    chat.onLine('@id=zzz :x!x@x PRIVMSG #other :not joined');
+    assert.equal(got.length, 2); assert.equal(got[0].roomId, '42'); assert.equal(got[0].first, true); assert.equal(got[0].mod, true); assert.equal(got[1].id, 'abc-123');
+    const html = TC.emoteHtml(got[0].text, got[0].emotes);
+    assert.match(html, /emoticons\/v2\/25\//); assert.ok(!html.includes('<b>'), 'chat text is escaped');
+    const { Lab } = require('../electron/lab');
+    const marks = [];
+    const lab = new Lab({ getSettings: () => ({ hype: { enabled: true, factor: 3, minPerMin: 10 }, breakMinutes: 0, healthAlerts: false, raidThanks: { enabled: false }, points: { enabled: false, map: [] } }), isLive: () => true, api: { connected: false }, log: { warn() {} }, t: (x, v) => x.replace('{n}', v ? v.n : ''), addMarker: async (n) => marks.push(n), notify() {}, say: async () => {}, obsStats: () => null, pressDeck() {} });
+    clearInterval(lab.timer);
+    const t0 = Date.now() - 9 * 60000;
+    lab.chat = Array.from({ length: 18 }, (_, i) => t0 + i * 30000); // ~2 messages a minute before
+    for (let i = 0; i < 12; i++) lab.onChat({});
+    assert.equal(marks.length, 1, 'hype detected once'); assert.match(marks[0], /^Hype/);
+    const { DiscordBot } = require('../electron/discord-bot');
+    const P = globalThis.Puppet;
+    const bot = new DiscordBot({ getToken: () => '', getAppId: () => '1', Puppet: P, render: async () => Buffer.alloc(1), getAvatar: () => null, saveAvatar: async () => ({}), log: { warn() {} } });
+    bot.sessions.set('1', { avatar: P.normalize(P.randomAvatar('x')), part: 'hat' });
+    const ed = bot.editor('1', true);
+    assert.equal(ed.components.length, 3);
+    for (const row of ed.components) for (const c of row.components) if (c.options) assert.ok(c.options.length >= 1 && c.options.length <= 25, 'Discord allows 25 options');
+    assert.ok(ed.components[1].components[0].options.some((o) => o.value === 'viking'));
+  });
+
+  await test('updater: picks the newest LaboHub release with an app.asar', async () => {
+    const { pickRelease, isAsar, cmpVersion } = require('../electron/updater');
+    const asset = (v) => ({ name: 'app.asar', size: 10, browser_download_url: `https://github.com/o/r/releases/download/labohub-v${v}/app.asar`, digest: 'sha256:' + 'a'.repeat(64) });
+    const rels = [
+      { tag_name: 'v0.11.0', assets: [asset('0.11.0')] },
+      { tag_name: 'labohub-v1.4.0', assets: [asset('1.4.0')] },
+      { tag_name: 'labohub-v1.6.0', draft: true, assets: [asset('1.6.0')] },
+      { tag_name: 'labohub-v1.5.2', assets: [asset('1.5.2')], body: 'notes' },
+      { tag_name: 'labohub-v1.5.10', assets: [{ name: 'other.zip', browser_download_url: 'https://github.com/x' }] },
+      { tag_name: 'labohub-v1.7.0', assets: [{ name: 'app.asar', browser_download_url: 'https://evil.example/app.asar' }] },
+    ];
+    const r = pickRelease(rels, 'labohub-v', '1.4.0');
+    assert.equal(r.version, '1.5.2'); assert.equal(r.sha256, 'a'.repeat(64)); assert.equal(r.notes, 'notes');
+    assert.equal(pickRelease(rels, 'labohub-v', '1.5.2'), null);
+    assert.ok(cmpVersion('1.10.0', '1.9.9') > 0);
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'po-upd-'));
+    const good = path.join(dir, 'a.bin'), bad = path.join(dir, 'b.bin');
+    const hdr = Buffer.alloc(16); hdr.writeUInt32LE(4, 0); hdr.writeUInt32LE(100, 4);
+    fs.writeFileSync(good, hdr); fs.writeFileSync(bad, Buffer.from('<html>not found</html>'));
+    assert.equal(isAsar(good), true); assert.equal(isAsar(bad), false);
+    fs.rmSync(dir, { recursive: true, force: true });
+  });
+
+  await test('now playing: Windows media session, real cover file, timeline, legacy fallback', async () => {
+    const { parseSession, psScript, encodeCommand } = require('../electron/nowplaying');
+    assert.equal(parseSession({ status: 4, title: 'T', artist: 'A', album: 'B', app: 'Spotify.exe', pos: 12, dur: 200, upd: 1000 }, 5).playing, true);
+    assert.equal(parseSession({ status: 5, title: 'T', artist: 'A', app: 'Chrome' }, 5).playing, false);
+    assert.equal(parseSession({ status: 0 }, 5).title, '');
+    assert.equal(parseSession({ status: 4, title: 'T', app: 'Microsoft.ZuneMusic_8wekyb3d8bbwe!Microsoft.ZuneMusic' }, 5).app, 'Microsoft.ZuneMusic');
+    assert.equal(parseSession({ status: 4, title: 'T', dur: 99999 }, 5).dur, 0, 'absurd duration ignored');
+    assert.match(Buffer.from(encodeCommand(psScript(42, true)), 'base64').toString('utf16le'), /\$anyPlayer = \$true/);
+    const { EventEmitter } = require('events');
+    const { PassThrough } = require('stream');
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'po-cov-'));
+    let proc = null, spawned = 0, lookups = 0;
+    const np = new NowPlaying({
+      platform: 'win32', coversDir: dir, getSettings: () => ({ showCover: true }),
+      spawn: () => { spawned++; proc = new EventEmitter(); proc.stdout = new PassThrough(); proc.kill = () => proc.emit('exit'); return proc; },
+      fetch: async () => { lookups++; return { ok: false }; },
+    });
+    np.setEnabled(true);
+    const now = Date.now();
+    proc.stdout.write('J:' + JSON.stringify({ app: 'Spotify.exe', title: 'Song', artist: 'Artist', album: 'Album', status: 4, pos: 10, dur: 180, upd: now }) + '\n');
+    const jpg = Buffer.concat([Buffer.from([0xff, 0xd8, 0xff, 0xe0]), Buffer.alloc(64, 7)]);
+    proc.stdout.write('C:' + jpg.toString('base64') + '\n');
+    for (let i = 0; i < 20 && !np.state.cover; i++) await new Promise((r) => setTimeout(r, 5));
+    assert.equal(np.state.source, 'media'); assert.equal(np.state.album, 'Album'); assert.equal(np.state.dur, 180); assert.equal(np.state.playing, true);
+    assert.match(np.state.cover, /^\/covers\/[a-f0-9]{12}\.jpg$/);
+    assert.deepEqual(fs.readFileSync(path.join(dir, np.state.cover.slice(8))), jpg);
+    // A timeline report that matches the extrapolated position does not push a new state.
+    let changes = 0; np.on('change', () => changes++);
+    proc.stdout.write('J:' + JSON.stringify({ app: 'Spotify.exe', title: 'Song', artist: 'Artist', album: 'Album', status: 4, pos: 10.5, dur: 180, upd: now + 500 }) + '\n');
+    await new Promise((r) => setTimeout(r, 5));
+    assert.equal(changes, 0);
+    proc.stdout.write('J:' + JSON.stringify({ app: 'Spotify.exe', title: 'Song', artist: 'Artist', album: 'Album', status: 4, pos: 90, dur: 180, upd: now + 600 }) + '\n');
+    await new Promise((r) => setTimeout(r, 5));
+    assert.equal(np.state.pos, 90, 'seek pushed');
+    proc.stdout.write('C:' + Buffer.from('not an image').toString('base64') + '\n');
+    await new Promise((r) => setTimeout(r, 5));
+    assert.match(np.state.cover, /\.jpg$/, 'invalid image ignored');
+    assert.equal(lookups, 0, 'no online lookup when the real cover arrived');
+    // The cover route only serves well-formed names.
+    const store = new Store(dir, {});
+    const srv = createServer({ webDir: rel('web'), coversDir: dir, store, getState: () => ({ app: {} }), onSettings() {}, onAction: async () => {}, onAvatarsChanged() {} });
+    await new Promise((r) => srv.server.listen(0, '127.0.0.1', r));
+    const base = `http://127.0.0.1:${srv.server.address().port}`;
+    try {
+      const r = await fetch(base + np.state.cover);
+      assert.equal(r.status, 200); assert.equal(r.headers.get('content-type'), 'image/jpeg');
+      assert.equal((await fetch(base + '/covers/..%2fconfig.json')).status, 404);
+      assert.equal((await fetch(base + '/covers/config.json')).status, 404);
+    } finally { srv.close(); store.flush(); }
+    np.setEnabled(false);
+    // Media script dying at start twice -> window title script.
+    np.retryMs = 1;
+    spawned = 0;
+    np.setEnabled(true);
+    proc.emit('exit');
+    await new Promise((r) => setTimeout(r, 20));
+    proc.emit('exit');
+    assert.equal(np.legacy, true);
+    np.setEnabled(false);
+    fs.rmSync(dir, { recursive: true, force: true });
   });
 
   await test('server: alert sound upload, serving, deletion', async () => {
@@ -571,6 +713,205 @@ const PUPPET_FILES = ['avatar', 'gfx', 'animator', 'body', 'face', 'hair', 'rend
     }
   });
 
+  await test('twitch: !clip from broadcaster or mods only, chat kept for alerts without viewer puppets', () => {
+    const cfg = sanitize({ twitch: { enabled: false, channel: '' } }).twitch;
+    const extra = { active: true, channel: 'civi', marker: { enabled: true, name: 'clip' } };
+    const tc = new TwitchChat({ getSettings: () => cfg, setOverride() {}, getExtra: () => extra });
+    const marks = [];
+    tc.on('marker', (m) => marks.push(m));
+    tc.channel = 'civi';
+    const msg = (login, text, tags = '') => tc.handle(`@display-name=${login}${tags} :${login}!${login}@x PRIVMSG #civi :${text}`);
+    msg('viewer', '!clip nope'); msg('modo', '!clip 1v3', ';mod=1'); msg('civi', '!CLIP', ';badges=broadcaster/1'); msg('modo', '!clips x', ';mod=1');
+    assert.deepEqual(marks, [{ by: 'modo', note: '1v3' }, { by: 'civi', note: '' }]);
+    extra.marker.enabled = false; msg('civi', '!clip', ';badges=broadcaster/1');
+    assert.equal(marks.length, 2);
+    tc.close();
+  });
+
+  await test('v1.6: chat bot, viewer games, ad warning, Discord go-live, La savane layout settings', async () => {
+    // Chat roles and emotes reach the chat event.
+    const tcfg = sanitize({}).twitch;
+    const tc = new TwitchChat({ getSettings: () => tcfg, setOverride() {}, getExtra: () => ({ active: true, channel: 'civi' }) });
+    tc.channel = 'civi';
+    const seen = [];
+    tc.on('chat', (m) => seen.push(m));
+    tc.handle('@badges=subscriber/12,vip/1;display-name=Kiwi;emotes=25:0-4,6-10;first-msg=1 :kiwi!kiwi@x PRIVMSG #civi :Kappa Kappa');
+    assert.equal(seen[0].sub, true); assert.equal(seen[0].vip, true); assert.equal(seen[0].first, true); assert.equal(seen[0].emotes, '25:0-4,6-10'); assert.ok(!seen[0].mod);
+    tc.close();
+
+    const { LabChat, fill } = require('../electron/lab-chat');
+    assert.equal(fill('Hi {name}, {nope}', { name: 'Kiwi' }), 'Hi Kiwi, {nope}');
+    assert.ok(['a', 'b'].includes(fill('{random:a|b}', {})));
+    let lab = sanitize({ lab: { chatbot: { enabled: true, welcome: true, timers: [{ text: 'Follow!', minutes: 1 }], timerLines: 1 }, sounds: { enabled: true, who: 'subs', cooldown: 0, userCooldown: 0, list: [{ name: 'airhorn', file: '0123456789abcdef.mp3', volume: 0.5 }] },
+      counters: [{ id: 'cnt1', name: 'Morts', cmd: 'mort', value: 0 }], queue: { enabled: true } } }).lab;
+    const said = [], played = [], events = [];
+    const lc = new LabChat({ getSettings: () => lab, say: async (x) => { said.push(x); }, live: () => ({ startedAt: new Date(Date.now() - 65 * 60000).toISOString(), title: 'T', game: 'G', viewers: 5 }),
+      api: { login: 'civi', userId: '1', helix: async () => ({ data: [] }) }, userIdOf: async () => '2', playSound: (x) => played.push(x), setCounters: (l) => { lab = Object.assign({}, lab, { counters: l }); },
+      broadcast: (ev, d) => events.push(d.type), notify() {}, log: { info() {}, warn() {} }, t: (x, v) => x.replace(/\{(\w+)\}/g, (m, k) => (v && v[k] != null ? v[k] : m)) });
+    clearInterval(lc.timer);
+    const SAY_WAIT = () => new Promise((r) => setTimeout(r, 30));
+    lc.onChat({ login: 'newbie', display: 'Newbie', text: 'hello', first: true });
+    lc.onChat({ login: 'kiwi', display: 'Kiwi', text: '!discord' });
+    lc.onChat({ login: 'kiwi', display: 'Kiwi', text: '!discord' }); // cooldown
+    lc.onChat({ login: 'kiwi', display: 'Kiwi', text: '!uptime' });
+    await SAY_WAIT();
+    assert.equal(said.length, 1, 'one message at a time');
+    lc.sayQ.length = 0;
+    assert.match(said[0], /Bienvenue Newbie/);
+    // Sounds: subs only.
+    lc.onChat({ login: 'pleb', display: 'Pleb', text: '!airhorn' });
+    lc.onChat({ login: 'subby', display: 'Subby', text: '!airhorn', sub: true });
+    assert.deepEqual(played, [{ file: '0123456789abcdef.mp3', volume: 0.5 }]);
+    // Counters: mods change, everyone reads.
+    lc.onChat({ login: 'pleb', display: 'Pleb', text: '!mort+' });
+    assert.equal(lab.counters[0].value, 0);
+    lc.onChat({ login: 'modo', display: 'Modo', text: '!mort+', mod: true });
+    lc.onChat({ login: 'modo', display: 'Modo', text: '!mort +3', mod: true });
+    assert.equal(lab.counters[0].value, 4);
+    lc.bumpCounter('cnt1', 'reset');
+    assert.equal(lab.counters[0].value, 0);
+    // Giveaway: only while open, subs get more tickets, a winner is never drawn twice.
+    lc.onChat({ login: 'early', display: 'Early', text: '!join' });
+    lc.giveawayOp('open');
+    for (const [login, sub] of [['a', false], ['b', true], ['a', false]]) lc.onChat({ login, display: login.toUpperCase(), text: '!join', sub });
+    let snap = lc.snapshot();
+    assert.equal(snap.giveaway.count, 2); assert.equal(snap.giveaway.tickets, 1 + lab.giveaway.subLuck);
+    const w1 = lc.giveawayOp('draw').login, w2 = lc.giveawayOp('draw').login;
+    assert.notEqual(w1, w2);
+    assert.throws(() => lc.giveawayOp('draw'), /Nobody/);
+    assert.ok(events.includes('giveaway-winner'));
+    // Poll: numbers vote, a voter can change their mind, results at the end.
+    lc.pollStart({ question: 'Game?', options: ['A', 'B', ''], seconds: 30 });
+    lc.onChat({ login: 'x', display: 'X', text: '1' }); lc.onChat({ login: 'y', display: 'Y', text: '!vote 2' }); lc.onChat({ login: 'x', display: 'X', text: '2' }); lc.onChat({ login: 'z', display: 'Z', text: '9' });
+    snap = lc.snapshot();
+    assert.deepEqual(snap.poll.options.map((o) => o.votes), [0, 2]);
+    lc.pollEnd();
+    assert.equal(lc.snapshot().poll.winner, 1); assert.equal(lc.snapshot().poll.open, false);
+    assert.throws(() => lc.pollStart({ question: 'Q', options: ['only one'] }));
+    // Queue
+    lc.onChat({ login: 'p1', display: 'P1', text: '!play' }); lc.onChat({ login: 'p2', display: 'P2', text: '!play' }); lc.onChat({ login: 'p1', display: 'P1', text: '!play' });
+    assert.equal(lc.snapshot().queue.size, 2);
+    lc.queueOp('next');
+    assert.deepEqual(lc.snapshot().queue.list.map((x) => x.login), ['p2']);
+    lc.onChat({ login: 'p2', display: 'P2', text: '!leave' });
+    assert.equal(lc.snapshot().queue.size, 0);
+    // Session + timers
+    lc.onEvent({ type: 'follow' }); lc.onEvent({ type: 'sub', kind: 'gift', count: 5 }); lc.onEvent({ type: 'sub', kind: 'gift', bundled: true }); lc.onEvent({ type: 'raid', count: 12 });
+    snap = lc.snapshot().session;
+    assert.equal(snap.follows, 1); assert.equal(snap.gifts, 5); assert.equal(snap.raiders, 12); assert.ok(snap.chatters >= 5);
+    said.length = 0; lc.sayQ.length = 0;
+    lc.timerState = [{ at: Date.now() - 2 * 60000, lines: 0 }];
+    lc.tick();
+    for (let i = 0; i < 60 && !said.length; i++) await SAY_WAIT(); // the sender waits 1.2 s between two messages
+    assert.deepEqual(said, ['Follow!']);
+    lc.onLive(null, { startedAt: 'x' }); // live ended: summary kept for the panel
+    assert.match(lc.snapshot().lastSummary.text, /21 messages/);
+    lc.onLive({ startedAt: new Date(Date.now() - 65 * 60000).toISOString() }, null); // new live: new session
+    assert.equal(lc.snapshot().session.messages, 0);
+    assert.match(lc.summaryText(), /1 h 05/);
+    lc.stop();
+
+    // Ads: warning once per ad, snooze.
+    const { LabTools, WEBHOOK_RE } = require('../electron/lab-tools');
+    const now = Math.floor(Date.now() / 1000);
+    const posted = [], notes = [], tsaid = [];
+    const tools = new LabTools({ getSettings: () => sanitize({ lab: { ads: { enabled: true, warnSec: 60 }, discordLive: { enabled: true } } }).lab,
+      api: { connected: true, userId: '1', login: 'civi', helix: async (m, path) => (path === 'channels/ads' ? { data: [{ next_ad_at: now + 50, duration: 90, snooze_count: 2 }] } : { data: [{ next_ad_at: now + 350, snooze_count: 1 }] }) },
+      live: () => ({ startedAt: new Date().toISOString(), title: 'Hi', game: 'G' }), say: async (x) => tsaid.push(x), notify: (a) => notes.push(a), broadcast() {}, log: { info() {}, warn() {} },
+      t: (x, v) => x.replace(/\{(\w+)\}/g, (m, k) => (v && v[k] != null ? v[k] : m)), getWebhook: () => 'https://discord.com/api/webhooks/123456/abcdefghijklmnopqrstuvwxyz',
+      fetch: async (url, o) => { posted.push([url, JSON.parse(o.body)]); return { ok: true, status: 204 }; } });
+    clearInterval(tools.timer);
+    await tools.tick(); await tools.tick();
+    assert.equal(tsaid.length, 1); assert.match(tsaid[0], /dans \d+ s/); assert.equal(notes.length, 1);
+    const sn = await tools.snooze();
+    assert.equal(sn.snoozes, 1); assert.ok(sn.nextAt > Date.now() + 5 * 60000 - 2000);
+    await tools.onLive({ startedAt: new Date().toISOString(), title: 'Ranked', game: 'Valorant' }, null);
+    assert.equal(posted.length, 1); assert.match(posted[0][1].content, /civi est en live : \*\*Ranked\*\* \(Valorant\)/);
+    await tools.onLive({ startedAt: new Date(Date.now() - 3600000).toISOString() }, null);
+    assert.equal(posted.length, 1, 'no message when the app restarts mid-live');
+    assert.ok(WEBHOOK_RE.test('https://discord.com/api/webhooks/123456/abcdefghijklmnopqrstuvwxyz')); assert.ok(!WEBHOOK_RE.test('https://evil.com/api/webhooks/1/abc'));
+    tools.stop();
+
+    // Deck actions for Labo test, La savane free layout settings.
+    const { cleanAction } = require('../electron/deck');
+    assert.deepEqual(cleanAction({ type: 'lab.counter', name: 'cnt1', delta: '99999' }), { type: 'lab.counter', name: 'cnt1', delta: '1000' });
+    assert.equal(cleanAction({ type: 'lab.giveaway', op: 'rm -rf' }).op, 'draw');
+    const sv = sanitize({ savane: { layout: 'free', positions: [{ id: 'Labc_kiwi', x: 0.1, y: 0.1, w: 0.4, h: 0.4 }, { id: 'Labc_kiwi', x: 0.5, y: 0.5, w: 0.2, h: 0.2 }, { id: '<x>', x: 0 }], labels: { Labc_kiwi: 'Kiwi', Labc_x: '' }, logo: '/etc/passwd' } }).savane;
+    assert.equal(sv.positions.length, 1); assert.equal(sv.positions[0].x, 0.5); assert.deepEqual(sv.labels, { Labc_kiwi: 'Kiwi' }); assert.equal(sv.logo, '');
+    globalThis.window = globalThis;
+    require('../web/shared/savane-id.js');
+    assert.equal(SavaneId.streamId('labo_savane_x', 'Civi brr'), SavaneId.streamId('labo_savane_x', 'Civibrr'));
+    assert.match(SavaneId.streamId('labo_savane_x', ''), /_guest$/);
+  });
+
+  const { Markers, vodTime, vodLink, dayKey } = require('../electron/markers');
+  await test('timestamps: live only, offset, Twitch marker, VOD link, edit, delete by day', async () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'po-mk-'));
+    const store = new Store(dir, {});
+    let streams = { data: [] }, markerFails = false;
+    const calls = [];
+    const api = { connected: true, userId: '42', helix: async (m, p, q, b) => {
+      calls.push([m, p, q, b]);
+      if (p === 'streams') return streams;
+      if (p === 'streams/markers') { if (markerFails) throw new Error('Past broadcasts disabled'); return { data: [{ id: 'MK1' }] }; }
+      if (p === 'videos') return { data: [{ id: '999', stream_id: 'S1' }] };
+      throw new Error('unexpected ' + p);
+    } };
+    const mk = new Markers({ api, store, getSettings: () => store.settings.markers });
+    try {
+      await assert.rejects(mk.add({ source: 'hotkey' }), /not live/);
+      streams = { data: [{ id: 'S1', started_at: new Date(Date.now() - 3725 * 1000).toISOString(), title: 'Ranked', game_name: 'Deadlock' }] };
+      const m = await mk.add({ source: 'hotkey', note: '  huge fail ' });
+      assert.ok(Math.abs(m.offset - 3725) <= 1); assert.equal(m.note, 'huge fail'); assert.equal(m.twitchMarker, 'MK1');
+      await new Promise((r) => setTimeout(r, 10));
+      assert.equal(m.videoId, '999');
+      assert.equal(vodTime(3725), '1h02m05s');
+      assert.equal(vodLink({ videoId: '999', offset: 3725 }, 30), 'https://www.twitch.tv/videos/999?t=1h01m35s');
+      markerFails = true;
+      const m2 = await mk.add({ source: 'chat', by: 'modo' });
+      assert.equal(m2.twitchMarker, null); assert.equal(mk.list.length, 2, 'kept locally when Twitch refuses the marker');
+      mk.update(m2.id, { note: 'clutch', done: true }); assert.equal(mk.list[1].done, true);
+      mk.list[0].at = new Date(2026, 0, 5, 12).getTime();
+      mk.removeDay('2026-01-05'); assert.deepEqual(store.data.markers.map((x) => x.id), [m2.id]);
+      assert.equal(dayKey(new Date(2026, 10, 22, 0, 30).getTime()), '2026-11-22');
+      store.flush();
+      assert.equal(new Store(dir, {}).data.markers.length, 1, 'timestamps persist');
+    } finally { mk.stop(); fs.rmSync(dir, { recursive: true, force: true }); }
+  });
+
+  await test('widget looks: validation, themes, share codes, migration of old widget settings', () => {
+    const WS = require('../web/shared/widget-schema.js');
+    for (const w of WS.WIDGETS) assert.deepEqual(WS.sanitizeLook(w, WS.defaultLook(w)), WS.defaultLook(w), w + ' defaults are valid');
+    const bad = WS.sanitizeLook('spotify', { layout: 'inline', cover: 'vinyl', size: 999, font: 'x"}{', accent: '#ABCDEF', label: 'a\u0000b', speed: 33, letterSpacing: 1.3 });
+    assert.equal(bad.layout, 'compact'); assert.equal(bad.cover, 'vinyl'); assert.equal(bad.size, 200); assert.equal(bad.font, 'Segoe UI');
+    assert.equal(bad.accent, '#abcdef'); assert.equal(bad.label, 'ab'); assert.equal(bad.speed, 35, 'rounded to the step'); assert.equal(bad.letterSpacing, 1.5);
+    const neon = WS.applyPreset(Object.assign(WS.defaultLook('subs'), { label: 'Mes subs', goal: 50 }), 'neon');
+    assert.equal(neon.frame, 'neon'); assert.equal(neon.label, 'Mes subs'); assert.equal(neon.goal, 50, 'themes keep the content');
+    for (const pr of WS.PRESETS) for (const w of WS.WIDGETS) assert.deepEqual(WS.sanitizeLook(w, WS.applyPreset(WS.defaultLook(w), pr.id)), WS.applyPreset(WS.defaultLook(w), pr.id), `${pr.id} is valid for ${w}`);
+    const code = WS.encodeStyle(Object.assign(WS.defaultLook('spotify'), { frame: 'paper', accent: '#123456', layout: 'gallery' }));
+    const got = WS.decodeStyle(code, WS.defaultLook('followers'), 'followers');
+    assert.equal(got.frame, 'paper'); assert.equal(got.accent, '#123456'); assert.equal(got.layout, 'inline', 'layout is content, not shared');
+    assert.equal(WS.decodeStyle('WID1.!!!', WS.defaultLook('subs'), 'subs'), null);
+    // v1.4: album cover / profile picture menu, song progress; one editor page per widget.
+    assert.equal(WS.defaultLook('latestSub').avatar, 'circle'); assert.equal(WS.defaultLook('spotify').progress, 'bar');
+    assert.equal(WS.sanitizeLook('latestFollower', { avatar: 'hexagon', avatarSize: 999 }).avatar, 'circle');
+    assert.equal(WS.sanitizeLook('latestFollower', { avatarSize: 999 }).avatarSize, 250);
+    assert.ok(!('avatar' in WS.defaultLook('spotify')) && !('progress' in WS.defaultLook('followers')), 'props only where they apply');
+    for (const w of WS.WIDGETS) for (const p of WS.propsFor(w)) assert.ok(WS.GROUPS.some(([g]) => g === p.group), p.key + ' has a menu');
+    const panelHtml = read('web/panel.html');
+    for (const w of WS.WIDGETS) {
+      assert.ok(panelHtml.includes(`data-tab="w-${w}"`), 'sidebar entry for ' + w);
+      assert.match(panelHtml, new RegExp(`data-panels="[^"]*\\bw-${w}\\b`), 'page for ' + w);
+    }
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'po-wmig-'));
+    fs.writeFileSync(path.join(dir, 'config.json'), JSON.stringify({ settings: { widgets: { font: 'Georgia', size: 50, color: '#ff0000', style: 'plain', followers: { label: 'Fans', goal: 2000 }, spotify: { enabled: true, showCover: false, hideWhenPaused: false } } } }));
+    const st = new Store(dir, {});
+    const lk = st.settings.widgets.looks;
+    assert.equal(lk.followers.font, 'Georgia'); assert.equal(lk.followers.label, 'Fans'); assert.equal(lk.followers.goal, 2000); assert.equal(lk.subs.frame, 'none');
+    assert.equal(lk.spotify.cover, 'none'); assert.equal(lk.spotify.hideWhenPaused, false); assert.equal(st.settings.widgets.spotify.enabled, true);
+    fs.rmSync(dir, { recursive: true, force: true });
+  });
+
   // ---------- Translations ----------
   await test('i18n: every UI string has a French translation', () => {
     const I = globalThis.I18N;
@@ -581,26 +922,42 @@ const PUPPET_FILES = ['avatar', 'gfx', 'animator', 'body', 'face', 'hair', 'rend
       if (/[a-z]/i.test(k) && I.t(raw) === raw && I.t(k) === k && !SAME.has(k)) missing.add(k);
     };
     // Strings that are identical in French.
-    const SAME = new Set(['Discord', 'Twitch', 'Overlay', 'Avatars', 'OBS / Streamlabs', 'Position', 'Pastel', 'Monochrome', 'Sub', 'Bits', 'Raid', 'Zoom', 'Puppet Overlay',
+    const SAME = new Set(['owner/repo', 'Discord', 'Twitch', 'Overlay', 'Avatars', 'OBS / Streamlabs', 'Position', 'Pastel', 'Monochrome', 'Sub', 'Bits', 'Raid', 'Zoom', 'LaboHub',
       'English', 'Français', 'Application ID', 'Client Secret', 'Redirect URI', 'Public Client', 'Normal', 'portable', 'Puppet', 'Discord + Twitch', 'Version', 'Timo', 'PUP1.…', '🌐 Auto',
-      'OK', 'Spotify', 'Stream Together', 'Segoe UI', 'Volume', 'Followers', 'Subs', 'Follow', 'Chat', 'Chats', 'Style', '{n} min', '{h} h {m} min', '{n} viewers', 'Monocle', 'Long', 'Afro', 'Cowboy', 'Bandana', 'Pirate', 'Cape', 'Kimono', 'Pizza']);
+      'OK', 'Spotify', 'Stream Together', 'Segoe UI', 'Volume', 'Labo', 'Hub', 'Timestamps', 'Puppet Overlay', 'HUD Twitch', 'Hub Labo', 'Clips', 'LaboHub', '⚙', 'Ctrl+1', 'Ctrl+2', 'Ctrl+3', 'Ctrl+K', 'Ctrl K', 'Guide', 'Puppet Overlay — guide', 'HUD Twitch — guide', 'Hub Labo — guide', 'Raid, collab, chat', 'Badge', 'Compact', 'Boxy', 'Terminal', 'Note', 'Animations', 'Transparent', 'Accent', 'Mono', 'auto', 'Minimal', 'Labo', 'Neon', 'via {source}', 'chat', 'Followers', 'Subs', 'Follow', 'Chat', 'Chats', 'Style', '{n} min', '{h} h {m} min', '{n} viewers', 'Monocle', 'Long', 'Afro', 'Cowboy', 'Bandana', 'Pirate', 'Cape', 'Kimono', 'Pizza',
+      'Ctrl+4', 'Ctrl+5', 'Ctrl+6', 'BabaDeck', 'BabaDeck — guide', 'labo_savane_…', 'github_pat_…', 'preview', 'Podcast du Labo', 'OBS', 'X', 'Y', 'Port', 'Sombrero', 'Piercing', 'Jetpack', 'Message', 'Multi-stream', 'Live', 'Mode', 'Scenes',
+      '1920 × 1080 (Full HD)', '1280 × 720 (HD)', '2560 × 1440 (2K)', '📺 → OBS', 'Viking', 'Bubbles', 'Code', 'La savane — guide', 'Timeout 10 min', 'Source', 'Page {n}', 'Clip', '10 pages max', 'Timestamp (+ clip)', 'Centre', 'Labo test', 'Rectangle', '＋ Page', '1080 × 1920 (vertical)',
+      'La savane', 'Just Chatting', 'Studio', 'Action', 'mods', 'min',
+      '{n} votes', 'messages', 'subs', 'bits', 'raids', '{n} msg/min', 'GIVEAWAY', '{n} bits', '{n} raids ({v} viewers)', '🎉 Giveaway', 'HD (720p)', 'Full HD (1080p)', 'Labo test — overlay']);
     // JS: literal arguments of t(), creator tab/item labels, panel command help.
     for (const f of ['web/panel.js', 'web/creator.js', 'web/overlay.js', 'web/overlay/placement.js', 'electron/main.js', 'electron/windows.js', 'electron/desktop.js',
-      'web/panel-alerts.js', 'web/panel-stream.js', 'web/panel-hub.js', 'web/widget.js']) {
+      'web/panel-alerts.js', 'web/panel-stream.js', 'web/panel-hub.js', 'web/panel-markers.js', 'web/panel-guides.js', 'web/panel-ui.js', 'web/panel-editor.js', 'web/widget.js',
+      'web/panel-room.js', 'web/panel-scenes.js', 'web/panel-deck.js', 'web/panel-savane.js', 'web/panel-lab.js', 'web/panel-bot.js', 'web/widget-chat.js', 'web/savane.js', 'electron/lab.js',
+      'web/panel-labplay.js', 'web/lab-widget.js', 'electron/lab-chat.js', 'electron/lab-tools.js']) {
       const src = read(f);
       for (const m of src.matchAll(/\bt\(\s*'((?:[^'\\]|\\.)+)'/g)) need(m[1].replace(/\\'/g, "'"));
       for (const m of src.matchAll(/\bt\(\s*"((?:[^"\\]|\\.)+)"/g)) need(m[1]);
       if (f === 'web/creator.js') for (const m of src.matchAll(/label: '([^']+)'/g)) need(m[1]);
+      // Errors the panel shows through t(e.message), background preset names.
+      if (/electron\/lab-(chat|tools)\.js$/.test(f)) for (const m of src.matchAll(/new Error\('([^']+)'\)/g)) need(m[1]);
+      if (f === 'electron/lab-tools.js') for (const m of src.matchAll(/error: [^?]+\? '([^']+)'/g)) need(m[1]);
+      if (f === 'web/savane.js') for (const m of src.matchAll(/\['(\w+)', '(?:gradient|radial)'/g)) need(m[1]);
+      if (f === 'web/panel-deck.js') for (const m of src.matchAll(/\['[\w.]+', '[^']+', '([^']+)'\]/g)) need(m[1]);
       if (f === 'web/panel.js') for (const m of src.match(/const COMMANDS = (.*);/)[1].matchAll(/\['\w+', '([^']+)'\]/g)) need(m[1]);
       // Labels in the new tabs' tables: ['key', 'Label', …]
       if (/panel-(alerts|stream)\.js$/.test(f)) for (const m of src.matchAll(/\['[\w-]+', '([^']+)'(?:, '([^']+)')?(?:, ('[^']+'|null))?\]/g)) { need(m[1]); if (m[2] && !/^\d/.test(m[2])) need(m[2]); if (m[3] && m[3] !== 'null') need(m[3].slice(1, -1)); }
       // Status texts and error messages shown through t(variable).
-      if (/panel-(stream|hub)\.js$/.test(f)) for (const m of src.matchAll(/const (?:NP|STATUS) = \{([^}]*)\}/g)) for (const v of m[1].matchAll(/: '([^']+)'/g)) need(v[1]);
+      if (/panel-(stream|hub|markers)\.js$/.test(f)) for (const m of src.matchAll(/const (?:NP|STATUS|SOURCE) = \{([^}]*)\}/g)) for (const v of m[1].matchAll(/: '([^']+)'/g)) need(v[1]);
     }
     for (const values of Object.values(P.OPTIONS)) for (const v of values) need(P.prettyLabel(v));
+    // Widget editor: property labels, sections and theme names come from the schema.
+    const WS = require('../web/shared/widget-schema.js');
+    for (const p of WS.PROPS) need(p.label);
+    for (const [, g] of WS.GROUPS) need(g);
+    for (const pr of WS.PRESETS) need(pr.name);
     // HTML: text nodes and placeholders/titles outside data-no-i18n, rich blocks as a whole.
     const decode = (s) => s.replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&#39;/g, "'");
-    for (const page of ['web/panel.html', 'web/creator.html']) {
+    for (const page of ['web/panel.html', 'web/creator.html', 'web/savane.html', 'web/lab.html']) {
       let html = read(page).replace(/<(script|style)[\s\S]*?<\/\1>/g, '');
       html = html.replace(/<(\w+)([^>]*)\sdata-i18n-html([^>]*)>([\s\S]*?)<\/\1>/g, (m, tag, a, b, inner) => { need(inner); return ''; });
       html = html.replace(/<code>[\s\S]*?<\/code>/g, '').replace(/(placeholder|title)="(https?:|#)[^"]*"/g, '');
@@ -616,7 +973,7 @@ const PUPPET_FILES = ['avatar', 'gfx', 'animator', 'body', 'face', 'hair', 'rend
   let failed = 0;
   for (const [ok, name, err] of results) {
     console.log(`${ok ? 'ok  ' : 'FAIL'} ${name}`);
-    if (!ok) { failed++; console.log('     ' + String((err && err.stack) || err).split('\n').slice(0, 8).join('\n     ')); }
+    if (!ok) { failed++; console.log('     ' + String((err && err.stack) || err).split('\n').slice(0, process.env.FULL ? 400 : 8).join('\n     ')); }
   }
   console.log(`\n${results.length - failed}/${results.length} checks passed`);
   process.exit(failed ? 1 : 0);

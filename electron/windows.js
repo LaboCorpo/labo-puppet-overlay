@@ -2,7 +2,7 @@
  * App windows: the transparent overlay (+ placement mode), the settings panel and the avatar creator.
  * Every window loads pages from the local server; there is no preload and no Electron IPC.
  */
-const { BrowserWindow, screen, shell, Notification } = require('electron');
+const { BrowserWindow, screen, shell } = require('electron');
 
 /** ctx: { store, log, base(), icon, t, isQuitting(), onChange() } */
 function createWindows(ctx) {
@@ -75,7 +75,7 @@ function createWindows(ctx) {
     }
     startMinimized = !!(opts && opts.minimized);
     panelWin = new BrowserWindow({
-      width: 1080, height: 780, minWidth: 820, minHeight: 600, title: 'Puppet Overlay',
+      width: 1080, height: 780, minWidth: 820, minHeight: 600, title: 'LaboHub',
       icon: ctx.icon, autoHideMenuBar: true, backgroundColor: '#17151c', show: false,
     });
     panelWin.loadURL(`${ctx.base()}/panel.html`);
@@ -100,10 +100,8 @@ function createWindows(ctx) {
       if (action === 'minimize') panelWin.minimize(); else panelWin.hide();
       if (!store.settings.app.firstRunDone) {
         store.updateSettings({ app: { firstRunDone: true } });
-        if (Notification.isSupported()) {
-          const body = action === 'minimize' ? 'It stays in your taskbar and system tray. Right-click the tray icon to quit.' : 'It lives in the system tray. Right-click the icon to quit.';
-          new Notification({ title: t('Puppet Overlay is still running'), body: t(body), icon: ctx.icon }).show();
-        }
+        const body = action === 'minimize' ? 'It stays in your taskbar and system tray. Right-click the tray icon to quit.' : 'It lives in the system tray. Right-click the icon to quit.';
+        ctx.notify(t('LaboHub is still running'), t(body));
       }
     });
   }
@@ -121,7 +119,31 @@ function createWindows(ctx) {
     creatorWin.webContents.setWindowOpenHandler(({ url: u }) => { if (/^https:\/\//.test(u)) shell.openExternal(u); return { action: 'deny' }; });
   }
 
+  // BabaDeck as a small window you can keep next to your game (always on top if chosen).
+  let deckWin = null;
+  function openDeck() {
+    if (alive(deckWin)) { deckWin.show(); deckWin.focus(); return; }
+    deckWin = new BrowserWindow({ width: 560, height: 380, minWidth: 260, minHeight: 180, title: 'BabaDeck', icon: ctx.icon, autoHideMenuBar: true, backgroundColor: '#120f17', alwaysOnTop: !!store.settings.deck.onTop, show: false });
+    deckWin.loadURL(`${ctx.base()}/deck.html?window=1`);
+    deckWin.once('ready-to-show', () => deckWin.show());
+    deckWin.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
+  }
+  function setDeckOnTop(on) { if (alive(deckWin)) deckWin.setAlwaysOnTop(!!on); }
+
+  // La savane: the room window (camera + microphone through VDO.Ninja).
+  let savaneWin = null;
+  function openSavane() {
+    if (alive(savaneWin)) { savaneWin.show(); savaneWin.focus(); return; }
+    savaneWin = new BrowserWindow({ width: 1400, height: 860, minWidth: 760, minHeight: 420, title: 'La savane', icon: ctx.icon, autoHideMenuBar: true, backgroundColor: '#14110a', show: false });
+    savaneWin.loadURL(`${ctx.base()}/savane.html?room=1`);
+    savaneWin.once('ready-to-show', () => savaneWin.show());
+    savaneWin.webContents.setWindowOpenHandler(({ url: u }) => { if (/^https:\/\//.test(u)) shell.openExternal(u); return { action: 'deny' }; });
+    // VDO.Ninja asks "leave the page?" through beforeunload; Electron has no dialog for it, so the close was silently cancelled.
+    savaneWin.webContents.on('will-prevent-unload', (e) => e.preventDefault());
+  }
+
   return {
+    openDeck, setDeckOnTop, openSavane,
     createOverlay, rebuildOverlay, updateOverlayVisibility, setPlacement, openPanel, openCreator, hidePanelIfMinimized,
     get placement() { return placement; },
     get panel() { return alive(panelWin) ? panelWin : null; },

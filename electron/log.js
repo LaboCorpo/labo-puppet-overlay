@@ -1,4 +1,4 @@
-/* Tiny file logger: %APPDATA%/Puppet Overlay/logs/main.log, rotated to main.old.log at 1 MB. */
+/* Tiny file logger: %APPDATA%/LaboHub/logs/main.log, rotated to main.old.log at 1 MB. */
 const fs = require('fs');
 const path = require('path');
 

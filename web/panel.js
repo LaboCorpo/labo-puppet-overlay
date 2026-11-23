@@ -17,22 +17,79 @@
   // Extra tabs (panel-*.js) register here: called on every state update and tab change.
   const hooks = { state: [], tab: [] };
   let currentTab = 'status';
-  function showTab(name) {
+  // Top tabs (groups): each shows its own side tabs and remembers the last one opened. 'all' = shown in every group.
+  const GROUP_NAMES = { puppet: 'Puppet Overlay', hud: 'HUD Twitch', hub: 'Hub Labo', savane: 'La savane 🍌', deck: 'BabaDeck', lab: 'Labo test' };
+  const GROUPS = Object.keys(GROUP_NAMES);
+  const groupOf = (tab) => { const b = $(`.tab[data-tab="${tab}"]`); return b ? b.dataset.group : null; };
+  const lastInGroup = { puppet: 'status', hud: 'stream', hub: 'hub', savane: 'savane', deck: 'deck', lab: 'lab' };
+  let currentGroup = 'puppet';
+  // Each top tab has its colour (body[data-group] in ui.css) and its logo in the top-left corner.
+  function showGroup(g) {
+    const changed = g !== currentGroup;
+    currentGroup = g;
+    document.body.dataset.group = g;
+    $$('.gtab').forEach((x) => { const on = x.dataset.group === g; x.classList.toggle('active', on); x.setAttribute('aria-selected', on); });
+    $$('.tab').forEach((x) => x.classList.toggle('hidden', x.dataset.group !== g && x.dataset.group !== 'all'));
+    $$('.blogo').forEach((x) => x.classList.toggle('on', x.dataset.g === g));
+    $('#groupTitle').textContent = t(GROUP_NAMES[g]);
+    $('#brandSub').textContent = GROUP_NAMES[g];
+    if (changed) { const side = $('.side'); side.classList.remove('swap'); void side.offsetWidth; side.classList.add('swap'); }
+    markSeen(g);
+  }
+  // The first visit of a top tab opens its guide.
+  function seenGroups() { try { return JSON.parse(localStorage.getItem('seenGroups') || '[]'); } catch (e) { return []; } }
+  function markSeen(g) { const s = seenGroups(); if (!s.includes(g)) { s.push(g); try { localStorage.setItem('seenGroups', JSON.stringify(s)); } catch (e) { /* storage disabled */ } } }
+  function openGroup(g) { showTab(seenGroups().includes(g) || !$(`.tab[data-tab="guide-${g}"]`) ? lastInGroup[g] : 'guide-' + g); }
+  // Back / forward between pages, like File Explorer (buttons, right-click, Alt+arrows, mouse side buttons).
+  const hist = { back: [], fwd: [] };
+  let navReady = false;
+  function updateNav() { $('#navBack').disabled = !hist.back.length; $('#navFwd').disabled = !hist.fwd.length; }
+  function goBack() { const p = hist.back.pop(); if (!p) return false; hist.fwd.push(currentTab); showTab(p, true); return true; }
+  function goForward() { const n = hist.fwd.pop(); if (!n) return false; hist.back.push(currentTab); showTab(n, true); return true; }
+  function showTab(name, fromHistory) {
+    if (!$(`.tab[data-tab="${name}"]`)) return;
+    if (navReady && !fromHistory && name !== currentTab) { hist.back.push(currentTab); if (hist.back.length > 50) hist.back.shift(); hist.fwd = []; }
+    const g = groupOf(name);
+    if (g && g !== 'all') { lastInGroup[g] = name; if (g !== currentGroup) showGroup(g); }
     currentTab = name;
     hooks.tab.forEach((fn) => fn(name));
     $$('.tab').forEach((x) => x.classList.toggle('active', x.dataset.tab === name));
-    $$('section').forEach((s) => s.classList.toggle('active', s.dataset.panel === name));
+    $$('section').forEach((s) => s.classList.toggle('active', s.dataset.panel === name || (s.dataset.panels || '').split(' ').includes(name)));
     // The live preview only runs while its tab is shown (a hidden iframe would keep animating).
     const want = name === 'status' ? PREVIEW_SRC : 'about:blank';
     if (preview.getAttribute('src') !== want) preview.setAttribute('src', want);
-    try { localStorage.setItem('tab', name); } catch (e) { /* storage disabled */ }
+    try { localStorage.setItem('tab', name); localStorage.setItem('groups', JSON.stringify({ current: currentGroup, last: lastInGroup })); } catch (e) { /* storage disabled */ }
+    updateNav();
   }
+  $('#navBack').addEventListener('click', goBack);
+  $('#navFwd').addEventListener('click', goForward);
   $$('.tab').forEach((b) => b.addEventListener('click', () => showTab(b.dataset.tab)));
-  try { const t = localStorage.getItem('tab'); if (t && $(`.tab[data-tab="${t}"]`)) showTab(t); } catch (e) {}
+  $$('.gtab').forEach((b) => b.addEventListener('click', () => openGroup(b.dataset.group)));
+  $('#gear').addEventListener('click', () => showTab('general'));
+  // Ctrl+Tab / Ctrl+Shift+Tab cycle the top tabs, Ctrl+1…6 jump to one (not while recording a hotkey).
+  document.addEventListener('keydown', (e) => {
+    if (!e.ctrlKey || e.altKey || (e.target.classList && e.target.classList.contains('hotkey'))) return;
+    let i = -1;
+    if (e.key === 'Tab') i = (GROUPS.indexOf(currentGroup) + (e.shiftKey ? GROUPS.length - 1 : 1)) % GROUPS.length;
+    else if (/^[1-6]$/.test(e.key)) i = Number(e.key) - 1;
+    if (i < 0) return;
+    e.preventDefault();
+    openGroup(GROUPS[i]);
+  });
+  showGroup('puppet');
+  try {
+    const saved = JSON.parse(localStorage.getItem('groups') || 'null');
+    if (saved && saved.last) for (const g of GROUPS) if (groupOf(saved.last[g]) === g) lastInGroup[g] = saved.last[g];
+    if (saved && GROUPS.includes(saved.current)) showGroup(saved.current);
+    const t = localStorage.getItem('tab');
+    if (t && $(`.tab[data-tab="${t}"]`)) showTab(t); else showTab(lastInGroup[currentGroup]);
+  } catch (e) { showTab('status'); }
+  navReady = true;
 
   // ---------- Shared with panel-*.js ----------
   window.Panel = {
-    $, $$, t, api, action, toast, escapeHtml, showTab,
+    $, $$, t, api, action, toast, escapeHtml, showTab, openGroup, goBack, goForward,
+    get group() { return currentGroup; }, get tab() { return currentTab; }, GROUP_NAMES,
     save: (key, value) => save(key, value),
     get state() { return state; },
     onState(fn) { hooks.state.push(fn); if (state.settings) fn(state, true); },
@@ -143,7 +200,7 @@
   }
 
   // ---------- App / updates ----------
-  const UPD = { idle: '—', dev: 'Development build (updates disabled)', checking: 'Checking…', 'up-to-date': 'Up to date', downloading: 'Downloading', ready: 'Ready — restart to install', available: 'New version available', error: 'Error' };
+  const UPD = { idle: '—', dev: 'Development build (updates disabled)', disabled: 'No update source set', checking: 'Checking…', 'up-to-date': 'Up to date', downloading: 'Downloading', ready: 'Ready — restart to install', available: 'New version available', error: 'Error' };
   function renderApp() {
     const a = state.app || {};
     $('#version').textContent = a.version ? 'v' + a.version + (a.portable ? ' · ' + t('portable') : '') : '';
@@ -155,12 +212,14 @@
     if (u.status === 'error') txt += ': ' + t(u.error || '');
     $('#updStatus').textContent = txt;
     const banner = $('#updateBanner');
+    $('#installUpdate').classList.toggle('hidden', !(u.status === 'ready' || u.status === 'available'));
     if (u.status === 'ready' || u.status === 'available') {
       banner.classList.remove('hidden');
-      $('#updateText').textContent = u.status === 'ready' ? t('Version {v} is downloaded and ready.', { v: u.latest }) : t("Version {v} is available. The portable build can't update itself — grab the new .exe.", { v: u.latest });
-      $('#updateBtn').textContent = t(u.status === 'ready' ? 'Restart & update' : 'Download');
+      $('#updateText').textContent = u.status === 'ready' ? t('Version {v} is downloaded and ready.', { v: u.latest }) : t('Version {v} is available: it installs in a few seconds, no need to download the app again.', { v: u.latest });
+      $('#updateBtn').textContent = t(u.status === 'ready' ? 'Restart & update' : 'Update now');
     } else banner.classList.add('hidden');
-    for (const k of ['toggleOverlay', 'placement', 'muteChat']) $('#hk-' + k).textContent = t((a.hotkeyErrors || {})[k] || '');
+    for (const k of ['toggleOverlay', 'placement', 'muteChat', 'marker']) $('#hk-' + k).textContent = t((a.hotkeyErrors || {})[k] || '');
+    $$('.hk-err').forEach((el) => { el.textContent = t((a.hotkeyErrors || {})[el.dataset.hk] || ''); });
     const sel = $('#displaySelect');
     const opts = (a.displays || []).map((d) => `<option value="${d.index}">${escapeHtml(d.label.replace('Primary', t('Primary')))}</option>`).join('');
     if (sel.dataset.opts !== opts) { sel.innerHTML = opts; sel.dataset.opts = opts; sel.value = state.settings.overlay.display; }
@@ -168,6 +227,7 @@
   }
   $('#updateBtn').onclick = () => action('update-install');
   $('#checkUpdate').onclick = () => action('update-check');
+  $('#installUpdate').onclick = () => action('update-install');
   $('#openLogs').onclick = () => action('open-logs');
   $('#exportConfig').onclick = () => action('export-config');
   $('#copyDiag').onclick = () => action('copy-diagnostics').then((r) => toast(t(r.ok ? 'Diagnostics copied — paste them to whoever helps you' : 'Could not copy the diagnostics')));
@@ -481,7 +541,7 @@
       if (avatarsChanged) avatarsVersion++;
       // Language: translate static text once per change, then force the dynamic parts to re-render.
       const langChanged = I18N.setLang((state.app && state.app.lang) || 'en') || !langApplied;
-      if (langChanged) { langApplied = true; I18N.apply(document.body); lastCmdKey = ''; lastMembers = ''; $('#displaySelect').dataset.opts = ''; }
+      if (langChanged) { langApplied = true; I18N.apply(document.body); $('#groupTitle').textContent = t(GROUP_NAMES[currentGroup]); lastCmdKey = ''; lastMembers = ''; $('#displaySelect').dataset.opts = ''; }
       fillInputs(); renderStatus(); renderApp(); renderVoices(); renderSync();
       if (avatarsChanged || langChanged) renderAvatars();
       const mk = I18N.lang + JSON.stringify([Object.keys(state.known || {}), (state.discord.members || []).map((m) => m.id), state.settings.memberOrder, state.settings.members, avatarsVersion]);

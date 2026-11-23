@@ -79,7 +79,25 @@ Les raids, subs et bits déclenchent des effets. Les messages du chat peuvent au
 - Onglet **Widgets de stream** : followers, subs, dernier follower, dernier sub et la musique en cours sur Spotify. Chacun est sa propre source **Navigateur** dans OBS : copie son adresse, puis déplace-le et redimensionne-le comme tu veux.
 - Onglet **Hub streaming** : tape les chaînes Twitch de l'équipe pour voir qui est en live. De là, tu peux lire leurs chats, envoyer des messages, les **raid** (deux clics pour confirmer) ou les inviter en **Stream Together** (ouvre d'abord Stream Together dans ton Gestionnaire de stream Twitch).
 - Les compteurs, les follows, les raids, Stream Together et l'envoi de messages demandent de **te connecter avec Twitch** (dans ces onglets). Twitch affiche un code à confirmer sur son site ; tu ne tapes jamais ton mot de passe dans l'app.
-- Spotify : fonctionne avec l'application Spotify pour PC, sans connexion Spotify. Garde Spotify ouvert ou réduit.
+- Spotify : fonctionne avec l'application Spotify pour PC, sans connexion Spotify. Le widget affiche la musique, la vraie pochette, l'album et la progression (lus dans les contrôles multimédia de Windows). Garde Spotify ouvert ou réduit. Option : n'importe quel lecteur de musique.
+- Chaque widget a sa propre page dans le menu de gauche (sous **Widgets de stream**) : thèmes, apparence, image (pochette / photo de profil), couleurs, texte, tailles, icône, animations, contenu.
+
+- Widget **Chat en direct** (le chat Twitch dans OBS, fusionné pendant une collab) et **Scènes** : plusieurs widgets dans une seule source OBS, à la taille que tu veux (glisse-les sur le canevas).
+- **Hub Labo → Multi-stream** : jusqu’à 6 chaînes avec leur vidéo ; **Fusionner les chats** pendant une collab (« toi x ton pote »). Survole un message pour le supprimer, mettre un timeout ou bannir (ta chaîne ou là où tu es modo).
+- **Clips** : choisis le raccourci du timestamp ; un vrai clip Twitch peut être créé en même temps et s’ouvre en un clic.
+
+## 8b. La savane 🍌, BabaDeck, Labo test, bot Discord
+
+- **La savane** : un salon vidéo pour l’équipe (il utilise le service gratuit VDO.Ninja). Crée un salon, envoie l’invitation, clique sur **Rejoindre**, choisis ta caméra, ton micro et la qualité, puis **Lancer** (le micro démarre coupé : 🔇 l’active). **🎨 Personnaliser** dans la fenêtre du salon : fais glisser et redimensionne les caméras, fonds prêts à l’emploi ou ton image, logo, titre, pseudos ; ce que tu vois, c’est ce qu’OBS affiche. **📺 Liens OBS** donne un lien pour tout le salon et un par caméra (avec ou sans cadre).
+- **BabaDeck** : ton Stream Deck sans le boîtier. Connecte OBS (dans OBS : *Outils → Paramètres du serveur WebSocket*), puis crée des boutons : changer de scène, couper le micro, lancer le live, clip, son, message dans le chat… Chaque bouton peut avoir un raccourci qui marche en jeu, et il y a une fenêtre de deck flottante.
+- **Labo test** : des choses à activer, toutes coupées par défaut.
+  - *Expériences* : détecteur de hype, points de chaîne → BabaDeck, remerciement des raids, rappel de pause, alertes santé du stream, compte à rebours « ça commence ».
+  - *Bot de chat* (répond avec ton compte Twitch) : tes commandes (`!discord`…), minuteurs, `!uptime`, `!so`, `!lurk`, `!commands`, un message de bienvenue pour les nouveaux, des commandes de sons que les viewers peuvent jouer (`!airhorn`…).
+  - *Jeux viewers* : giveaway (les subs peuvent avoir plus de tickets), sondage du chat, compteurs (`!death+`), file d’attente (`!play`), pluie d’emotes, jauge de hype, écran de fin. Chacun a son lien OBS et un aperçu.
+  - *Outils streamer* : changer le titre et la catégorie avec des préréglages, alerte pub avec report, message « je suis en live » sur Discord (webhook), résumé du live, checklist avant le live.
+  - L’alerte pub et le vrai shoutout de `!so` demandent de nouvelles autorisations Twitch : reconnecte ton compte Twitch une fois.
+- **Bot Discord** (onglet Puppet Overlay) : tes potes tapent `/puppet create` dans Discord pour créer leur marionnette sans rien installer. Une seule personne (l’hôte) le fait tourner.
+- **Mises à jour** : *Réglages → Rechercher une mise à jour* télécharge seulement la nouvelle version (quelques Mo) et redémarre l’app ; plus besoin de retélécharger l’installeur.
 
 ## 9. Autres réglages
 

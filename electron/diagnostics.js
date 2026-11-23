@@ -24,7 +24,7 @@ function buildDiagnostics(info) {
   settings.memberOrder = `(${settings.memberOrder.length} entries)`;
   const v = info.versions || {};
   const lines = [
-    `Puppet Overlay diagnostics — ${new Date().toISOString()}`,
+    `LaboHub diagnostics — ${new Date().toISOString()}`,
     `Version: ${info.version} (${info.portable ? 'portable' : 'installed'}) · Electron ${v.electron || '?'} · Chrome ${v.chrome || '?'}`,
     `System: ${os.type()} ${os.release()} ${os.arch()} · locale ${info.locale} · UI ${state.app.lang}`,
     `Displays: ${(state.app.displays || []).map((x) => x.label).join(', ')}`,

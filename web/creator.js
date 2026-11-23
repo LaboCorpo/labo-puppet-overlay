@@ -78,6 +78,8 @@
       { type: 'slider', key: 'hatHeight', label: 'Hat height', photo: true },
       { type: 'slider', key: 'hatX', label: 'Hat left / right', photo: true },
       { type: 'slider', key: 'hatTilt', label: 'Hat tilt', photo: true },
+      { type: 'opt', key: 'faceExtra', label: 'Face extras' },
+      { type: 'opt', key: 'back', label: 'On the back', photo: true },
       { type: 'opt', key: 'neckwear', label: 'Neckwear', photo: true },
       { type: 'color', key: 'neckColor', label: 'Neckwear colour', pal: 'cloth', photo: true },
       { type: 'slider', key: 'neckSize', label: 'Neckwear size', photo: true },

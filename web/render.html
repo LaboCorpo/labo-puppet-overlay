@@ -1,0 +1,21 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><title>render</title></head>
+<body style="margin:0;background:transparent">
+<canvas id="c" width="400" height="460"></canvas>
+<script src="shared/puppet/avatar.js"></script><script src="shared/puppet/gfx.js"></script><script src="shared/puppet/animator.js"></script>
+<script src="shared/puppet/body.js"></script><script src="shared/puppet/face.js"></script><script src="shared/puppet/hair.js"></script><script src="shared/puppet/extras.js"></script><script src="shared/puppet/render.js"></script>
+<script>
+  // Used by the Discord bot (hidden window): one puppet on a Labo background, as a PNG data URL.
+  window.renderPng = function (avatar) {
+    const c = document.getElementById('c'), ctx = c.getContext('2d');
+    const g = ctx.createLinearGradient(0, 0, 400, 460);
+    g.addColorStop(0, '#2b1a4a'); g.addColorStop(1, '#a970ff');
+    ctx.fillStyle = g; ctx.fillRect(0, 0, 400, 460);
+    ctx.fillStyle = 'rgba(255,255,255,.08)';
+    for (let i = 0; i < 9; i++) { ctx.beginPath(); ctx.arc(40 + i * 45, 420 - (i % 3) * 30, 70, 0, Math.PI * 2); ctx.fill(); }
+    ctx.fillStyle = 'rgba(0,0,0,.25)'; ctx.beginPath(); ctx.ellipse(200, 418, 90, 14, 0, 0, Math.PI * 2); ctx.fill();
+    Puppet.draw(ctx, Puppet.normalize(avatar), { open: 0.25 }, { x: 200, y: 418, scale: 1.65 });
+    return c.toDataURL('image/png');
+  };
+</script>
+</body></html>

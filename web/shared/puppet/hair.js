@@ -151,7 +151,7 @@
         ctx.restore();
         break;
       }
-      default:
+      default: if (P.parts.drawExtraHat) P.parts.drawExtraHat(ctx, a, time, top, c);
     }
   }
 

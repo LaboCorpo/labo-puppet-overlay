@@ -137,3 +137,18 @@ npm run dist                 # Windows build (on Windows)
   - `electron/`: main process (`main.js`), Discord RPC, Twitch IRC, updater, local server (127.0.0.1, SSE + JSON API).
   - `web/`: overlay, panel, creator, and shared files (`shared/puppet.js` renderer, `chatsound.js`, `i18n.js`).
 - Translations live in `web/shared/i18n.js`. Keys are the English strings.
+
+
+## LaboHub 1.5 notes
+
+- **Updates without reinstalling**: the app lists the GitHub releases of `updates.repo` (default `LaboCorpo/labo-puppet-overlay`) whose tag starts with `updates.tagPrefix` (`labohub-v`), takes the newest one carrying an `app.asar` asset, checks its sha256 (GitHub `digest`), saves it as `resources/app-update.bin` and swaps it in after exit (`labohub-update.cmd`). Publish as a **pre-release** so Puppet Overlay's own updater (`releases/latest`) ignores it.
+- **Discord bot**: same Discord application as RPC. Bot tab → token (stored encrypted with `safeStorage`), invite with scopes `bot applications.commands`, no privileged intent. `/puppet create|show|code|import`. Optional GitHub token (fine-grained, *Contents: read and write* on the avatars repository) to append the code to `avatars.txt`.
+- **OBS**: obs-websocket v5 (`electron/obs.js`), password stored encrypted. **La savane**: VDO.Ninja iframes (`&room`, `&push`, `&view … &solo`, `&mute` for the sender); presence is reported by the room window to the app (`savane-presence`) and shared with the OBS pages.
+- **New scopes** (users must log in to Twitch again once): moderation (chat messages, bans, chat settings), `clips:edit`, `channel:read:redemptions`.
+
+## LaboHub 1.6 notes
+
+- **La savane**: the room window renders the real scene (`savane.html?room=1`, scaled) with drag/resize (free layout: `savane.positions`, ratios of the scene, last = on top), `labels`, `order`, `logo`. The sender iframe uses our own device picker: `&autostart&videodevice=<label>&audiodevice=<label>&quality=0|1|2` (VDO.Ninja matches a device whose name contains the text; `0` = none, `1` = default), plus `&novideo&noaudio` so it only sends (others are shown and heard in the tiles). Mic toggle: iframe API `{mic: true|false}`; camera on/off restarts the sender with `videodevice=0`. Speaking: `{getLoudness: true}` on every iframe, relayed to OBS pages with the `savane-speaking` action/SSE event. The window ignores VDO.Ninja's `beforeunload` (`will-prevent-unload`), otherwise it could not be closed. Join/leave events and `getStreamIDs` follow the VDO.Ninja iframe API docs; not verified with several real guests yet.
+- **Labo test v2**: `electron/lab-chat.js` (chat bot, sound commands, giveaway, poll, counters, queue, session) and `electron/lab-tools.js` (ad schedule + snooze, Discord webhook, title/category). Replies go through Helix *Send Chat Message* (one every 1.2 s, queue capped at 6). Only your own channel's chat drives them. Overlays: `web/lab.html?w=giveaway|poll|queue|counter&id=|hype|ad|session|emotes` (state `lab.play`/`lab.tools`, SSE `lab-event`, `&demo=1`). The Discord webhook URL is sealed with `safeStorage` (`discordWebhook` secret); the go-live message is skipped when the app starts more than 15 minutes into a live.
+- **New scopes** (log in to Twitch again once): `channel:read:ads`, `channel:manage:ads`, `moderator:manage:shoutouts`.
+- **BabaDeck actions**: `lab.giveaway`, `lab.poll`, `lab.counter`, `lab.queue`, `lab.sound`, `lab.profile`, `lab.ad`.

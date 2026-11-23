@@ -2,25 +2,134 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<title>Puppet Overlay</title>
+<title>LaboHub</title>
+<link rel="icon" href="shared/labohub.svg">
 <link rel="stylesheet" href="shared/ui.css">
 </head>
-<body>
+<body class="has-tabbar" data-group="puppet">
+<!-- Tab logos (original drawings). Not display:none: gradients inside a hidden <svg> would not render. -->
+<svg class="sprite" width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs>
+    <linearGradient id="gPup" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffa26f"/><stop offset="1" stop-color="#ff6a2e"/></linearGradient>
+    <linearGradient id="gHud" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#c7a3ff"/><stop offset="1" stop-color="#7d4dff"/></linearGradient>
+    <linearGradient id="gHub" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#e3fff6"/><stop offset="1" stop-color="#a6f2da"/></linearGradient>
+    <linearGradient id="gSav" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#fff1a8"/><stop offset="1" stop-color="#ffc93c"/></linearGradient>
+    <linearGradient id="gDeck" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#5c9dff"/><stop offset="1" stop-color="#2a5fd1"/></linearGradient>
+    <linearGradient id="gLab" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffd1ea"/><stop offset="1" stop-color="#ff4fa3"/></linearGradient>
+  </defs>
+  <symbol id="ic-puppet" viewBox="0 0 48 48">
+    <path d="M7 29h34a17 14 0 0 1-34 0z" fill="#ffc29e" stroke="#1d1520" stroke-width="3" stroke-linejoin="round"/>
+    <g transform="rotate(-12 41 26)">
+      <path d="M7 26a17 17 0 0 1 34 0z" fill="url(#gPup)" stroke="#1d1520" stroke-width="3" stroke-linejoin="round"/>
+      <circle cx="18" cy="17" r="4.2" fill="#fff" stroke="#1d1520" stroke-width="2"/><circle cx="17.2" cy="17.6" r="1.8" fill="#1d1520"/>
+      <circle cx="29" cy="16" r="4.2" fill="#fff" stroke="#1d1520" stroke-width="2"/><circle cx="28.2" cy="16.6" r="1.8" fill="#1d1520"/>
+    </g>
+    <path d="M17 34q7 5 14 0" fill="none" stroke="#c4462b" stroke-width="2.5" stroke-linecap="round"/>
+  </symbol>
+  <symbol id="ic-hud" viewBox="0 0 48 48">
+    <rect x="4" y="7" width="40" height="28" rx="6" fill="url(#gHud)" stroke="#1d1520" stroke-width="3"/>
+    <rect class="hud-bar" x="11" y="18" width="5.5" height="11" rx="1.5" fill="#fff"/>
+    <rect class="hud-bar" x="19.5" y="13" width="5.5" height="16" rx="1.5" fill="#fff"/>
+    <rect class="hud-bar" x="28" y="21" width="5.5" height="8" rx="1.5" fill="#fff"/>
+    <circle class="hud-live" cx="37" cy="13.5" r="3.2" fill="#ff4655" stroke="#1d1520" stroke-width="1.5"/>
+    <path d="M17 42h14M24 35v7" stroke="#1d1520" stroke-width="3" stroke-linecap="round"/>
+  </symbol>
+  <symbol id="ic-hub" viewBox="0 0 48 48">
+    <path class="wave" d="M11 9a9 9 0 0 0 0 11" fill="none" stroke="#2fd4a3" stroke-width="2.6" stroke-linecap="round"/>
+    <path class="wave w2" d="M37 9a9 9 0 0 1 0 11" fill="none" stroke="#2fd4a3" stroke-width="2.6" stroke-linecap="round"/>
+    <path d="M21 5v12L10.5 36.5A4.5 4.5 0 0 0 14.4 43h19.2a4.5 4.5 0 0 0 3.9-6.5L27 17V5z" fill="url(#gHub)"/>
+    <path d="M14 30h20l3.5 6.5A4.5 4.5 0 0 1 33.6 43H14.4a4.5 4.5 0 0 1-3.9-6.5z" fill="#2fd4a3"/>
+    <circle class="bub" cx="20" cy="37" r="2.1" fill="#fff"/><circle class="bub" cx="27" cy="35" r="1.7" fill="#fff"/><circle class="bub" cx="24" cy="39.5" r="1.3" fill="#fff"/>
+    <path d="M21 5v12L10.5 36.5A4.5 4.5 0 0 0 14.4 43h19.2a4.5 4.5 0 0 0 3.9-6.5L27 17V5M18 5h12" fill="none" stroke="#1d1520" stroke-width="3" stroke-linejoin="round" stroke-linecap="round"/>
+  </symbol>
+  <symbol id="ic-savane" viewBox="0 0 48 48">
+    <path class="sun" d="M24 4v4M10 10l3 3M38 10l-3 3" stroke="#ffc93c" stroke-width="2.6" stroke-linecap="round"/>
+    <path d="M9 30c2-10 9-16 19-17 3 0 6 .6 9 2-6 1-11 5-13 11-2 5-6 9-12 10z" fill="url(#gSav)" stroke="#1d1520" stroke-width="3" stroke-linejoin="round"/>
+    <path d="M36 14.5c1.5-1 3-1.4 4.5-1.3" stroke="#1d1520" stroke-width="3" stroke-linecap="round"/>
+    <rect x="22" y="29" width="20" height="14" rx="4" fill="#2a2236" stroke="#1d1520" stroke-width="3"/><circle cx="32" cy="36" r="3.6" fill="#ffc93c"/>
+  </symbol>
+  <symbol id="ic-deck" viewBox="0 0 48 48">
+    <rect x="4" y="8" width="40" height="32" rx="7" fill="url(#gDeck)" stroke="#1d1520" stroke-width="3"/>
+    <rect class="dk-k k1" x="10" y="14" width="8" height="8" rx="2" fill="#fff"/><rect class="dk-k k2" x="20" y="14" width="8" height="8" rx="2" fill="#ffc93c"/><rect class="dk-k k3" x="30" y="14" width="8" height="8" rx="2" fill="#fff"/>
+    <rect class="dk-k k4" x="10" y="26" width="8" height="8" rx="2" fill="#ff4fa3"/><rect class="dk-k k5" x="20" y="26" width="8" height="8" rx="2" fill="#fff"/><rect class="dk-k k6" x="30" y="26" width="8" height="8" rx="2" fill="#2fd4a3"/>
+  </symbol>
+  <symbol id="ic-lab" viewBox="0 0 48 48">
+    <path d="M19 5h10M21 5v13L9 39a4 4 0 0 0 3.5 6h23a4 4 0 0 0 3.5-6L27 18V5" fill="url(#gLab)" stroke="#1d1520" stroke-width="3" stroke-linejoin="round" stroke-linecap="round"/>
+    <path class="spark" d="M36 8l1.4 3.6L41 13l-3.6 1.4L36 18l-1.4-3.6L31 13l3.6-1.4z" fill="#ffc93c" stroke="#1d1520" stroke-width="1.5" stroke-linejoin="round"/>
+    <circle class="bub" cx="19" cy="37" r="2.2" fill="#fff"/><circle class="bub" cx="27" cy="34" r="1.8" fill="#fff"/>
+  </symbol>
+  <!-- Widget editor menus -->
+  <symbol id="wc-presets" viewBox="0 0 24 24"><path d="M10 3l1.9 5.1L17 10l-5.1 1.9L10 17l-1.9-5.1L3 10l5.1-1.9zM18 14l.9 2.1L21 17l-2.1.9L18 20l-.9-2.1L15 17l2.1-.9z"/></symbol>
+  <symbol id="wc-appearance" viewBox="0 0 24 24"><rect x="3.5" y="3.5" width="7" height="7" rx="1.6"/><rect x="13.5" y="3.5" width="7" height="7" rx="1.6"/><rect x="3.5" y="13.5" width="17" height="7" rx="1.6"/></symbol>
+  <symbol id="wc-media" viewBox="0 0 24 24"><rect x="3" y="4.5" width="18" height="15" rx="2.5"/><circle cx="9" cy="10" r="1.8"/><path d="M21 16l-5-5-10 8.5"/></symbol>
+  <symbol id="wc-colors" viewBox="0 0 24 24"><path d="M12 3c3.2 4.2 6 7.2 6 10.6a6 6 0 0 1-12 0C6 10.2 8.8 7.2 12 3z"/></symbol>
+  <symbol id="wc-text" viewBox="0 0 24 24"><path d="M5 6.5V5h14v1.5M12 5v14M9 19h6"/></symbol>
+  <symbol id="wc-box" viewBox="0 0 24 24"><path d="M4 9V4h5M20 15v5h-5M4 4l6 6M20 20l-6-6M15 4h5v5M9 20H4v-5"/></symbol>
+  <symbol id="wc-icon" viewBox="0 0 24 24"><path d="M12 3.5l2.6 5.3 5.9.9-4.3 4.1 1 5.8L12 16.9l-5.2 2.7 1-5.8-4.3-4.1 5.9-.9z"/></symbol>
+  <symbol id="wc-anim" viewBox="0 0 24 24"><path d="M3.5 8h7M5.5 12h8M3.5 16h7M15 6.5l5.5 5.5-5.5 5.5"/></symbol>
+  <symbol id="wc-content" viewBox="0 0 24 24"><path d="M9 6.5h11M9 12h11M9 17.5h11"/><circle cx="4.8" cy="6.5" r="1.3"/><circle cx="4.8" cy="12" r="1.3"/><circle cx="4.8" cy="17.5" r="1.3"/></symbol>
+</svg>
+<!-- Top tabs, like File Explorer tabs: one per tool. Ctrl+Tab / Ctrl+1…3 switch between them. -->
+<header class="tabbar">
+  <div class="tb-brand">
+    <div class="brand-logos"><canvas id="logo" class="blogo on" data-g="puppet" width="56" height="56"></canvas><svg class="blogo" data-g="hud" viewBox="0 0 48 48"></svg><svg class="blogo" data-g="hub" viewBox="0 0 48 48"></svg><svg class="blogo" data-g="savane" viewBox="0 0 48 48"></svg><svg class="blogo" data-g="deck" viewBox="0 0 48 48"></svg><svg class="blogo" data-g="lab" viewBox="0 0 48 48"></svg><img class="blogo" data-g="all" src="shared/labohub.svg" alt=""></div>
+    <div class="brand-text"><b>LaboHub</b><small id="brandSub" data-no-i18n>Puppet Overlay</small></div>
+  </div>
+  <div class="navbtns">
+    <button class="navbtn" id="navBack" title="Back (right-click, Alt+←, mouse back button)" disabled>←</button>
+    <button class="navbtn" id="navFwd" title="Forward (Alt+→)" disabled>→</button>
+  </div>
+  <div class="gtabs" role="tablist">
+    <button class="gtab" data-group="puppet" role="tab" title="Ctrl+1" style="--gc:#ff7a45"><svg class="gi"><use href="#ic-puppet"/></svg><span>Puppet Overlay</span></button>
+    <button class="gtab" data-group="hud" role="tab" title="Ctrl+2" style="--gc:#a970ff"><svg class="gi"><use href="#ic-hud"/></svg><span>HUD Twitch</span></button>
+    <button class="gtab" data-group="hub" role="tab" title="Ctrl+3" style="--gc:#2fd4a3"><svg class="gi"><use href="#ic-hub"/></svg><span>Hub Labo</span></button>
+    <button class="gtab" data-group="savane" role="tab" title="Ctrl+4" style="--gc:#ffc93c"><svg class="gi"><use href="#ic-savane"/></svg><span data-no-i18n>La savane 🍌</span></button>
+    <button class="gtab" data-group="deck" role="tab" title="Ctrl+5" style="--gc:#3d8bff"><svg class="gi"><use href="#ic-deck"/></svg><span>BabaDeck</span></button>
+    <button class="gtab" data-group="lab" role="tab" title="Ctrl+6" style="--gc:#ff4fa3"><svg class="gi"><use href="#ic-lab"/></svg><span>Labo test</span></button>
+  </div>
+  <div class="grow"></div>
+  <button class="tb-search" id="openPalette" title="Ctrl+K"><span>🔍 Go to…</span><kbd>Ctrl K</kbd></button>
+  <button class="tb-gear" id="gear" title="Settings">⚙</button>
+</header>
 <div class="app">
   <nav class="side">
-    <div class="brand"><canvas id="logo" width="56" height="56"></canvas><span>Puppet<br>Overlay</span></div>
-    <button class="tab active" data-tab="status">Status</button>
-    <button class="tab" data-tab="overlay">Overlay</button>
-    <button class="tab" data-tab="avatars">Avatars</button>
-    <button class="tab" data-tab="members">Members</button>
-    <button class="tab" data-tab="twitch">Twitch</button>
-    <button class="tab" data-tab="alerts">Alert sounds</button>
-    <button class="tab" data-tab="stream">Stream widgets</button>
-    <button class="tab" data-tab="hub">Streaming hub</button>
-    <button class="tab" data-tab="obs">OBS / Streamlabs</button>
-    <button class="tab" data-tab="general">Settings</button>
-    <button class="tab" data-tab="discord">Discord setup</button>
+    <div class="side-indicator" id="sideIndicator"></div>
+    <div class="side-title" id="groupTitle" data-no-i18n></div>
+    <button class="tab guide-tab" data-tab="guide-puppet" data-group="puppet">Guide</button>
+    <button class="tab active" data-tab="status" data-group="puppet">Status</button>
+    <button class="tab" data-tab="overlay" data-group="puppet">Overlay</button>
+    <button class="tab" data-tab="avatars" data-group="puppet">Avatars</button>
+    <button class="tab" data-tab="members" data-group="puppet">Members</button>
+    <button class="tab" data-tab="twitch" data-group="puppet">Twitch viewers</button>
+    <button class="tab" data-tab="obs" data-group="puppet">OBS / Streamlabs</button>
+    <button class="tab" data-tab="discord" data-group="puppet">Discord setup</button>
+    <button class="tab" data-tab="bot" data-group="puppet">Discord bot</button>
+    <button class="tab guide-tab" data-tab="guide-hud" data-group="hud">Guide</button>
+    <button class="tab" data-tab="stream" data-group="hud">Stream widgets</button>
+    <button class="tab sub" data-tab="w-followers" data-group="hud">Followers</button>
+    <button class="tab sub" data-tab="w-subs" data-group="hud">Subs</button>
+    <button class="tab sub" data-tab="w-latestFollower" data-group="hud">Latest follower</button>
+    <button class="tab sub" data-tab="w-latestSub" data-group="hud">Latest sub</button>
+    <button class="tab sub" data-tab="w-spotify" data-group="hud">Spotify</button>
+    <button class="tab sub" data-tab="w-chat" data-group="hud">Live chat</button>
+    <button class="tab" data-tab="scenes" data-group="hud">Scenes</button>
+    <button class="tab" data-tab="alerts" data-group="hud">Alert sounds</button>
+    <button class="tab guide-tab" data-tab="guide-hub" data-group="hub">Guide</button>
+    <button class="tab" data-tab="hub" data-group="hub">Friends' streams</button>
+    <button class="tab" data-tab="room" data-group="hub">Multi-stream</button>
+    <button class="tab" data-tab="markers" data-group="hub">Clips</button>
+    <button class="tab guide-tab" data-tab="guide-savane" data-group="savane">Guide</button>
+    <button class="tab" data-tab="savane" data-group="savane">The room</button>
+    <button class="tab" data-tab="savane-scene" data-group="savane">Scene &amp; OBS</button>
+    <button class="tab guide-tab" data-tab="guide-deck" data-group="deck">Guide</button>
+    <button class="tab" data-tab="deck" data-group="deck">BabaDeck</button>
+    <button class="tab" data-tab="obsws" data-group="deck">OBS &amp; stream health</button>
+    <button class="tab" data-tab="lab" data-group="lab">Experiments</button>
+    <button class="tab" data-tab="lab-chat" data-group="lab">Chat bot</button>
+    <button class="tab" data-tab="lab-games" data-group="lab">Viewer games</button>
+    <button class="tab" data-tab="lab-tools" data-group="lab">Streamer tools</button>
     <div class="grow"></div>
+    <button class="tab" data-tab="general" data-group="all">Settings</button>
     <div class="status-pill" id="pill" data-no-i18n>…</div>
     <div class="version" id="version" data-no-i18n></div>
   </nav>
@@ -28,6 +137,13 @@
   <main>
     <div id="updateBanner" class="banner hidden"><span id="updateText" data-no-i18n></span><button id="updateBtn" data-no-i18n>Restart now</button></div>
     <div id="offline" class="banner err hidden">Lost contact with the app — reconnecting…</div>
+
+    <!-- GUIDES (rendered by panel-guides.js) -->
+    <section data-panel="guide-puppet" data-guide="puppet" data-no-i18n></section>
+    <section data-panel="guide-hud" data-guide="hud" data-no-i18n></section>
+    <section data-panel="guide-hub" data-guide="hub" data-no-i18n></section>
+    <section data-panel="guide-savane" data-guide="savane" data-no-i18n></section>
+    <section data-panel="guide-deck" data-guide="deck" data-no-i18n></section>
 
     <!-- STATUS -->
     <section data-panel="status" class="active">
@@ -167,6 +283,7 @@
         <label>Max characters per message <input type="number" min="10" max="400" data-key="twitch.sound.maxChars"></label>
         <label>Max messages waiting <input type="number" min="1" max="20" data-key="twitch.sound.maxQueue"></label>
         <label class="check"><input type="checkbox" data-key="twitch.sound.muted"> Muted (shortcut Ctrl+Shift+M)</label>
+        <label class="check"><input type="checkbox" data-key="twitch.sound.skipSelf"> No sound for my own messages</label>
         <div class="btns" style="margin:0;align-self:end"><button class="ghost" id="testSound">🔊 Test sound</button></div>
         <p class="muted wide" data-i18n-html>“This app” plays through your speakers, so OBS picks it up with Desktop Audio. “OBS browser source” plays inside OBS: tick <i>Control audio via OBS</i> on the source to get it on its own mixer track. Text-to-speech uses the voices installed in Windows. Commands and links are never read.</p>
       </div>
@@ -228,36 +345,301 @@
         <p data-i18n-html>Each widget is its own <b>Browser Source</b> in OBS / Streamlabs: add the ones you want, then move and resize them freely. Transparent background, live updates.</p>
         <div id="widgetList" class="widget-list" data-no-i18n></div>
       </div>
-      <h2>Style</h2>
-      <div class="card grid">
-        <label>Font <input data-key="widgets.font" placeholder="Segoe UI" spellcheck="false"></label>
-        <label>Text size (px) <input type="range" min="12" max="120" step="1" data-key="widgets.size"><output></output></label>
-        <label>Look
-          <select data-key="widgets.style"><option value="plain">Text only</option><option value="pill">Pill</option><option value="card">Card</option></select></label>
-        <label>Alignment
-          <select data-key="widgets.align"><option value="left">Left</option><option value="center">Center</option><option value="right">Right</option></select></label>
-        <label>Text colour <input type="color" data-key="widgets.color"></label>
-        <label>Accent colour <input type="color" data-key="widgets.accent"></label>
-        <label class="check"><input type="checkbox" data-key="widgets.shadow"> Text shadow</label>
-      </div>
-      <h2>Counters</h2>
-      <div class="card grid">
-        <label>Followers label <input data-key="widgets.followers.label" placeholder="Followers"></label>
-        <label>Followers goal (0 = none) <input type="number" min="0" data-key="widgets.followers.goal"></label>
-        <label>Subs label <input data-key="widgets.subs.label" placeholder="Subs"></label>
-        <label>Subs goal (0 = none) <input type="number" min="0" data-key="widgets.subs.goal"></label>
-        <label>Latest follower label <input data-key="widgets.latestFollower.label" placeholder="Latest follower"></label>
-        <label>Latest sub label <input data-key="widgets.latestSub.label" placeholder="Latest sub"></label>
-        <div class="wide row"><b>Now</b><span id="statsNow" data-no-i18n>—</span></div>
-      </div>
+      <div class="card"><div class="row" style="border:0"><b>Now</b><span id="statsNow" data-no-i18n>—</span></div></div>
       <h2>Spotify</h2>
       <div class="card grid">
-        <label class="check"><input type="checkbox" data-key="widgets.spotify.enabled"> Show the song playing in Spotify</label>
-        <label class="check"><input type="checkbox" data-key="widgets.spotify.showCover"> Album cover (looked up online)</label>
-        <label class="check"><input type="checkbox" data-key="widgets.spotify.hideWhenPaused"> Hide when nothing is playing</label>
-        <div class="wide row"><b>Spotify</b><span id="npStatus" data-no-i18n>—</span></div>
-        <p class="muted wide">Works with the Spotify desktop app on Windows, no Spotify login needed: the app reads the song from the Spotify window. Keep Spotify open or minimized (not closed to the tray).</p>
+        <label class="check"><input type="checkbox" data-key="widgets.spotify.enabled"> Show the song that is playing</label>
+        <div class="btns" style="margin:0;justify-content:flex-end"><button class="ghost small" data-goto="w-spotify">🎨 Spotify widget settings</button></div>
+        <div class="wide row"><b>Music</b><span class="np-status" data-no-i18n>—</span></div>
       </div>
+    </section>
+
+    <!-- LA SAVANE: the room -->
+    <section data-panel="savane">
+      <h1 data-no-i18n>La savane 🍌</h1>
+      <p class="muted">A video room for the crew (like VDO.Ninja): join with the camera and microphone you want, microphones start muted. Video goes directly between you (peer to peer, via the free VDO.Ninja service).</p>
+      <div class="card grid">
+        <label>Room name <input data-key="savane.room" maxlength="40" spellcheck="false" placeholder="labo_savane_…"></label>
+        <label>Room password <input data-key="savane.password" maxlength="40" spellcheck="false"></label>
+        <label>Your name in the room <input data-key="savane.name" maxlength="24" placeholder="(your Twitch name)"></label>
+        <div class="btns" style="margin:0;align-self:end"><button class="ghost small" id="savNew">🎲 New room</button><button class="ghost small" id="savPaste">📋 Paste an invitation</button><button class="ghost small" id="savCopy">📨 Copy the invitation</button></div>
+        <p class="muted wide">Everyone uses the same room name and password. Keep them for the crew: anyone who has them can join.</p>
+      </div>
+      <div class="big-mark"><button class="go" id="savJoin">🍌 Join La savane</button><span class="muted" id="savWho" data-no-i18n></span></div>
+      <h2>In the room</h2>
+      <div id="savPeople" class="sav-people" data-no-i18n></div>
+      <p class="muted">Each camera's OBS link (to place it yourself in your scenes): <button class="ghost small" data-goto="savane-scene">📺 Scene &amp; OBS →</button></p>
+    </section>
+
+    <!-- LA SAVANE: scene + OBS -->
+    <section data-panel="savane-scene">
+      <h1>Scene &amp; OBS</h1>
+      <div class="sav-split">
+        <div class="sav-prev card"><iframe id="savPreview" title="preview"></iframe></div>
+        <div class="card grid sav-ctrl">
+          <label>Layout <select data-key="savane.layout"><option value="grid">Grid</option><option value="spotlight">Spotlight (one big)</option><option value="side">Big + side column</option><option value="podcast">Podcast (one row)</option><option value="stack">Column (vertical)</option><option value="free">Free (move them yourself)</option></select></label>
+          <label>Camera shape <select data-key="savane.shape"><option value="rect">Rectangle</option><option value="rounded">Rounded</option><option value="squircle">Soft square</option><option value="circle">Circle</option><option value="hexagon">Hexagon</option><option value="blob">Blob (moves)</option></select></label>
+          <label>Corner radius <input type="range" min="0" max="120" data-key="savane.radius"></label>
+          <label>Space between cameras <input type="range" min="0" max="120" data-key="savane.gap"></label>
+          <label>Margin <input type="range" min="0" max="240" data-key="savane.padding"></label>
+          <label>Frame thickness <input type="range" min="0" max="30" data-key="savane.border"></label>
+          <label>Frame colour <input type="color" data-key="savane.borderColor"></label>
+          <label class="check"><input type="checkbox" data-key="savane.glow"> Shadow</label>
+          <label class="check"><input type="checkbox" data-key="savane.names"> Names</label>
+          <label>Name tag <input type="color" data-key="savane.nameBg"></label>
+          <label class="check"><input type="checkbox" data-key="savane.speaking"> Highlight who speaks</label>
+          <label>Title (optional) <input data-key="savane.title" maxlength="60" placeholder="Podcast du Labo"></label>
+          <label>Background <select data-key="savane.bg"><option value="gradient">Gradient</option><option value="radial">Spotlight gradient</option><option value="color">Colour</option><option value="image">My picture</option><option value="none">Transparent</option></select></label>
+          <label>Colour 1 <input type="color" data-key="savane.bgColor1"></label>
+          <label>Colour 2 <input type="color" data-key="savane.bgColor2"></label>
+          <label>Gradient angle <input type="range" min="0" max="360" data-key="savane.bgAngle"></label>
+          <label class="check"><input type="checkbox" data-key="savane.bgAnimate"> Moving gradient</label>
+          <div class="btns" style="margin:0"><label class="button ghost small upload">🖼 Upload a background<input type="file" id="savBg" accept="image/png,image/jpeg,image/webp,image/gif" hidden></label></div>
+          <label>Picture blur <input type="range" min="0" max="40" data-key="savane.bgBlur"></label>
+          <label>Darken the picture <input type="range" min="0" max="90" data-key="savane.bgDim"></label>
+          <label>Width <input type="number" min="320" max="3840" data-key="savane.width"></label>
+          <label>Height <input type="number" min="240" max="3840" data-key="savane.height"></label>
+          <label class="check"><input type="checkbox" data-key="savane.audioInObs"> Others' sound in OBS</label>
+          <div class="btns" style="margin:0"><label class="button ghost small upload">🏷 Upload a logo<input type="file" id="savLogo" accept="image/png,image/jpeg,image/webp,image/gif" hidden></label><button class="ghost small" id="savNoLogo">✕ No logo</button></div>
+          <label>Logo position <select data-key="savane.logoPos"><option value="tl">Top left</option><option value="tr">Top right</option><option value="bl">Bottom left</option><option value="br">Bottom right</option></select></label>
+          <label>Logo size <input type="range" min="40" max="600" data-key="savane.logoSize"></label>
+        </div>
+      </div>
+      <div class="big-mark"><button class="go" id="savArrange">🎨 Arrange the cameras in the room window</button><span class="muted">Move and resize each camera with the mouse, change the background live: OBS follows.</span></div>
+      <h2>OBS links</h2>
+      <div class="card" id="savLinks" data-no-i18n></div>
+      <p class="muted" data-i18n-html>Each link is a <b>Browser Source</b>. Untick “Others' sound in OBS” if you already capture them another way (your own voice is never doubled).</p>
+    </section>
+
+    <!-- LABO TEST -->
+    <section data-panel="lab">
+      <h1>Labo test</h1>
+      <p class="muted">Experiments to make streaming easier. Each one is off until you turn it on; tell the crew what works.</p>
+      <div class="lab-grid">
+        <div class="card lab-card"><h3>📈 Hype detector</h3><p class="muted">When your chat suddenly speeds up, a timestamp (and a clip) is made on its own: you will find the moment in Clips.</p>
+          <label class="check"><input type="checkbox" data-key="lab.hype.enabled"> On</label>
+          <label>Chat … times faster than usual <input type="number" step="0.5" min="1.5" max="10" data-key="lab.hype.factor"></label>
+          <label>At least … messages per minute <input type="number" min="3" max="500" data-key="lab.hype.minPerMin"></label>
+          <div class="muted" id="labHype" data-no-i18n></div></div>
+        <div class="card lab-card"><h3>🎁 Channel points → BabaDeck</h3><p class="muted">A viewer redeems a reward: the BabaDeck button you choose is pressed (scene, sound, message…). Affiliate or Partner.</p>
+          <label class="check"><input type="checkbox" data-key="lab.points.enabled"> On</label>
+          <div id="labPoints" data-no-i18n></div>
+          <div class="muted" id="labPointsStatus" data-no-i18n></div></div>
+        <div class="card lab-card"><h3>🙏 Thank the raids</h3><p class="muted">A message in your chat when someone raids you. {name}, {login} and {viewers} are replaced.</p>
+          <label class="check"><input type="checkbox" data-key="lab.raidThanks.enabled"> On</label>
+          <label>Message <input data-key="lab.raidThanks.text" maxlength="400"></label></div>
+        <div class="card lab-card"><h3>💧 Break reminder</h3><p class="muted">While you are live, a reminder to drink and stretch.</p>
+          <label>Every … minutes (0 = off) <input type="number" min="0" max="600" data-key="lab.breakMinutes"></label></div>
+        <div class="card lab-card"><h3>🩺 Stream health alerts</h3><p class="muted">With OBS connected (BabaDeck tab): a notification when frames drop or the network chokes.</p>
+          <label class="check"><input type="checkbox" data-key="lab.healthAlerts"> On</label>
+          <button class="ghost small" data-goto="obsws">OBS &amp; stream health →</button></div>
+        <div class="card lab-card"><h3>⏳ “Starting soon” countdown</h3><p class="muted">A Browser Source for your waiting screen. Change the minutes and the text in the link.</p>
+          <div class="row"><code id="labCountdown" data-no-i18n></code><span class="grow"></span><button class="small" id="labCountdownCopy">Copy</button></div></div>
+      </div>
+    </section>
+
+    <!-- LABO TEST: chat bot -->
+    <section data-panel="lab-chat">
+      <div class="banner err lab-acct hidden" data-no-i18n></div>
+      <h1>Chat bot</h1>
+      <p class="muted">It answers in your Twitch chat with your own account (log in with Twitch in HUD Twitch → Stream widgets), while LaboHub is open.</p>
+      <div class="lab-grid">
+        <div class="card lab-card wide"><h3>🤖 Your commands</h3>
+          <label class="check"><input type="checkbox" data-key="lab.chatbot.enabled"> Chat bot on</label>
+          <p class="muted" data-i18n-html>In the answer: <code>{name}</code> the viewer, <code>{target}</code> the word after the command, <code>{uptime}</code>, <code>{game}</code>, <code>{title}</code>, <code>{random:a|b|c}</code> one at random.</p>
+          <div id="lcCmds" class="lc-list" data-no-i18n></div>
+          <div class="btns" style="margin:0"><button class="ghost small" id="lcAddCmd">＋ Add a command</button></div></div>
+        <div class="card lab-card wide"><h3>⏰ Timers</h3><p class="muted">A message every N minutes while you are live, only if the chat moved in between.</p>
+          <label>At least … chat messages between two <input type="number" min="0" max="200" data-key="lab.chatbot.timerLines"></label>
+          <div id="lcTimers" class="lc-list" data-no-i18n></div>
+          <div class="btns" style="margin:0"><button class="ghost small" id="lcAddTimer">＋ Add a timer</button></div></div>
+        <div class="card lab-card"><h3>🧰 Ready-made commands</h3>
+          <label class="check"><input type="checkbox" data-key="lab.chatbot.uptime"> <code data-no-i18n>!uptime</code></label>
+          <label>Answer <input data-key="lab.chatbot.uptimeText" maxlength="400"></label>
+          <label class="check"><input type="checkbox" data-key="lab.chatbot.so"> <code data-no-i18n>!so @channel</code> <span class="muted">(moderators, + Twitch shoutout)</span></label>
+          <label>Answer <input data-key="lab.chatbot.soText" maxlength="400"></label>
+          <label class="check"><input type="checkbox" data-key="lab.chatbot.lurk"> <code data-no-i18n>!lurk</code></label>
+          <label>Answer <input data-key="lab.chatbot.lurkText" maxlength="400"></label>
+          <label class="check"><input type="checkbox" data-key="lab.chatbot.list"> <code data-no-i18n>!commands</code> <span class="muted">lists the commands</span></label></div>
+        <div class="card lab-card"><h3>👋 Welcome newcomers</h3><p class="muted">A message for someone who writes in your chat for the very first time (Twitch tells us).</p>
+          <label class="check"><input type="checkbox" data-key="lab.chatbot.welcome"> On</label>
+          <label>Message <input data-key="lab.chatbot.welcomeText" maxlength="400"></label></div>
+        <div class="card lab-card wide"><h3>🔊 Sound commands</h3><p class="muted" data-i18n-html>Viewers type <code>!name</code> to play a sound on stream (where your alert sounds play). <code>!sons</code> lists them.</p>
+          <div class="grid">
+            <label class="check"><input type="checkbox" data-key="lab.sounds.enabled"> On</label>
+            <label>Who can use them <select data-key="lab.sounds.who"><option value="all">Everyone</option><option value="vip">VIPs and subs</option><option value="subs">Subs</option><option value="mods">Moderators</option></select></label>
+            <label>Seconds between two sounds <input type="number" min="0" max="600" data-key="lab.sounds.cooldown"></label>
+            <label>Seconds before the same viewer again <input type="number" min="0" max="3600" data-key="lab.sounds.userCooldown"></label>
+          </div>
+          <div id="lcSounds" class="lc-list" data-no-i18n></div>
+          <div class="btns" style="margin:0"><label class="button ghost small upload">＋ Add sounds (MP3, WAV, OGG)<input type="file" id="lcSoundFile" accept="audio/mpeg,audio/wav,audio/ogg,.mp3,.wav,.ogg" multiple hidden></label></div></div>
+      </div>
+    </section>
+
+    <!-- LABO TEST: viewer games -->
+    <section data-panel="lab-games">
+      <div class="banner err lab-acct hidden" data-no-i18n></div>
+      <h1>Viewer games</h1>
+      <p class="muted">Games your viewers play from the chat. Each one has its own Browser Source for OBS (“Preview” shows it with fake data).</p>
+      <div class="lab-grid">
+        <div class="card lab-card"><h3>🎉 Giveaway</h3>
+          <div class="grid">
+            <label>Keyword <input data-key="lab.giveaway.keyword" maxlength="25"></label>
+            <label>Tickets for subs <input type="number" min="1" max="10" data-key="lab.giveaway.subLuck"></label>
+          </div>
+          <label class="check"><input type="checkbox" data-key="lab.giveaway.announce"> Announce it in the chat</label>
+          <div class="muted" id="lgStatus" data-no-i18n></div>
+          <div class="btns" style="margin:0"><button class="small" data-gw="open">Open</button><button class="ghost small" data-gw="close">Close</button><button class="small" data-gw="draw">🎲 Draw a winner</button><button class="ghost small" data-gw="reset">Reset</button></div>
+          <div class="lc-chips" id="lgEntries" data-no-i18n></div>
+          <div class="lab-link" data-w="giveaway" data-no-i18n></div></div>
+        <div class="card lab-card"><h3>📊 Chat poll</h3><p class="muted">Viewers type the number of their answer (or !vote 2).</p>
+          <label>Question <input id="lpQ" maxlength="140" placeholder="Which game next?"></label>
+          <div id="lpOpts" class="lc-opts" data-no-i18n></div>
+          <div class="grid"><label>Duration (seconds) <input type="number" min="10" max="1800" data-key="lab.poll.seconds"></label>
+            <label class="check"><input type="checkbox" data-key="lab.poll.announce"> Announce it in the chat</label></div>
+          <div class="btns" style="margin:0"><button class="small" id="lpStart">▶ Start</button><button class="ghost small" id="lpEnd">⏹ End now</button><button class="ghost small" id="lpClear">Clear</button></div>
+          <div id="lpRes" data-no-i18n></div>
+          <div class="lab-link" data-w="poll" data-no-i18n></div></div>
+        <div class="card lab-card wide"><h3>🔢 Counters</h3><p class="muted" data-i18n-html>Deaths, wins, fails… <code>!death</code> shows it, <code>!death+</code> / <code>!death-</code> changes it (moderators by default). Also from the BabaDeck.</p>
+          <div id="lcCounters" class="lc-list" data-no-i18n></div>
+          <div class="btns" style="margin:0"><button class="ghost small" id="lcAddCounter">＋ Add a counter</button></div></div>
+        <div class="card lab-card"><h3>🎮 Viewer queue</h3><p class="muted">For “play with viewers”: they join with a command, you call the next one.</p>
+          <label class="check"><input type="checkbox" data-key="lab.queue.enabled"> On</label>
+          <div class="grid"><label>Join command <input data-key="lab.queue.joinCmd" maxlength="25"></label><label>Leave command <input data-key="lab.queue.leaveCmd" maxlength="25"></label>
+            <label>Max people <input type="number" min="1" max="500" data-key="lab.queue.max"></label>
+            <label class="check"><input type="checkbox" data-key="lab.queue.announce"> Answer in the chat</label></div>
+          <div class="btns" style="margin:0"><button class="small" data-qu="next">➡ Next</button><button class="ghost small" id="lqOpen" data-no-i18n></button><button class="ghost small" data-qu="clear">Clear</button></div>
+          <div id="lqList" class="lc-list" data-no-i18n></div>
+          <div class="lab-link" data-w="queue" data-no-i18n></div></div>
+        <div class="card lab-card"><h3>🌧 Emote rain</h3><p class="muted">The Twitch emotes sent in your chat fall and bounce on your stream.</p>
+          <label class="check"><input type="checkbox" data-key="lab.emotes.enabled"> On</label>
+          <label>Emotes on screen at once <input type="number" min="5" max="150" data-key="lab.emotes.max"></label>
+          <div class="lab-link" data-w="emotes" data-no-i18n></div></div>
+        <div class="card lab-card"><h3>🔥 Hype meter</h3><p class="muted">A bar that fills up when your chat speeds up (same measure as the hype detector in Experiments).</p>
+          <div class="muted" id="lhNow" data-no-i18n></div>
+          <div class="lab-link" data-w="hype" data-no-i18n></div></div>
+        <div class="card lab-card"><h3>💜 End screen</h3><p class="muted">“Thanks for watching” with today's numbers (messages, chatters, followers, subs, bits, raids).</p>
+          <div class="lab-link" data-w="session" data-no-i18n></div></div>
+      </div>
+    </section>
+
+    <!-- LABO TEST: streamer tools -->
+    <section data-panel="lab-tools">
+      <div class="banner err lab-acct hidden" data-no-i18n></div>
+      <h1>Streamer tools</h1>
+      <div class="lab-grid">
+        <div class="card lab-card wide"><h3>✏ Title &amp; category</h3><p class="muted">Change them without opening Twitch, and keep presets for your usual streams (also on BabaDeck buttons).</p>
+          <div class="grid">
+            <label class="wide">Title <input id="ltTitle" maxlength="140"></label>
+            <label>Category <input id="ltGame" maxlength="80" autocomplete="off" placeholder="Just Chatting"></label>
+            <div class="btns" style="margin:0;align-self:end"><button class="small" id="ltApply">Apply on Twitch</button><button class="ghost small" id="ltReload">↻</button></div>
+          </div>
+          <div id="ltGames" class="lt-games" data-no-i18n></div>
+          <div class="btns" style="margin:0"><input id="ltPresetName" maxlength="30" placeholder="Preset name (e.g. Valorant ranked)"><button class="ghost small" id="ltSavePreset">💾 Save as preset</button></div>
+          <div id="ltProfiles" class="lc-list" data-no-i18n></div></div>
+        <div class="card lab-card"><h3>📺 Ad warning</h3><p class="muted">Before an automatic mid-roll: a chat message, a notification and a countdown on stream. Snooze pushes it back 5 minutes.</p>
+          <label class="check"><input type="checkbox" data-key="lab.ads.enabled"> On</label>
+          <label>Warn … seconds before <input type="number" min="10" max="300" data-key="lab.ads.warnSec"></label>
+          <label class="check"><input type="checkbox" data-key="lab.ads.chat"> Message in the chat</label>
+          <label>Message <input data-key="lab.ads.chatText" maxlength="400"></label>
+          <div class="muted" id="ltAd" data-no-i18n></div>
+          <div class="btns" style="margin:0"><button class="small" id="ltSnooze">⏰ Snooze the next ad</button><button class="ghost small" id="ltAdRefresh">↻</button></div>
+          <div class="lab-link" data-w="ad" data-no-i18n></div></div>
+        <div class="card lab-card"><h3>📣 Discord: “I'm live”</h3><p class="muted" data-i18n-html>A message in your Discord server when your live starts. In Discord: channel settings → <b>Integrations</b> → <b>Webhooks</b> → New webhook → Copy URL.</p>
+          <label class="check"><input type="checkbox" data-key="lab.discordLive.enabled"> On</label>
+          <div class="btns" style="margin:0"><input id="ltHook" type="password" placeholder="https://discord.com/api/webhooks/…" style="flex:1"><button class="ghost small" id="ltHookSave">Save</button></div>
+          <div class="muted" id="ltHookState" data-no-i18n></div>
+          <label>Message <textarea data-key="lab.discordLive.text" rows="3" maxlength="1500"></textarea></label>
+          <div class="btns" style="margin:0"><button class="ghost small" id="ltHookTest">🧪 Send a test</button></div></div>
+        <div class="card lab-card"><h3>📈 Stream summary</h3><p class="muted">Counted while LaboHub is open; a notification sums it up when your live ends.</p>
+          <label class="check"><input type="checkbox" data-key="lab.summary"> Notification at the end of the live</label>
+          <pre id="ltSession" class="lt-pre" data-no-i18n></pre>
+          <div class="btns" style="margin:0"><button class="ghost small" id="ltCopySummary">📋 Copy the summary</button></div></div>
+        <div class="card lab-card"><h3>✅ Before going live</h3><p class="muted">Your checklist. The ticks reset every day.</p>
+          <div id="ltCheck" data-no-i18n></div>
+          <details><summary class="muted">Edit the list</summary><textarea id="ltCheckEdit" rows="6" placeholder="One line per item"></textarea><div class="btns" style="margin:0"><button class="ghost small" id="ltCheckSave">Save</button></div></details></div>
+      </div>
+    </section>
+
+    <!-- BABADECK -->
+    <section data-panel="deck">
+      <div class="room-head"><h1>BabaDeck</h1>
+        <div class="room-tools"><label class="switch-chip"><input type="checkbox" id="deckEdit"> Edit</label><button class="ghost small" id="deckFloat">🗔 Floating deck</button></div></div>
+      <p class="muted">Your Stream Deck, without the hardware: click a button here, in the floating deck window or with its shortcut (works in game).</p>
+      <div class="dk-wrap" id="deckView" data-no-i18n></div>
+      <div class="btns deck-tools"><button class="ghost small" id="deckAddPage">＋ Page</button><button class="ghost small" id="deckRenamePage">Rename the page</button><button class="ghost small danger-text" id="deckDelPage">Delete the page</button>
+        <label class="inline">Columns <select id="deckCols" data-number><option>3</option><option>4</option><option>5</option><option>6</option><option>7</option><option>8</option></select></label>
+        <label class="inline">Rows <select id="deckRows" data-number><option>1</option><option>2</option><option>3</option><option>4</option><option>5</option><option>6</option></select></label>
+        <label class="check inline"><input type="checkbox" id="deckOnTop"> Floating deck always on top</label>
+        <button class="small" id="deckStarter">✨ Starter page</button></div>
+      <div class="card dk-insp hidden" id="deckInsp" data-no-i18n></div>
+    </section>
+
+    <!-- OBS CONNECTION + STREAM HEALTH -->
+    <section data-panel="obsws">
+      <h1>OBS &amp; stream health</h1>
+      <div class="card grid">
+        <label class="check"><input type="checkbox" data-key="obs.enabled"> Connect to OBS Studio</label>
+        <div class="row"><b>Status</b><span class="obs-status" data-no-i18n>—</span></div>
+        <label>Address <input data-key="obs.host" spellcheck="false"></label>
+        <label>Port <input type="number" data-key="obs.port" min="1" max="65535"></label>
+        <label>WebSocket password <input type="password" id="obsPw" autocomplete="off" placeholder="••••••"></label>
+        <div class="btns" style="margin:0;align-self:end"><button class="small" id="obsPwSave">Save the password</button><button class="ghost small" id="obsRetry">⟳ Reconnect</button></div>
+        <p class="muted wide" id="obsPwState" data-no-i18n></p>
+        <p class="muted wide" data-i18n-html>In OBS: <b>Tools → WebSocket Server Settings</b>, tick “Enable WebSocket server”, then “Show Connect Info” for the port and password.</p>
+      </div>
+      <h2>Stream health</h2>
+      <div class="health" id="obsHealth" data-no-i18n></div>
+    </section>
+
+    <!-- SCENES: several widgets in one OBS source -->
+    <section data-panel="scenes">
+      <h1>Scenes</h1>
+      <p class="muted">Put several widgets in one OBS Browser Source, at the size you want: no need to add them one by one.</p>
+      <div class="btns scn-bar"><select id="scnPick" data-no-i18n></select><button id="scnNew">＋ New scene</button><button class="ghost" id="scnDup">Duplicate</button><button class="ghost danger-text" id="scnDel">Delete</button></div>
+      <p class="muted" id="scnEmpty">No scene yet: click “New scene”.</p>
+      <div id="scnWork">
+        <div class="card grid">
+          <label>Name <input id="scnName" maxlength="40"></label>
+          <label>Size
+            <select id="scnSize"><option value="0">1920 × 1080 (Full HD)</option><option value="1">1280 × 720 (HD)</option><option value="2">2560 × 1440 (2K)</option><option value="3">1080 × 1920 (vertical)</option><option value="4">800 × 600</option><option value="custom">Custom</option></select></label>
+          <label>Width <input type="number" id="scnW" min="200" max="3840"></label>
+          <label>Height <input type="number" id="scnH" min="200" max="3840"></label>
+          <div class="wide row"><b>OBS</b><code id="scnUrl" data-no-i18n></code><b id="scnObsSize" data-no-i18n>—</b><span class="grow"></span><button class="small" id="scnCopy">Copy the OBS link</button><button class="ghost small" id="scnOpen">Open</button></div>
+          <p class="muted wide" data-i18n-html>In OBS: <b>Browser Source</b>, paste the link, with the size of the scene. Each widget keeps its own look (its page under Stream widgets).</p>
+        </div>
+        <div class="btns" id="scnAdd" data-no-i18n></div>
+        <div class="scn-stage" id="scnStage" data-no-i18n></div>
+        <div class="card scn-insp hidden" id="scnInsp">
+          <b id="scnInspName" data-no-i18n></b>
+          <label>X <input type="number" id="scnI-x"></label><label>Y <input type="number" id="scnI-y"></label>
+          <label>Width <input type="number" id="scnI-width" min="40"></label><label>Height <input type="number" id="scnI-height" min="40"></label>
+          <div class="btns" style="margin:0"><button class="ghost small" data-al="left" title="Left">⇤</button><button class="ghost small" data-al="hcenter" title="Centre">↔</button><button class="ghost small" data-al="right" title="Right">⇥</button>
+            <button class="ghost small" data-al="top" title="Top">⤒</button><button class="ghost small" data-al="vcenter" title="Middle">↕</button><button class="ghost small" data-al="bottom" title="Bottom">⤓</button>
+            <button class="ghost small" data-al="front">Bring to front</button><button class="ghost small danger-text" data-al="remove">Remove</button></div>
+        </div>
+        <p class="muted">Drag to move (snaps to the centre and the edges, Alt = free), drag the size tag to resize, arrows to nudge (Shift = 10 px), Delete to remove.</p>
+      </div>
+    </section>
+
+    <!-- ONE WIDGET: customisation menus (one sidebar entry per widget) -->
+    <section data-panel="wedit" data-panels="w-followers w-subs w-latestFollower w-latestSub w-spotify w-chat">
+      <div id="weHead" data-no-i18n></div>
+      <div class="card grid hidden" id="weSpotify">
+        <label class="check"><input type="checkbox" data-key="widgets.spotify.enabled"> Show the song that is playing</label>
+        <label>Music source
+          <select data-key="widgets.spotify.source"><option value="spotify">Spotify only</option><option value="any">Any player (Windows media controls)</option></select></label>
+        <label class="check"><input type="checkbox" data-key="widgets.spotify.fetchCovers"> Fetch the album covers</label>
+        <p class="muted">The real cover from Windows; if there is none, it is looked up on iTunes then Deezer (title and artist only).</p>
+        <div class="wide row"><b>Music</b><span class="np-status" data-no-i18n>—</span></div>
+        <p class="muted wide">The app reads the song from the Windows media controls (the pop-up of the volume keys): title, artist, album, position and the real album cover. No Spotify login needed. Spotify desktop app, Windows 10 or 11.</p>
+      </div>
+      <div class="card grid hidden" id="weChat">
+        <div class="wide row"><b>Channels</b><span id="weChatChans" data-no-i18n>—</span></div>
+        <p class="muted wide">By default the widget shows your channel. During a collab, open Hub Labo → Multi-stream, add the channels and click “📺 → OBS”: the widget merges them.</p>
+        <div class="btns" style="margin:0"><button class="ghost small" id="weChatReset">Only my channel</button></div>
+      </div>
+      <div class="wed" id="widgetEditor" data-no-i18n></div>
     </section>
 
     <!-- STREAMING HUB -->
@@ -272,10 +654,48 @@
       </div>
       <div id="raidBanner" class="banner hidden" data-no-i18n></div>
       <div id="hubList" class="hub-grid" data-no-i18n></div>
-      <h2>Chats</h2>
-      <div id="chats" class="chats" data-no-i18n></div>
-      <p class="muted" id="chatsEmpty">Click “Chat” on a channel to read it here (up to 4 at once). Sending messages needs the Twitch account.</p>
       <p class="muted" data-i18n-html><b>Raid</b>: Twitch shows the usual countdown on your stream, then sends your viewers. <b>Stream Together</b>: open Stream Together (Collaboration) in your Twitch Stream Manager first, then invite; the guest accepts on Twitch.</p>
+    </section>
+
+    <!-- MULTI-STREAM ROOM: videos + merged or side-by-side chats + moderation -->
+    <section data-panel="room">
+      <div class="room-head">
+        <h1 id="roomTitle" data-no-i18n>Shared chats</h1>
+        <div class="room-tools">
+          <label class="switch-chip"><input type="checkbox" id="roomMerge"> Merge the chats</label>
+          <label class="switch-chip"><input type="checkbox" id="roomVideo"> Videos</label>
+          <button class="ghost small" id="roomToWidget" title="Use these channels in the OBS chat widget">📺 → OBS</button>
+        </div>
+      </div>
+      <div class="room-chans" id="roomChans" data-no-i18n></div>
+      <div id="roomVideos" class="room-videos" data-no-i18n></div>
+      <div id="roomMin" class="room-min" data-no-i18n></div>
+      <div id="roomChats" class="room-chats" data-no-i18n></div>
+      <p class="muted" id="roomEmpty">Add channels with the field above or with “Watch &amp; chat” in Friends’ streams. Merge the chats during a collab: one chat, “you x your friend”. Moderation works on your channel and the channels where you are a moderator.</p>
+    </section>
+
+    <!-- TIMESTAMPS -->
+    <section data-panel="markers">
+      <h1>Stream timestamps</h1>
+      <div class="card" data-twitch-account data-no-i18n></div>
+      <div class="card">
+        <div class="big-mark">
+          <button class="go" id="markNow">⏱ Timestamp now</button>
+          <input id="markNote" maxlength="140" placeholder="Note (optional): “huge fail”, “1v3”…">
+        </div>
+        <div class="muted live-line" id="markHelp" data-no-i18n></div>
+      </div>
+      <div class="card grid">
+        <label>The VOD link starts … seconds earlier <input type="number" min="0" max="600" data-key="markers.leadSeconds"></label>
+        <label class="check"><input type="checkbox" data-key="markers.chatCommand"> Chat command for you and your mods</label>
+        <label>Command name (without !) <input data-key="markers.commandName" maxlength="20" spellcheck="false"></label>
+        <label class="check"><input type="checkbox" data-key="markers.twitchMarker"> Also create a Twitch stream marker</label>
+        <label class="check"><input type="checkbox" data-key="markers.createClip"> Also create a real Twitch clip (opens in one click)</label>
+        <label>Timestamp shortcut (works in game) <input class="hotkey" data-key="app.hotkeys.marker" readonly placeholder="Click, then press keys"><span class="err hk-err" data-hk="marker"></span></label>
+      </div>
+      <div class="btns" style="margin:0 0 6px"><input id="markSearch" placeholder="🔍 Search notes" style="flex:1;max-width:360px"><button class="ghost" id="markRefresh">⟳ Look for VODs</button></div>
+      <div id="markList" data-no-i18n></div>
+      <p class="muted">VOD links appear as soon as Twitch has created the archive of the stream (usually during the stream). Turn on “Store past broadcasts” on Twitch; VODs are kept 7 days (60 for Partners).</p>
     </section>
 
     <!-- OBS -->
@@ -310,13 +730,21 @@
         <label>Show / hide overlay <input class="hotkey" data-key="app.hotkeys.toggleOverlay" readonly placeholder="Click, then press keys"><span class="err" id="hk-toggleOverlay"></span></label>
         <label>Move puppets (placement mode) <input class="hotkey" data-key="app.hotkeys.placement" readonly placeholder="Click, then press keys"><span class="err" id="hk-placement"></span></label>
         <label>Mute / unmute chat sound <input class="hotkey" data-key="app.hotkeys.muteChat" readonly placeholder="Click, then press keys"><span class="err" id="hk-muteChat"></span></label>
+        <label>Stream timestamp (works in game) <input class="hotkey" data-key="app.hotkeys.marker" readonly placeholder="Click, then press keys"><span class="err" id="hk-marker"></span></label>
         <p class="muted wide">Click a field and press your combination (e.g. Ctrl+Shift+O). Backspace clears it.</p>
       </div>
       <h2>Updates</h2>
       <div class="card">
         <div class="row"><b>Version</b><span id="appVersion" data-no-i18n>—</span></div>
         <div class="row"><b>Status</b><span id="updStatus" data-no-i18n>—</span></div>
-        <div class="btns"><button class="ghost" id="checkUpdate">Check now</button><button class="ghost" id="showWhatsNew">What's new</button></div>
+        <div class="btns"><button class="ghost" id="checkUpdate">Check for updates</button><button class="hidden" id="installUpdate">Update now</button><button class="ghost" id="showWhatsNew">What's new</button></div>
+        <details class="adv"><summary>Update source</summary>
+          <div class="grid" style="margin-top:8px">
+            <label>GitHub repository <input data-key="updates.repo" placeholder="owner/repo" spellcheck="false"></label>
+            <label>Release tag prefix <input data-key="updates.tagPrefix" spellcheck="false"></label>
+            <p class="muted wide">LaboHub only downloads its new package (app.asar, a few MB) from the releases of this repository, then restarts. Your settings, avatars and sounds stay.</p>
+          </div>
+        </details>
       </div>
       <h2>Troubleshooting</h2>
       <div class="card btns" style="margin-top:0">
@@ -329,6 +757,35 @@
     </section>
 
     <!-- DISCORD CONFIG -->
+    <!-- DISCORD BOT: create your puppet from Discord -->
+    <section data-panel="bot">
+      <h1>Discord bot</h1>
+      <p class="muted" data-i18n-html>Friends create their puppet <b>in Discord</b>, without installing anything: they type <code>/puppet create</code>, choose with menus and see the result live. Only one person runs the bot (the “host”): their LaboHub must be open.</p>
+      <div class="card grid">
+        <label class="check"><input type="checkbox" data-key="bot.enabled"> Run the bot on this PC</label>
+        <div class="row"><b>Status</b><span id="botStatus" data-no-i18n>—</span></div>
+        <label>Bot token <input type="password" id="botToken" autocomplete="off" placeholder="••••••"></label>
+        <div class="btns" style="margin:0;align-self:end"><button class="small" id="botTokenSave">Save the token</button><button class="ghost small" id="botInvite">➕ Invite the bot to a server</button></div>
+        <p class="muted wide" id="botTokenState" data-no-i18n></p>
+      </div>
+      <h2>Share the puppets with the crew</h2>
+      <div class="card grid">
+        <label>GitHub repository of the shared file <input data-key="bot.githubRepo" spellcheck="false"></label>
+        <label>File <input data-key="bot.githubPath" spellcheck="false"></label>
+        <label>GitHub token (contents: write on that repository) <input type="password" id="botGh" autocomplete="off" placeholder="github_pat_…"></label>
+        <div class="btns" style="margin:0;align-self:end"><button class="small" id="botGhSave">Save the GitHub token</button></div>
+        <p class="muted wide" data-i18n-html>Without a GitHub token, puppets made with the bot are saved on the host only (and each friend can still send their <code>/puppet code</code>). With it, they are added to the crew's shared file, which every LaboHub reads every 2 minutes. Tokens are stored encrypted on this PC.</p>
+      </div>
+      <details class="card"><summary><b>Set up the bot (once, by the host)</b></summary>
+        <ol class="steps">
+          <li data-i18n-html>On <b>discord.com/developers/applications</b>, open the LaboHub application (the one in Discord setup), then <b>Bot</b> → <b>Reset Token</b>, copy it and paste it above.</li>
+          <li data-i18n-html>Still in <b>Bot</b>, no special intent is needed (leave the “Privileged Gateway Intents” off).</li>
+          <li data-i18n-html>Click <b>➕ Invite the bot to a server</b> and choose the Labo's server.</li>
+          <li data-i18n-html>Tick <b>Run the bot on this PC</b>. In Discord, type <code>/puppet create</code>.</li>
+        </ol>
+      </details>
+    </section>
+
     <section data-panel="discord">
       <h1>Discord setup</h1>
       <div class="card grid">
@@ -356,7 +813,7 @@
   <div class="modal-box">
     <div class="dots" id="wDots" data-no-i18n></div>
     <div data-step="0">
-      <h2>Welcome to Puppet Overlay</h2>
+      <h2>Welcome to LaboHub</h2>
       <p>Everyone in your Discord voice channel appears on your screen as a paper puppet that talks with them. Three quick steps.</p>
       <h3>1. Connect Discord</h3>
       <div id="wDiscord" data-no-i18n></div>
@@ -386,6 +843,15 @@
   </div>
 </div>
 
+<!-- Ctrl+K: jump to any page -->
+<div id="palette" class="modal palette hidden" role="dialog" aria-modal="true">
+  <div class="modal-box">
+    <input id="palInput" placeholder="Go to a page…" spellcheck="false" autocomplete="off">
+    <div id="palList" class="pal-list" data-no-i18n></div>
+    <div class="pal-hint">↑ ↓ to choose · Enter to open · Esc to close</div>
+  </div>
+</div>
+
 <div id="toast" class="toast"></div>
 <script src="shared/i18n.js"></script>
 <script src="shared/changelog.js"></script>
@@ -395,12 +861,28 @@
 <script src="shared/puppet/body.js"></script>
 <script src="shared/puppet/face.js"></script>
 <script src="shared/puppet/hair.js"></script>
+<script src="shared/puppet/extras.js"></script>
 <script src="shared/puppet/render.js"></script>
 <script src="shared/chatsound.js"></script>
 <script src="shared/alertsound.js"></script>
+<script src="shared/widget-schema.js"></script>
 <script src="panel.js"></script>
 <script src="panel-alerts.js"></script>
 <script src="panel-stream.js"></script>
+<script src="panel-editor.js"></script>
+<script src="panel-scenes.js"></script>
+<script src="deck.js"></script>
+<script src="panel-deck.js"></script>
+<script src="shared/savane-id.js"></script>
+<script src="panel-savane.js"></script>
+<script src="panel-lab.js"></script>
+<script src="panel-labplay.js"></script>
+<script src="panel-bot.js"></script>
+<script src="shared/twitchchat.js"></script>
+<script src="panel-room.js"></script>
 <script src="panel-hub.js"></script>
+<script src="panel-markers.js"></script>
+<script src="panel-guides.js"></script>
+<script src="panel-ui.js"></script>
 </body>
 </html>

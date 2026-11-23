@@ -1,14 +1,11 @@
 /*
  * Panel tab "Streaming hub": who in the crew is live, raid / Stream Together / open on Twitch,
- * and their chats read right here (anonymous IRC, like the overlay) with sending through the Twitch API.
+ * "Watch & chat" adds the channel to the multi-stream room (panel-room.js).
  */
 (function () {
   'use strict';
   const { $, t, escapeHtml, toast } = Panel;
-  const MAX_CHATS = 4;
-  const MAX_LINES = 200;
   const listEl = $('#hubList');
-  const chatsEl = $('#chats');
   const membersEl = $('#hubMembers');
 
   // ---------- Crew list setting ----------
@@ -39,7 +36,7 @@
       <div class="hub-who">${avatar}<div><b>${escapeHtml(m.display)}</b>${m.me ? ` <span class="tag">${escapeHtml(t('you'))}</span>` : ''}<div>${live}</div></div></div>
       ${m.live ? `<div class="hub-title" title="${escapeHtml(m.title)}">${escapeHtml(m.title)}</div><div class="muted">${escapeHtml(m.game || '')}</div>` : ''}
       <div class="btns">
-        <button class="ghost small" data-hub="chat">💬 ${escapeHtml(t('Chat'))}</button>
+        <button class="ghost small" data-hub="chat">💬 ${escapeHtml(t(m.live ? 'Watch & chat' : 'Chat'))}</button>
         ${canAct && m.live ? `<button class="small${armed === m.login ? ' danger-solid' : ''}" data-hub="raid"${raid ? ' disabled' : ''}>🚀 ${escapeHtml(raidLabel)}</button>` : ''}
         ${canAct ? `<button class="ghost small" data-hub="invite">🤝 ${escapeHtml(t('Stream Together'))}</button>` : ''}
         <button class="ghost small" data-hub="open" title="${escapeHtml(t('Open on Twitch'))}">↗</button>
@@ -69,7 +66,7 @@
     if (act === 'cancel-raid') { if (await Panel.run('hub-raid-cancel', null, 'Raid cancelled')) render(Panel.state, true); return; }
     const login = b.closest('[data-login]').dataset.login;
     if (act === 'open') Panel.action('open-url', { url: 'https://www.twitch.tv/' + login });
-    if (act === 'chat') openChat(login);
+    if (act === 'chat') { window.PanelRoom.add(login); Panel.showTab('room'); }
     if (act === 'invite') Panel.run('hub-invite', { login }, 'Invitation sent: they accept it on Twitch');
     if (act === 'raid') {
       // Two clicks: a raid moves your whole audience, so the first click only arms the button.
@@ -82,114 +79,6 @@
   }
   listEl.addEventListener('click', onHubClick);
   $('#raidBanner').addEventListener('click', onHubClick);
-
-  // ---------- Chats (anonymous IRC, read-only; sending goes through the app) ----------
-  const chats = new Map(); // login -> { el, list }
-  let ws = null, wsTimer = 0, retryMs = 2000;
-  function irc() {
-    if (ws || !chats.size) return;
-    const sock = new WebSocket('wss://irc-ws.chat.twitch.tv:443');
-    ws = sock;
-    sock.onopen = () => {
-      retryMs = 2000;
-      sock.send('CAP REQ :twitch.tv/tags twitch.tv/commands');
-      sock.send('PASS SCHMOOPIIE');
-      sock.send('NICK justinfan' + Math.floor(10000 + Math.random() * 80000));
-      for (const l of chats.keys()) sock.send('JOIN #' + l);
-    };
-    sock.onmessage = (ev) => String(ev.data).split('\r\n').forEach(onLine);
-    sock.onclose = () => {
-      if (ws !== sock) return;
-      ws = null;
-      if (chats.size) { clearTimeout(wsTimer); wsTimer = setTimeout(irc, retryMs); retryMs = Math.min(30000, retryMs * 2); }
-    };
-  }
-  function tagsOf(raw) { const o = {}; (raw || '').split(';').forEach((kv) => { const i = kv.indexOf('='); if (i > 0) o[kv.slice(0, i)] = kv.slice(i + 1).replace(/\\s/g, ' ').replace(/\\:/g, ';').replace(/\\\\/g, '\\'); }); return o; }
-  // Twitch emotes: tag "id:start-end,start-end/id2:…", positions in Unicode code points.
-  function withEmotes(text, emotes) {
-    const chars = Array.from(text);
-    const marks = [];
-    (emotes || '').split('/').filter(Boolean).forEach((part) => {
-      const [id, ranges] = part.split(':');
-      if (!/^[\w-]+$/.test(id || '')) return;
-      (ranges || '').split(',').forEach((r) => { const [a, b] = r.split('-').map(Number); if (b >= a) marks.push([a, b, id]); });
-    });
-    marks.sort((x, y) => x[0] - y[0]);
-    let out = '', pos = 0;
-    for (const [a, b, id] of marks) {
-      if (a < pos) continue;
-      out += escapeHtml(chars.slice(pos, a).join(''));
-      const name = chars.slice(a, b + 1).join('');
-      out += `<img class="emote" src="https://static-cdn.jtvnw.net/emoticons/v2/${id}/default/dark/1.0" alt="${escapeHtml(name)}" title="${escapeHtml(name)}">`;
-      pos = b + 1;
-    }
-    return out + escapeHtml(chars.slice(pos).join(''));
-  }
-  function onLine(line) {
-    if (!line) return;
-    if (line.startsWith('PING')) { if (ws) ws.send('PONG :tmi.twitch.tv'); return; }
-    const m = line.match(/^(?:@(\S+) )?:(\S+?)(?:!\S+)? (\w+)(?: #(\S+))?(?: :(.*))?$/);
-    if (!m) return;
-    const [, rawTags, prefix, cmd, chan, text] = m;
-    const c = chats.get(chan);
-    if (!c) return;
-    const tags = tagsOf(rawTags);
-    if (cmd === 'PRIVMSG') {
-      let msg = text || '';
-      const me = msg.startsWith('\u0001ACTION ');
-      if (me) msg = msg.slice(8, -1);
-      const color = /^#[0-9a-f]{6}$/i.test(tags.color || '') ? tags.color : '#b9a3ff';
-      add(c, `<span class="cname" style="color:${color}">${escapeHtml(tags['display-name'] || prefix)}</span>${me ? ' ' : ': '}<span${me ? ` style="color:${color}"` : ''}>${withEmotes(msg.slice(0, 500), tags.emotes)}</span>`);
-    } else if (cmd === 'USERNOTICE' && tags['system-msg']) {
-      add(c, `<span class="sys">★ ${escapeHtml(tags['system-msg'])}</span>${text ? ' ' + withEmotes(text, tags.emotes) : ''}`);
-    } else if (cmd === 'ROOMSTATE' && !c.joined) {
-      c.joined = true;
-      add(c, `<span class="sys">${escapeHtml(t('Connected to the chat.'))}</span>`);
-    }
-  }
-  function add(c, html) {
-    const atBottom = c.list.scrollTop + c.list.clientHeight >= c.list.scrollHeight - 30;
-    const div = document.createElement('div');
-    div.className = 'cline';
-    div.innerHTML = html;
-    c.list.appendChild(div);
-    while (c.list.childElementCount > MAX_LINES) c.list.firstElementChild.remove();
-    if (atBottom) c.list.scrollTop = c.list.scrollHeight;
-  }
-  function openChat(login) {
-    if (chats.has(login)) { chats.get(login).input.focus(); return; }
-    if (chats.size >= MAX_CHATS) { toast(t('4 chats max: close one first')); return; }
-    const el = document.createElement('div');
-    el.className = 'chat';
-    el.innerHTML = `<div class="chat-head"><b>#${escapeHtml(login)}</b><button class="ghost small" title="${escapeHtml(t('Close'))}">✕</button></div>
-      <div class="chat-list"></div>
-      <form class="chat-send"><input maxlength="500" placeholder="${escapeHtml(t('Send a message'))}"><button class="small">${escapeHtml(t('Send'))}</button></form>`;
-    chatsEl.appendChild(el);
-    const c = { el, list: el.querySelector('.chat-list'), input: el.querySelector('input'), joined: false };
-    chats.set(login, c);
-    el.querySelector('.chat-head button').onclick = () => closeChat(login);
-    el.querySelector('form').onsubmit = async (e) => {
-      e.preventDefault();
-      const text = c.input.value.trim();
-      if (!text) return;
-      if ((Panel.state.twitchAccount || {}).status !== 'connected') { toast(t('Log in with Twitch to send messages')); return; }
-      c.input.disabled = true;
-      const r = await Panel.run('hub-say', { login, text });
-      c.input.disabled = false;
-      if (r) c.input.value = '';
-      c.input.focus();
-    };
-    $('#chatsEmpty').classList.add('hidden');
-    if (ws && ws.readyState === 1) ws.send('JOIN #' + login); else irc();
-  }
-  function closeChat(login) {
-    const c = chats.get(login);
-    if (!c) return;
-    c.el.remove();
-    chats.delete(login);
-    if (ws && ws.readyState === 1) ws.send('PART #' + login);
-    if (!chats.size) { $('#chatsEmpty').classList.remove('hidden'); if (ws) { const w = ws; ws = null; w.close(); } }
-  }
 
   Panel.onState((s, langChanged) => render(s, langChanged));
 })();

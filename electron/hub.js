@@ -133,6 +133,61 @@ class Hub extends EventEmitter {
     const d = r.data && r.data[0];
     if (d && d.is_sent === false) throw new Error((d.drop_reason && d.drop_reason.message) || 'Message not sent');
   }
+
+  // ---------- Moderation (your channel, or channels where you are a moderator) ----------
+  // roomId = the channel's user id (IRC tag room-id); Twitch answers 403 when you are not a moderator there.
+  async moderate(b) {
+    const room = String(b.roomId || ''), me = this.api.userId;
+    if (!ID_RE.test(room)) throw new Error('Unknown channel');
+    const q = { broadcaster_id: room, moderator_id: me };
+    const user = String(b.userId || '');
+    try {
+      switch (b.op) {
+        case 'delete':
+          if (!/^[\w-]{8,64}$/.test(String(b.messageId || ''))) throw new Error('Unknown message');
+          await this.api.helix('DELETE', 'moderation/chat', Object.assign({ message_id: b.messageId }, q)); return;
+        case 'clear': await this.api.helix('DELETE', 'moderation/chat', q); return;
+        case 'timeout': case 'ban': {
+          if (!ID_RE.test(user)) throw new Error('Unknown user');
+          const data = { user_id: user, reason: String(b.reason || '').slice(0, 500) };
+          if (b.op === 'timeout') data.duration = Math.max(1, Math.min(1209600, Math.round(Number(b.seconds) || 600)));
+          await this.api.helix('POST', 'moderation/bans', q, { data }); return;
+        }
+        case 'unban':
+          if (!ID_RE.test(user)) throw new Error('Unknown user');
+          await this.api.helix('DELETE', 'moderation/bans', Object.assign({ user_id: user }, q)); return;
+        case 'settings': {
+          const p = b.settings || {}, body = {};
+          if ('slow' in p) { body.slow_mode = !!p.slow; if (p.slow) body.slow_mode_wait_time = Math.max(3, Math.min(120, Number(p.slow) || 30)); }
+          if ('followers' in p) { body.follower_mode = p.followers !== false && p.followers != null; if (body.follower_mode) body.follower_mode_duration = Math.max(0, Math.min(129600, Number(p.followers) || 0)); }
+          if ('emoteOnly' in p) body.emote_mode = !!p.emoteOnly;
+          if ('subsOnly' in p) body.subscriber_mode = !!p.subsOnly;
+          await this.api.helix('PATCH', 'chat/settings', q, body); return;
+        }
+        default: throw new Error('Unknown action');
+      }
+    } catch (e) {
+      if (e.status === 403 || e.status === 401) throw new Error('You are not a moderator of this channel (or log in again to allow moderation).');
+      throw e;
+    }
+  }
+
+  // Chat badge pictures: { global: {"set/version": url}, rooms: {roomId: {...}} }, cached for the session.
+  async badges(roomIds) {
+    this.badgeCache = this.badgeCache || { global: null, rooms: {} };
+    const c = this.badgeCache;
+    const toMap = (r) => { const o = {}; for (const set of (r && r.data) || []) for (const v of set.versions || []) if (/^https:\/\//.test(v.image_url_2x || v.image_url_1x || '')) o[set.set_id + '/' + v.id] = v.image_url_2x || v.image_url_1x; return o; };
+    if (this.api.connected) {
+      if (!c.global) try { c.global = toMap(await this.api.helix('GET', 'chat/badges/global')); } catch (e) { /* later */ }
+      for (const id of (roomIds || []).map(String).filter((x) => ID_RE.test(x)).slice(0, 10)) {
+        if (c.rooms[id]) continue;
+        try { c.rooms[id] = toMap(await this.api.helix('GET', 'chat/badges', { broadcaster_id: id })); } catch (e) { /* later */ }
+      }
+    }
+    return { global: c.global || {}, rooms: c.rooms };
+  }
 }
+
+const ID_RE = /^\d{1,20}$/;
 
 module.exports = { Hub };

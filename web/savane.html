@@ -1,0 +1,167 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>La savane</title>
+<link rel="icon" href="shared/labohub.svg">
+<style>
+  html, body { margin: 0; height: 100%; background: transparent; overflow: hidden; font-family: "Segoe UI", system-ui, sans-serif; }
+  #stage { position: absolute; left: 0; top: 0; transform-origin: 0 0; overflow: hidden; }
+  .bg, #dim { position: absolute; inset: 0; }
+  .bg { inset: -40px; }
+  .bg.anim { animation: bgmove 18s ease-in-out infinite alternate; }
+  @keyframes bgmove { from { background-position: 0% 30%; } to { background-position: 100% 70%; } }
+  #dim { background: #000; pointer-events: none; }
+  #title { position: absolute; left: 0; right: 0; top: 2.2%; text-align: center; font-weight: 900; letter-spacing: .02em; text-shadow: 0 4px 18px rgba(0,0,0,.45); }
+  #logo { position: absolute; display: none; pointer-events: none; filter: drop-shadow(0 6px 18px rgba(0,0,0,.4)); }
+  .tile { position: absolute; box-sizing: border-box; padding: var(--bw); background: var(--bc); border-radius: var(--rad); transition: left .5s cubic-bezier(.2,.8,.2,1), top .5s cubic-bezier(.2,.8,.2,1), width .5s cubic-bezier(.2,.8,.2,1), height .5s cubic-bezier(.2,.8,.2,1), box-shadow .3s, transform .3s; animation: tileIn .5s cubic-bezier(.2,.8,.2,1) both; }
+  .tile.dragging { transition: box-shadow .3s; }
+  @keyframes tileIn { from { opacity: 0; transform: scale(.85); } }
+  .tile .vid { position: relative; width: 100%; height: 100%; overflow: hidden; border-radius: calc(var(--rad) - var(--bw) * .6); background: #0d0b12; }
+  .tile iframe { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; }
+  .tile.glow { box-shadow: 0 10px 40px rgba(0,0,0,.45), 0 0 0 1px rgba(255,255,255,.08); }
+  .tile.speaking { box-shadow: 0 0 0 4px #fff, 0 0 40px var(--bc); transform: scale(1.015); }
+  .s-rect, .s-rect .vid { border-radius: 0; }
+  .s-circle, .s-circle .vid { border-radius: 50%; }
+  .s-squircle, .s-squircle .vid { border-radius: 32%; }
+  .s-hexagon, .s-hexagon .vid { border-radius: 0; clip-path: polygon(25% 3%, 75% 3%, 100% 50%, 75% 97%, 25% 97%, 0 50%); }
+  .s-blob, .s-blob .vid { border-radius: 42% 58% 55% 45% / 48% 40% 60% 52%; animation: blob 12s ease-in-out infinite alternate; }
+  @keyframes blob { 50% { border-radius: 58% 42% 45% 55% / 40% 58% 42% 60%; } }
+  .vid.demo { display: grid; place-items: center; background: linear-gradient(135deg, #3a2a5c, #1d1528); }
+  .vid.demo span { font-size: 40px; font-weight: 900; color: #fff8; }
+  .name { position: absolute; left: 6%; bottom: 7%; max-width: 80%; padding: .2em .75em; border-radius: 99px; background: var(--nbg); color: var(--nfg); font-weight: 800; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; box-shadow: 0 4px 14px rgba(0,0,0,.35); pointer-events: none; }
+  .s-circle .name, .s-hexagon .name, .s-blob .name { left: 50%; transform: translateX(-50%); bottom: 4%; }
+  #empty { position: absolute; inset: 0; display: grid; place-items: center; color: #fff; font-weight: 700; font-size: 22px; text-shadow: 0 2px 10px #000; text-align: center; padding: 20px; }
+  .guide { position: absolute; background: #ff4fa3; pointer-events: none; z-index: 999; display: none; }
+  .guide.v { width: 2px; top: 0; bottom: 0; } .guide.h { height: 2px; left: 0; right: 0; }
+
+  /* ---------- Room window ---------- */
+  #roomBar, #meBox, #editBox, #obsPop, .tools, .grab, .rs { display: none; }
+  body.m-room { background: #14110a; color: #fff; font-size: 13px; }
+  body.m-room #roomBar { display: flex; align-items: center; gap: 8px; height: 52px; padding: 0 12px; box-sizing: border-box; background: #1d1810; border-bottom: 1px solid #ffffff14; }
+  #roomBar .who { font-weight: 800; flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  button, .btn { all: unset; cursor: pointer; padding: 7px 12px; border-radius: 9px; background: #ffc93c; color: #1d1520; font-weight: 800; font-size: 13px; text-align: center; box-sizing: border-box; }
+  button.ghost { background: #ffffff14; color: #fff; }
+  button.ghost.on { background: #ffc93c33; box-shadow: inset 0 0 0 1px #ffc93c; color: #ffe7a6; }
+  button.small { padding: 4px 9px; font-size: 12px; }
+  button:disabled { opacity: .4; cursor: default; }
+  body.m-room .main { display: flex; height: calc(100vh - 52px); }
+  #view { position: absolute; inset: 0; overflow: hidden; }
+  body.m-room #view { position: relative; inset: auto; flex: 1; min-width: 0; background: repeating-conic-gradient(#1a1610 0 25%, #16130d 0 50%) 0 0 / 24px 24px; }
+  body.m-room.drawer #meBox { display: flex; flex-direction: column; width: 330px; flex: none; border-right: 1px solid #ffffff14; background: #0f0c08; overflow-y: auto; }
+  body.m-room.edit #editBox { display: block; width: 350px; flex: none; border-left: 1px solid #ffffff14; background: #0f0c08; overflow-y: auto; }
+  .side h3 { margin: 12px 12px 6px; font-size: 13px; color: #ffc93c; }
+  .side h4 { margin: 14px 12px 6px; font-size: 11px; text-transform: uppercase; letter-spacing: .06em; color: #ffffff88; }
+  .side p { margin: 0 12px 8px; font-size: 12px; color: #ffffffaa; line-height: 1.4; }
+  .side label { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin: 6px 12px; color: #ffffffdd; }
+  .side label > select, .side label > input:not([type=checkbox]):not([type=color]) { width: 58%; }
+  .side select, .side input:not([type=checkbox]):not([type=range]):not([type=color]) { background: #1d1810; color: #fff; border: 1px solid #ffffff22; border-radius: 7px; padding: 5px 7px; font: inherit; box-sizing: border-box; min-width: 0; }
+  .side input[type=range] { accent-color: #ffc93c; }
+  .side input[type=color] { width: 38px; height: 26px; border: 0; background: none; padding: 0; }
+  .side input[type=checkbox] { accent-color: #ffc93c; width: 16px; height: 16px; }
+  .side .btns { display: flex; flex-wrap: wrap; gap: 6px; margin: 8px 12px; }
+  .side .btns > * { flex: 1; }
+  #me { flex: 1; min-height: 220px; margin: 8px 12px 12px; border-radius: 10px; overflow: hidden; background: #000; position: relative; }
+  #me iframe { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; }
+  #me .off { position: absolute; inset: 0; display: grid; place-items: center; color: #ffffff66; font-weight: 700; text-align: center; padding: 14px; }
+  .devlive { display: none !important; } body.live .devlive { display: flex !important; } body.live .devidle { display: none !important; }
+  a.link { color: #ffc93c; margin: 0 12px 6px; font-size: 12px; cursor: pointer; text-decoration: underline; }
+  .presets { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; margin: 6px 12px; }
+  .presets button { height: 34px; padding: 0; border-radius: 8px; box-shadow: inset 0 0 0 1px #ffffff22; font-size: 10px; color: #fff; text-shadow: 0 1px 3px #000; }
+  .sizes { display: flex; gap: 6px; margin: 6px 12px; flex-wrap: wrap; }
+  .ppl { margin: 4px 12px; display: grid; gap: 6px; }
+  .ppl .p { display: flex; align-items: center; gap: 5px; background: #ffffff0a; border-radius: 8px; padding: 5px; }
+  .ppl .p input[type=text] { flex: 1; }
+  .ppl .p.off { opacity: .5; }
+  #obsPop { position: fixed; top: 56px; right: 12px; width: 560px; max-width: calc(100vw - 24px); max-height: calc(100vh - 70px); overflow-y: auto; background: #1d1810; border: 1px solid #ffc93c55; border-radius: 12px; box-shadow: 0 20px 60px #000a; z-index: 50; padding-bottom: 8px; }
+  body.pop #obsPop { display: block; }
+  #obsPop .row { display: flex; align-items: center; gap: 8px; margin: 6px 12px; background: #ffffff0a; border-radius: 8px; padding: 7px 9px; }
+  #obsPop .row b { flex: none; max-width: 140px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  #obsPop .row code { flex: 1; font-size: 11px; color: #ffe7a6; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  #obsPop .muted { color: #ffffff88; font-size: 11px; white-space: nowrap; }
+  /* tiles in the room window */
+  body.m-room .tile:hover .tools { display: flex; }
+  .tools { position: absolute; top: 6px; right: 6px; gap: 4px; z-index: 5; transform-origin: 100% 0; }
+  .tools button { padding: 5px 8px; font-size: 14px; background: #14110acc; color: #fff; border-radius: 8px; box-shadow: 0 2px 8px #0008; }
+  .tools button.e { display: none; } body.edit .tools button.e { display: inline-block; }
+  body.edit .tile iframe { pointer-events: none; }
+  body.edit .grab { display: block; position: absolute; inset: 0; cursor: move; z-index: 3; border-radius: inherit; outline: 2px dashed #ffc93c99; outline-offset: -2px; }
+  body.edit .tile:hover .grab { outline-color: #ffc93c; background: #ffc93c14; }
+  body.edit .rs { display: block; position: absolute; right: -6px; bottom: -6px; width: 22px; height: 22px; border-radius: 50%; background: #ffc93c; border: 3px solid #14110a; cursor: nwse-resize; z-index: 6; }
+  .toast { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%) translateY(20px); opacity: 0; background: #ffc93c; color: #1d1520; padding: 8px 16px; border-radius: 10px; font-weight: 800; transition: .25s; z-index: 99; pointer-events: none; }
+  .toast.show { opacity: 1; transform: translateX(-50%); }
+</style>
+</head>
+<body>
+<div id="roomBar">
+  <span class="who" data-no-i18n></span>
+  <button class="ghost" id="toggleMe">🎥 <span>My camera</span></button>
+  <button class="ghost" id="toggleEdit">🎨 <span>Customise</span></button>
+  <button class="ghost" id="toggleObs">📺 <span>OBS links</span></button>
+  <button id="copyInvite">📨 <span>Copy the invitation</span></button>
+</div>
+<div class="main">
+  <div id="meBox" class="side">
+    <h3>🎥 <span>My camera &amp; microphone</span></h3>
+    <p>Your microphone starts muted. The others hear you once you turn it on here.</p>
+    <label class="devidle">Camera <select id="devCam" data-no-i18n></select></label>
+    <label class="devidle">Microphone <select id="devMic" data-no-i18n></select></label>
+    <label class="devidle">Quality <select id="devQ"><option value="2">Light (360p)</option><option value="1">HD (720p)</option><option value="0">Full HD (1080p)</option></select></label>
+    <label class="devidle"><span>Start my camera when the window opens</span><input type="checkbox" id="devAuto"></label>
+    <div class="btns devidle"><button id="devStart">▶ <span>Start</span></button></div>
+    <div class="btns devlive"><button class="ghost" id="micBtn" data-no-i18n></button><button class="ghost" id="camBtn" data-no-i18n></button></div>
+    <div class="btns devlive"><button class="ghost small" id="devStop">⏹ <span>Leave the room</span></button></div>
+    <a class="link devidle" id="devVdo">Devices missing? Use VDO.Ninja's own picker</a>
+    <div id="me"><div class="off">Not started: pick your camera and microphone above, then Start.</div></div>
+  </div>
+  <div id="view"><div id="stage"><div id="bg" class="bg"></div><div id="dim"></div><img id="logo" alt=""><div id="title" data-no-i18n></div><div id="tiles"></div><div id="empty" data-no-i18n></div><div class="guide v" id="gv"></div><div class="guide h" id="gh"></div></div></div>
+  <div id="editBox" class="side">
+    <h3>🎨 <span>Customise the room</span></h3>
+    <p>Drag the cameras to move them, pull the yellow dot to resize (Shift = free shape). What you see here is exactly what OBS shows.</p>
+    <h4>Layout</h4>
+    <label>Layout <select data-k="layout"><option value="grid">Grid</option><option value="spotlight">Spotlight (one big)</option><option value="side">Big + side column</option><option value="podcast">Podcast (one row)</option><option value="stack">Column (vertical)</option><option value="free">Free (move them yourself)</option></select></label>
+    <div class="btns"><button class="ghost small" id="resetPos">↺ <span>Back to automatic layout</span></button></div>
+    <label>Camera shape <select data-k="shape"><option value="rect">Rectangle</option><option value="rounded">Rounded</option><option value="squircle">Soft square</option><option value="circle">Circle</option><option value="hexagon">Hexagon</option><option value="blob">Blob (moves)</option></select></label>
+    <label>Corner radius <input type="range" min="0" max="120" data-k="radius"></label>
+    <label>Space between cameras <input type="range" min="0" max="120" data-k="gap"></label>
+    <label>Margin <input type="range" min="0" max="240" data-k="padding"></label>
+    <label>Frame thickness <input type="range" min="0" max="30" data-k="border"></label>
+    <label>Frame colour <input type="color" data-k="borderColor"></label>
+    <label>Shadow <input type="checkbox" data-k="glow"></label>
+    <label>Highlight who speaks <input type="checkbox" data-k="speaking"></label>
+    <h4>Names</h4>
+    <label>Names <input type="checkbox" data-k="names"></label>
+    <label>Name tag <input type="color" data-k="nameBg"></label>
+    <label>Name text <input type="color" data-k="nameFg"></label>
+    <h4>Background</h4>
+    <div class="presets" id="presets" data-no-i18n></div>
+    <label>Background <select data-k="bg"><option value="gradient">Gradient</option><option value="radial">Spotlight gradient</option><option value="color">Colour</option><option value="image">My picture</option><option value="none">Transparent</option></select></label>
+    <label>Colour 1 <input type="color" data-k="bgColor1"></label>
+    <label>Colour 2 <input type="color" data-k="bgColor2"></label>
+    <label>Gradient angle <input type="range" min="0" max="360" data-k="bgAngle"></label>
+    <label>Moving gradient <input type="checkbox" data-k="bgAnimate"></label>
+    <div class="btns"><label class="btn ghost" style="background:#ffffff14;color:#fff">🖼 <span>Upload a background</span><input type="file" id="upBg" accept="image/png,image/jpeg,image/webp,image/gif" hidden></label></div>
+    <label>Picture blur <input type="range" min="0" max="40" data-k="bgBlur"></label>
+    <label>Darken the picture <input type="range" min="0" max="90" data-k="bgDim"></label>
+    <h4>Title &amp; logo</h4>
+    <label>Title <input type="text" maxlength="60" data-k="title" placeholder="Podcast du Labo"></label>
+    <label>Title colour <input type="color" data-k="titleColor"></label>
+    <div class="btns"><label class="btn ghost" style="background:#ffffff14;color:#fff">🏷 <span>Upload a logo</span><input type="file" id="upLogo" accept="image/png,image/jpeg,image/webp,image/gif" hidden></label><button class="ghost small" id="noLogo">✕ <span>No logo</span></button></div>
+    <label>Logo position <select data-k="logoPos"><option value="tl">Top left</option><option value="tr">Top right</option><option value="bl">Bottom left</option><option value="br">Bottom right</option></select></label>
+    <label>Logo size <input type="range" min="40" max="600" data-k="logoSize"></label>
+    <h4>Scene size</h4>
+    <div class="sizes" id="sizes" data-no-i18n></div>
+    <h4>People</h4>
+    <div class="ppl" id="ppl" data-no-i18n></div>
+    <h4>Sound</h4>
+    <label>Others' sound in OBS <input type="checkbox" data-k="audioInObs"></label>
+    <div style="height:20px"></div>
+  </div>
+</div>
+<div id="obsPop" data-no-i18n></div>
+<div id="toast" class="toast"></div>
+<script src="shared/i18n.js"></script>
+<script src="shared/savane-id.js"></script>
+<script src="savane.js"></script>
+</body>
+</html>

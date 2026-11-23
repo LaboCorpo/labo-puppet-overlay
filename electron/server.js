@@ -28,7 +28,18 @@ const MAX_CLIENTS = 32;
  * store: Store; getState(): runtime state merged into every 'state' event;
  * onSettings(patch); onAction(name, body) -> optional result object; onAvatarsChanged()
  */
-function createServer({ webDir, soundsDir, store, getState, onSettings, onAction, onAvatarsChanged }) {
+// Background pictures for La savane: PNG, JPEG, WebP or GIF (checked by their first bytes).
+function imageType(b) {
+  if (b.length > 8 && b[0] === 0x89 && b.toString('ascii', 1, 4) === 'PNG') return 'png';
+  if (b.length > 3 && b[0] === 0xff && b[1] === 0xd8 && b[2] === 0xff) return 'jpg';
+  if (b.length > 12 && b.toString('ascii', 0, 4) === 'RIFF' && b.toString('ascii', 8, 12) === 'WEBP') return 'webp';
+  if (b.length > 6 && b.toString('ascii', 0, 4) === 'GIF8') return 'gif';
+  return null;
+}
+const BG_RE = /^[a-f0-9]{16}\.(png|jpg|webp|gif)$/;
+const BG_TYPES = { png: 'image/png', jpg: 'image/jpeg', webp: 'image/webp', gif: 'image/gif' };
+
+function createServer({ webDir, soundsDir, coversDir, bgDir, store, getState, onSettings, onAction, onAvatarsChanged }) {
   const root = path.resolve(webDir);
   const clients = new Set();
 
@@ -121,6 +132,16 @@ function createServer({ webDir, soundsDir, store, getState, onSettings, onAction
     });
   }
 
+  // Album covers read from the Windows media session (see nowplaying.js).
+  function serveCover(name, res) {
+    if (!/^[a-f0-9]{12}\.(jpg|png)$/.test(name)) { res.writeHead(404); return res.end(); }
+    fs.readFile(path.join(coversDir, name), (err, data) => {
+      if (err) { res.writeHead(404); return res.end('Not found'); }
+      res.writeHead(200, { 'Content-Type': name.endsWith('.png') ? 'image/png' : 'image/jpeg', 'Content-Length': data.length, 'Cache-Control': 'max-age=86400', 'X-Content-Type-Options': 'nosniff' });
+      res.end(data);
+    });
+  }
+
   const server = http.createServer(async (req, res) => {
     // Host check blocks DNS-rebinding pages from reading the API through a hostname they control.
     if (!LOCAL_HOST.test(req.headers.host || '')) { res.writeHead(421); return res.end(); }
@@ -132,6 +153,16 @@ function createServer({ webDir, soundsDir, store, getState, onSettings, onAction
       if (!p.startsWith('/api/')) {
         if (m !== 'GET' && m !== 'HEAD') { res.writeHead(405); return res.end(); }
         if (p.startsWith('/sounds/') && soundsDir) return serveSound(p.slice(8), res);
+        if (p.startsWith('/covers/') && coversDir) return serveCover(p.slice(8), res);
+        if (p.startsWith('/backgrounds/') && bgDir) {
+          const name = p.slice(13);
+          if (!BG_RE.test(name)) { res.writeHead(404); return res.end(); }
+          return fs.readFile(path.join(bgDir, name), (err, data) => {
+            if (err) { res.writeHead(404); return res.end('Not found'); }
+            res.writeHead(200, { 'Content-Type': BG_TYPES[name.split('.')[1]], 'Content-Length': data.length, 'Cache-Control': 'max-age=86400', 'X-Content-Type-Options': 'nosniff' });
+            res.end(data);
+          });
+        }
         return serveStatic(p, res);
       }
       // Mutations only from pages served here (or non-browser clients): other websites can't poke the API.
@@ -165,6 +196,15 @@ function createServer({ webDir, soundsDir, store, getState, onSettings, onAction
         await fs.promises.writeFile(path.join(soundsDir, file), buf);
         const name = String(url.searchParams.get('name') || file).slice(0, 80);
         return json(res, 200, { ok: true, file, name });
+      }
+      if (p === '/api/backgrounds' && m === 'POST' && bgDir) {
+        const buf = await readRaw(req, 8 * 1024 * 1024);
+        const type = imageType(buf);
+        if (!type) throw new Error('Not a PNG, JPEG, WebP or GIF picture');
+        const file = crypto.createHash('sha1').update(buf).digest('hex').slice(0, 16) + '.' + type;
+        await fs.promises.mkdir(bgDir, { recursive: true });
+        await fs.promises.writeFile(path.join(bgDir, file), buf);
+        return json(res, 200, { ok: true, url: '/backgrounds/' + file });
       }
       if (p.startsWith('/api/sounds/') && m === 'DELETE' && soundsDir) {
         const file = decodeURIComponent(p.slice('/api/sounds/'.length));

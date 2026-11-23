@@ -93,7 +93,8 @@
   let lastRealChat = 0;
   function onChat(m) {
     if (!scene.settings) return;
-    const speak = !m.fake && !m.system && m.text && sound.enabled();
+    const snd = (scene.settings.twitch && scene.settings.twitch.sound) || {};
+    const speak = !m.fake && !m.system && m.text && sound.enabled() && !(m.self && snd.skipSelf !== false);
     if (speak) {
       sound.say({
         login: m.login, display: m.display, text: m.text,
@@ -140,7 +141,7 @@
     on('viewers-reset', () => twitch.setOverrides({}));
     on('fx-test', () => { discord.replay(); wake(); });
     on('alert-sound', onAlertSound);
-    es.onerror = () => { if (!DESKTOP) return; hint.style.display = 'block'; hint.textContent = t('Puppet Overlay app not reachable — retrying…'); };
+    es.onerror = () => { if (!DESKTOP) return; hint.style.display = 'block'; hint.textContent = t('LaboHub app not reachable — retrying…'); };
     es.onopen = () => { hint.style.display = 'none'; };
   }
 

@@ -59,10 +59,12 @@
     ['subs', 'Subs', '600 × 120'],
     ['latest-follower', 'Latest follower', '700 × 120'],
     ['latest-sub', 'Latest sub', '700 × 120'],
-    ['spotify', 'Now playing (Spotify)', '800 × 160'],
+    ['spotify', 'Now playing (Spotify)', '800 × 200 (Gallery: 500 × 500)'],
+    ['chat', 'Live chat', '500 × 700'],
     ['alerts', 'Alert sounds (only with “Played by OBS”)', '300 × 100'],
   ];
   const list = $('#widgetList');
+  const CUSTOM = { followers: 'followers', subs: 'subs', 'latest-follower': 'latestFollower', 'latest-sub': 'latestSub', spotify: 'spotify', chat: 'chat' };
   let builtLang = '';
   function buildWidgets() {
     if (builtLang === I18N.lang) return;
@@ -74,7 +76,7 @@
         <div class="wprev checker"><iframe data-src="widget.html?w=${w}&preview=1" src="about:blank" title="${escapeHtml(t(name))}"></iframe></div>
         <div class="wmeta"><b>${escapeHtml(t(name))}</b>
           <div class="url"><code>${escapeHtml(url)}</code><button class="small" data-copyurl="${escapeHtml(url)}">${escapeHtml(t('Copy'))}</button></div>
-          <span class="muted">${escapeHtml(t('Suggested size: {size}', { size }))}</span></div>
+          <span class="muted">${escapeHtml(t('Suggested size: {size}', { size }))}</span>${CUSTOM[w] ? ` <button class="ghost small" data-customize="${CUSTOM[w]}">🎨 ${escapeHtml(t('Customise'))}</button>` : ''}</div>
       </div>`;
     }).join('');
     if (shown) loadPreviews(true);
@@ -102,7 +104,7 @@
     toast(t('Copied to clipboard'));
   });
 
-  const NP = { off: 'off', waiting: 'Spotify not detected — is the desktop app open?', running: 'connected', unsupported: 'Windows only', error: 'Could not watch Spotify (PowerShell blocked?)' };
+  const NP = { off: 'off', waiting: 'Nothing playing — is the Spotify app open?', running: 'connected', unsupported: 'Windows only', error: 'Could not read the music (PowerShell blocked?)' };
   function renderLive(s) {
     const st = s.stats;
     const acc = s.twitchAccount || {};
@@ -119,7 +121,10 @@
     }
     $('#statsNow').textContent = now;
     const np = s.nowPlaying || { status: 'off' };
-    $('#npStatus').textContent = np.playing ? `♪ ${np.artist ? np.artist + ' — ' : ''}${np.title}` : t(NP[np.status] || np.status) + (np.status === 'running' ? ' · ' + t('paused') : '');
+    let txt = np.playing ? `♪ ${np.artist ? np.artist + ' — ' : ''}${np.title}${np.app && np.app !== 'Spotify' ? ` (${np.app})` : ''}` : t(NP[np.status] || np.status) + (np.status === 'running' ? ' · ' + t('paused') : '');
+    // Old fallback (Spotify window title): no position, cover looked up online.
+    if (np.source === 'window' && np.status === 'running') txt += ' · ' + t('basic mode (window title)');
+    $$('.np-status').forEach((el) => { el.textContent = txt; });
   }
 
   Panel.onTab((name) => { if (name === 'stream') { buildWidgets(); loadPreviews(true); } else loadPreviews(false); });

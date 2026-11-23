@@ -57,7 +57,12 @@ function viewer(login, tags) {
 }
 
 class TwitchChat extends EventEmitter {
-  /** opts: { getSettings(), setOverride(login, patch|null) } */
+  /**
+   * opts: { getSettings(), setOverride(login, patch|null),
+   *         getExtra() -> { active, channel, marker: { enabled, name } } (optional) }
+   * extra.active keeps the chat connected without viewer puppets (alert sounds, timestamps);
+   * extra.channel is used when no channel is typed in the Twitch tab (the logged-in account).
+   */
   constructor(opts) {
     super();
     this.o = opts;
@@ -71,12 +76,16 @@ class TwitchChat extends EventEmitter {
     this.lastRx = 0;
   }
 
+  extra() { return (this.o.getExtra && this.o.getExtra()) || {}; }
+
   setStatus(s, detail) { this.status = s; this.detail = detail || ''; this.emit('status'); }
 
   // Called whenever settings change; (re)connects only when the channel actually changed.
   sync() {
     const cfg = this.o.getSettings();
-    const want = cfg.enabled && cfg.channel ? String(cfg.channel).toLowerCase().replace(/^#/, '').replace(/^https?:\/\/(www\.)?twitch\.tv\//, '').trim() : '';
+    const extra = this.extra();
+    const chan = cfg.channel || extra.channel || '';
+    const want = (cfg.enabled || extra.active) && chan ? String(chan).toLowerCase().replace(/^#/, '').replace(/^https?:\/\/(www\.)?twitch\.tv\//, '').trim() : '';
     if (want === this.channel && (this.ws || !want)) return;
     this.channel = want;
     this.close();
@@ -154,8 +163,26 @@ class TwitchChat extends EventEmitter {
     if (text.startsWith('\u0001ACTION ')) text = text.slice(8, -1);
     text = text.slice(0, MAX_TEXT);
     const base = viewer(login, tags);
+    if (login === this.channel) base.self = true; // the streamer's own messages: no chat sound by default
+    // Roles and extras for Labo test (chat bot permissions, giveaway luck, welcome, emote rain).
+    const badges = String(tags.badges || '');
+    if (tags.mod === '1') base.mod = true;
+    if (/(^|,)broadcaster\//.test(badges)) base.broadcaster = true;
+    if (tags.subscriber === '1' || /(^|,)(subscriber|founder)\//.test(badges)) base.sub = true;
+    if (/(^|,)vip\//.test(badges)) base.vip = true;
+    if (tags['first-msg'] === '1') base.first = true;
+    if (tags.emotes && /^[\w:,\/-]{1,2000}$/.test(tags.emotes)) base.emotes = tags.emotes;
     if (tags.bits) this.emit('event', Object.assign({ type: 'bits', amount: Number(tags.bits) || 0 }, base));
     const cfg = this.o.getSettings();
+    // "!clip [note]": a stream timestamp, only from the broadcaster or a moderator.
+    const mk = this.extra().marker;
+    const mm = mk && mk.enabled ? text.match(/^!(\S+)\s*(.*)$/) : null;
+    if (mm && mm[1].toLowerCase() === mk.name) {
+      const allowed = tags.mod === '1' || /(^|,)broadcaster\//.test(tags.badges || '') || login === this.channel;
+      if (allowed) this.emit('marker', { by: base.display, note: mm[2].slice(0, 140) });
+      this.emit('chat', Object.assign({ text: cfg.hideCommands !== false ? null : text }, base));
+      return;
+    }
     const prefix = cfg.commandPrefix || '!';
     if (cfg.commandsEnabled !== false && text.startsWith(prefix)) {
       const handled = this.onCommand(base, text.slice(prefix.length).trim());

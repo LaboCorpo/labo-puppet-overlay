@@ -1,8 +1,8 @@
 {
-  "name": "puppet-overlay",
-  "productName": "Puppet Overlay",
-  "version": "0.11.0",
-  "description": "Discord voice overlay with paper puppets, avatar creator and Twitch viewers",
+  "name": "labohub",
+  "productName": "LaboHub",
+  "version": "1.6.0",
+  "description": "LaboHub: Discord voice puppets, Twitch tools, OBS widgets, streaming hub and stream timestamps",
   "main": "electron/main.js",
   "private": true,
   "scripts": {
@@ -15,8 +15,8 @@
     "electron-builder": "26.18.0"
   },
   "build": {
-    "appId": "com.puppetoverlay.app",
-    "productName": "Puppet Overlay",
+    "appId": "fr.labo.hub",
+    "productName": "LaboHub",
     "files": [
       "electron/**",
       "web/**",
@@ -31,22 +31,15 @@
       ]
     },
     "portable": {
-      "artifactName": "PuppetOverlay-${version}-portable.exe"
+      "artifactName": "LaboHub-${version}-portable.exe"
     },
     "nsis": {
-      "artifactName": "PuppetOverlay-${version}-setup.exe",
+      "artifactName": "LaboHub-${version}-setup.exe",
       "oneClick": true,
       "perMachine": false,
       "runAfterFinish": true,
       "deleteAppDataOnUninstall": false
-    },
-    "publish": [
-      {
-        "provider": "github",
-        "owner": "LaboCorpo",
-        "repo": "labo-puppet-overlay"
-      }
-    ]
+    }
   },
   "dependencies": {
     "electron-updater": "^6.8.11"

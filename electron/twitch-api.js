@@ -7,8 +7,12 @@ const { EventEmitter } = require('events');
 
 const ID = 'https://id.twitch.tv/oauth2';
 const HELIX = 'https://api.twitch.tv/helix';
-// Followers and subs counters, raids, Stream Together (Guest Star) invites, sending chat messages.
-const SCOPES = ['moderator:read:followers', 'channel:read:subscriptions', 'channel:manage:raids', 'channel:manage:guest_star', 'user:write:chat'];
+// Counters, raids, Stream Together (Guest Star) invites, sending chat, stream markers (channel:manage:broadcast).
+const SCOPES = ['moderator:read:followers', 'channel:read:subscriptions', 'channel:manage:raids', 'channel:manage:guest_star', 'user:write:chat', 'channel:manage:broadcast',
+  // v1.5: moderation from the hub, real clips from timestamps, channel points (Labo test)
+  'moderator:manage:chat_messages', 'moderator:manage:banned_users', 'moderator:manage:chat_settings', 'clips:edit', 'channel:read:redemptions',
+  // v1.6 (Labo test): ad warning + snooze, real shoutouts from !so
+  'channel:read:ads', 'channel:manage:ads', 'moderator:manage:shoutouts'];
 const VALIDATE_MS = 60 * 60 * 1000; // Twitch asks apps to validate tokens hourly
 
 class TwitchApi extends EventEmitter {

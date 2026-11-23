@@ -176,7 +176,25 @@ Raids, subs and bits trigger effects. Chat messages can also be read aloud or tu
 - **Stream widgets** tab: followers, subs, latest follower, latest sub and the song playing in Spotify. Each one is its own **Browser** source in OBS: copy its address, then move and resize it as you like.
 - **Streaming hub** tab: type the crew's Twitch channels to see who is live. From there you can read their chats, send messages, **raid** them (click twice to confirm) or invite them to **Stream Together** (open Stream Together in your Twitch Stream Manager first).
 - Counters, follows, raids, Stream Together and sending messages need you to **log in with Twitch** (in those tabs). Twitch shows a code to confirm on its website; you never type your password in the app.
-- Spotify: works with the Spotify desktop app, no Spotify login. Keep Spotify open or minimized.
+- Spotify: works with the Spotify desktop app, no Spotify login. The widget shows the song, the real album cover, the album and the progress (read from the Windows media controls). Keep Spotify open or minimized. Option: any music player.
+- Each widget has its own page in the left menu (under **Stream widgets**): themes, appearance, picture (album cover / profile picture), colours, text, sizes, icon, animations, content.
+
+- **Live chat** widget (Twitch chat in OBS, merged during a collab) and **Scenes**: several widgets in one OBS source, at the size you choose (drag them on the canvas).
+- **Hub Labo → Multi-stream**: up to 6 channels with their video; **Merge the chats** during a collab (“you x your friend”). Hover a message to delete it, time out or ban (your channel or where you are a moderator).
+- **Clips**: choose the timestamp shortcut; a real Twitch clip can be created at the same time and opened in one click.
+
+## 8b. La savane 🍌, BabaDeck, Labo test, Discord bot
+
+- **La savane**: a video room for the crew (it uses the free VDO.Ninja service). Create a room, send the invitation, click **Join**, pick your camera, microphone and quality, then **Start** (the microphone starts muted: 🔇 turns it on). **🎨 Customise** in the room window: drag and resize the cameras, background presets or your picture, logo, title, names; what you see is what OBS shows. **📺 OBS links** gives one link for the whole room and one per camera (with or without its frame).
+- **BabaDeck**: your Stream Deck without the hardware. Connect OBS (OBS: *Tools → WebSocket Server Settings*), then make buttons: change scene, mute the mic, start the stream, clip, sound, chat message… Each button can have a shortcut that works in game, and there is a floating deck window.
+- **Labo test**: things you can turn on, each one off by default.
+  - *Experiments*: hype detector, channel points → BabaDeck, raid thank-you, break reminder, stream health alerts, “starting soon” countdown.
+  - *Chat bot* (answers with your Twitch account): your own commands (`!discord`…), timers, `!uptime`, `!so`, `!lurk`, `!commands`, a welcome for first-time chatters, sound commands viewers can play (`!airhorn`…).
+  - *Viewer games*: giveaway (subs can get more tickets), chat poll, counters (`!death+`), viewer queue (`!play`), emote rain, hype meter, end screen. Each one has its OBS link and a preview.
+  - *Streamer tools*: change the title and category with presets, ad warning with snooze, “I'm live” message on Discord (webhook), stream summary, checklist before going live.
+  - The ad warning and the real `!so` shoutout need new Twitch permissions: log in to Twitch again once.
+- **Discord bot** (Puppet Overlay tab): friends type `/puppet create` in Discord to make their puppet without installing anything. One person (the host) runs it.
+- **Updates**: *Settings → Check for updates* downloads only the new version (a few MB) and restarts the app; no need to download the installer again.
 
 ## 9. Other things you can tweak
 

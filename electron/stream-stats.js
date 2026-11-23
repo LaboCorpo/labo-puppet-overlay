@@ -1,6 +1,7 @@
 /*
- * Live channel counters for the OBS widgets: followers, subs (Helix, polled) and the latest follower/sub.
- * New followers are detected between polls (Helix lists the newest first) and reported as 'follow' events.
+ * Live channel counters for the OBS widgets: followers, subs (Helix, polled) and the latest follower/sub
+ * (with their Twitch profile picture). New followers are detected between polls (Helix lists the newest first)
+ * and reported as 'follow' events.
  */
 const { EventEmitter } = require('events');
 
@@ -14,11 +15,12 @@ class StreamStats extends EventEmitter {
     this.timer = null;
     this.soon = null;
     this.forUser = null;
+    this.avatars = new Map(); // login -> profile picture URL (or null)
     this.reset();
   }
 
   reset() {
-    this.data = { followers: null, subs: null, subPoints: null, latestFollower: null, latestSub: null, errors: {}, updatedAt: 0 };
+    this.data = { followers: null, subs: null, subPoints: null, latestFollower: null, latestSub: null, live: null, errors: {}, updatedAt: 0 };
     this.lastFollowerId = null;
   }
 
@@ -38,6 +40,7 @@ class StreamStats extends EventEmitter {
     if (e.bundled) return;
     this.data.latestSub = { login: e.login, display: e.display, kind: e.kind || 'sub', count: e.count || 1, at: Date.now() };
     this.emit('change');
+    this.attachAvatar('latestSub');
     clearTimeout(this.soon);
     this.soon = setTimeout(() => this.poll(), 5000);
   }
@@ -63,7 +66,7 @@ class StreamStats extends EventEmitter {
         if (this.lastFollowerId && newest.user_id !== this.lastFollowerId && (r.total || 0) >= (this.data.followers || 0)) {
           this.emit('follow', { type: 'follow', login: f.login, display: f.display, color: null });
         }
-        if (this.lastFollowerId !== newest.user_id) { this.lastFollowerId = newest.user_id; this.data.latestFollower = f; changed = true; }
+        if (this.lastFollowerId !== newest.user_id) { this.lastFollowerId = newest.user_id; this.data.latestFollower = f; changed = true; this.attachAvatar('latestFollower'); }
       }
       set('followers', Number(r.total) || 0);
     } catch (e) { fail('followers', e); }
@@ -75,8 +78,38 @@ class StreamStats extends EventEmitter {
       set('subPoints', Number(r.points) || 0);
     } catch (e) { fail('subs', e); }
 
+    // Your own live (timestamps tab, status): start time, title, viewers.
+    try {
+      const r = await this.api.helix('GET', 'streams', { user_id: id });
+      const st = (r.data || [])[0];
+      const live = st ? { startedAt: st.started_at, title: st.title, game: st.game_name, viewers: st.viewer_count } : null;
+      if (JSON.stringify(live) !== JSON.stringify(this.data.live)) { this.data.live = live; changed = true; }
+    } catch (e) { /* the counters are still useful without it */ }
+
     if (changed) { this.data.updatedAt = Date.now(); this.emit('change'); }
   }
 }
+
+// Profile picture of the latest follower / sub, added once Helix answers (the name shows right away).
+StreamStats.prototype.attachAvatar = async function (key) {
+  const entry = this.data[key];
+  if (!entry || !entry.login) return;
+  const url = await this.avatarOf(entry.login);
+  if (url && this.data[key] === entry) { this.data[key] = Object.assign({}, entry, { avatar: url }); this.data.updatedAt = Date.now(); this.emit('change'); }
+};
+StreamStats.prototype.avatarOf = async function (login) {
+  const key = String(login).toLowerCase();
+  if (!/^[a-z0-9_]{1,25}$/.test(key)) return null;
+  if (this.avatars.has(key)) return this.avatars.get(key);
+  let url = null;
+  try {
+    const r = await this.api.helix('GET', 'users', { login: key });
+    const u = (r.data || [])[0];
+    if (u && typeof u.profile_image_url === 'string' && /^https:\/\//.test(u.profile_image_url)) url = u.profile_image_url;
+  } catch (e) { return null; } // not cached: try again next time
+  if (this.avatars.size > 300) this.avatars.clear();
+  this.avatars.set(key, url);
+  return url;
+};
 
 module.exports = { StreamStats };
