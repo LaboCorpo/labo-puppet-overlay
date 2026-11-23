@@ -209,3 +209,17 @@ body.a-center .l-stacked .wg-body, body.a-center .l-stacked .wg-line { align-ite
 .l-plain .cmsg.wg { background: none !important; border: 0 !important; box-shadow: none !important; padding: 0; backdrop-filter: none; }
 .l-compact .cmsg.wg { padding: calc(var(--pad) * .45) calc(var(--pad) * .9); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .l-compact .chat-msgs { gap: calc(var(--gap) * .5); }
+
+/* ---------- v1.7: your picture behind the widget, picture icons, game counters, alert GIFs ---------- */
+.wg.has-bgi { isolation: isolate; }
+.wg.has-bgi::after { content: ''; position: absolute; inset: 0; border-radius: inherit; background-image: var(--bgi); background-position: center; background-size: cover;
+  background-repeat: no-repeat; opacity: var(--bgio, 1); z-index: -1; pointer-events: none; }
+.wg.bgi-contain::after { background-size: contain; }
+.wg.bgi-tile::after { background-size: auto; background-repeat: repeat; }
+.wg-ic.img img { width: 100%; height: 100%; object-fit: contain; filter: drop-shadow(0 1px 2px rgba(0,0,0,.3)); }
+.k-game .vs-sep { opacity: .6; margin: 0 .25em; }
+.alert-gif { display: block; max-width: 100vw; max-height: 100vh; object-fit: contain; animation: gifIn .35s cubic-bezier(.2,.8,.2,1) both; }
+.alert-gif.out { animation: gifOut .35s ease both; }
+@keyframes gifIn { from { opacity: 0; transform: scale(.85); } }
+@keyframes gifOut { to { opacity: 0; transform: scale(.9); } }
+body.alert-on #root { position: fixed; inset: 0; display: grid; place-items: center; max-width: none; }

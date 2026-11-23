@@ -164,7 +164,7 @@ class TwitchChat extends EventEmitter {
     text = text.slice(0, MAX_TEXT);
     const base = viewer(login, tags);
     if (login === this.channel) base.self = true; // the streamer's own messages: no chat sound by default
-    // Roles and extras for Labo test (chat bot permissions, giveaway luck, welcome, emote rain).
+    // Roles and extras for Baba Bot and My stream (bot permissions, giveaway luck, welcome).
     const badges = String(tags.badges || '');
     if (tags.mod === '1') base.mod = true;
     if (/(^|,)broadcaster\//.test(badges)) base.broadcaster = true;

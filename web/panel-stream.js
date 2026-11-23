@@ -61,10 +61,11 @@
     ['latest-sub', 'Latest sub', '700 × 120'],
     ['spotify', 'Now playing (Spotify)', '800 × 200 (Gallery: 500 × 500)'],
     ['chat', 'Live chat', '500 × 700'],
-    ['alerts', 'Alert sounds (only with “Played by OBS”)', '300 × 100'],
+    ['counter', 'Game counter (deaths, wins…)', '600 × 120'],
+    ['alerts', 'Alerts (GIF + sound)', '800 × 600'],
   ];
   const list = $('#widgetList');
-  const CUSTOM = { followers: 'followers', subs: 'subs', 'latest-follower': 'latestFollower', 'latest-sub': 'latestSub', spotify: 'spotify', chat: 'chat' };
+  const CUSTOM = { followers: 'followers', subs: 'subs', 'latest-follower': 'latestFollower', 'latest-sub': 'latestSub', spotify: 'spotify', chat: 'chat', counter: 'gameCounter' };
   let builtLang = '';
   function buildWidgets() {
     if (builtLang === I18N.lang) return;

@@ -10,13 +10,14 @@
   'use strict';
 
   // Widget -> kind. A property applies to some kinds only.
-  const KIND = { followers: 'counter', subs: 'counter', latestFollower: 'latest', latestSub: 'latest', spotify: 'spotify', chat: 'chat' };
+  // gameCounter: deaths, wins/losses… (settings.lab.counters), one look shared by every game counter.
+  const KIND = { followers: 'counter', subs: 'counter', latestFollower: 'latest', latestSub: 'latest', spotify: 'spotify', chat: 'chat', gameCounter: 'counter' };
   const WIDGETS = Object.keys(KIND);
   const ALL = ['counter', 'latest', 'spotify'];
   // Editor menus, in order. 'media' is the album cover (Spotify) or the profile picture (latest follower / sub).
   const GROUPS = [
     ['presets', 'Themes'], ['appearance', 'Appearance'], ['media', 'Picture'], ['colors', 'Colours'], ['text', 'Text'],
-    ['box', 'Size & spacing'], ['icon', 'Icon'], ['anim', 'Animations'], ['content', 'Content'],
+    ['box', 'Size & spacing'], ['icon', 'Icon'], ['anim', 'Animations'], ['content', 'Content'], ['code', 'Custom code'],
   ];
   const FONTS = ['Segoe UI', 'Bahnschrift', 'Arial', 'Arial Black', 'Calibri', 'Cambria', 'Candara', 'Comic Sans MS', 'Consolas', 'Constantia',
     'Corbel', 'Courier New', 'Franklin Gothic Medium', 'Gabriola', 'Georgia', 'Impact', 'Ink Free', 'Lucida Console', 'Palatino Linotype',
@@ -32,6 +33,10 @@
     def: { counter: 'inline', latest: 'inline', spotify: 'compact', chat: 'stack' } });
   add('frame', { group: 'appearance', label: 'Frame', type: 'enum', cards: true, values: ['none', 'pill', 'card', 'glass', 'outline', 'neon', 'paper', 'gradient'], def: 'pill' });
   add('align', { group: 'appearance', label: 'Alignment', type: 'enum', values: ['left', 'center', 'right'], def: 'left' });
+  // Your own picture behind the widget (imported in the editor), over the background colour.
+  add('bgImage', { group: 'appearance', label: 'Background picture', type: 'image', def: '' });
+  add('bgImageOpacity', { group: 'appearance', label: 'Picture opacity', type: 'num', min: 0, max: 100, step: 5, unit: '%', def: 100 });
+  add('bgImageFit', { group: 'appearance', label: 'Picture fit', type: 'enum', values: ['cover', 'contain', 'tile'], def: 'cover' });
 
   // ---------- Colours ----------
   add('textColor', { group: 'colors', label: 'Text', type: 'color', def: '#ffffff' });
@@ -74,7 +79,8 @@
   add('avatarRing', { group: 'media', label: 'Accent ring around the picture', type: 'bool', kinds: ['latest'], def: true });
 
   // ---------- Icon ----------
-  add('icon', { group: 'icon', label: 'Icon', type: 'enum', values: ['none', 'heart', 'star', 'user', 'crown', 'gift', 'bolt', 'music', 'fire', 'custom'], def: 'none' });
+  add('icon', { group: 'icon', label: 'Icon', type: 'enum', values: ['none', 'heart', 'star', 'user', 'crown', 'gift', 'bolt', 'music', 'fire', 'skull', 'trophy', 'custom', 'image'], def: 'none' });
+  add('iconImage', { group: 'icon', label: 'Icon picture (when Icon = picture)', type: 'image', def: '' });
   add('iconText', { group: 'icon', label: 'Custom icon (emoji or text)', type: 'text', max: 4, def: '★' });
   add('iconColor', { group: 'icon', label: 'Icon colour', type: 'color', def: '#ff5fa2' });
   add('iconSize', { group: 'icon', label: 'Icon size', type: 'num', min: 50, max: 200, step: 5, unit: '%', def: 100 });
@@ -105,11 +111,14 @@
   add('showApp', { group: 'content', label: 'Show the player name', type: 'bool', kinds: ['spotify'], def: false });
   add('hideWhenPaused', { group: 'content', label: 'Hide when nothing is playing', type: 'bool', kinds: ['spotify'], def: true });
 
+  // ---------- Custom code: CSS added after the widget's own styles (classes: .wg, .wg-label, .wg-val, .num…) ----------
+  add('customCss', { group: 'code', label: 'Custom CSS', type: 'code', max: 8000, def: '' });
+
   // ---------- Live chat widget ----------
   // Style properties shared with the other widgets (each message is a box styled like a widget).
   ['layout', 'frame', 'align', 'textColor', 'subColor', 'accent', 'bgColor', 'bgOpacity', 'gradColor', 'gradAngle', 'borderColor', 'borderOpacity',
     'font', 'fontWeight', 'size', 'labelScale', 'letterSpacing', 'uppercase', 'italic', 'textShadow', 'radius', 'padding', 'gap', 'borderWidth', 'width',
-    'shadow', 'blur', 'entrance', 'speed', 'showLabel', 'label'].forEach((k) => PROPS.find((p) => p.key === k).kinds.push('chat'));
+    'shadow', 'blur', 'entrance', 'speed', 'showLabel', 'label', 'customCss'].forEach((k) => PROPS.find((p) => p.key === k).kinds.push('chat'));
   add('maxMessages', { group: 'content', label: 'Messages shown', type: 'num', min: 1, max: 40, step: 1, kinds: ['chat'], def: 8 });
   add('fadeAfter', { group: 'content', label: 'Hide a message after (0 = never)', type: 'num', min: 0, max: 600, step: 5, unit: 's', kinds: ['chat'], def: 0 });
   add('newest', { group: 'content', label: 'Newest message', type: 'enum', values: ['bottom', 'top'], kinds: ['chat'], def: 'bottom' });
@@ -129,6 +138,7 @@
     latestSub: { icon: 'crown', iconColor: '#ffd166' },
     spotify: { showLabel: false, accent: '#2fd4a3', icon: 'none' },
     chat: { showLabel: false, size: 22, fontWeight: 600, radius: 14, padding: 9, gap: 8, frame: 'card', entrance: 'slide-up', uppercase: false, width: 420 },
+    gameCounter: { icon: 'skull', iconColor: '#ff4f5e', accent: '#ff4f5e', update: 'shake' },
   };
 
   // Ready-made themes: only style properties (labels, goals and other content are kept).
@@ -145,6 +155,8 @@
     { id: 'mono', name: 'Mono', props: { frame: 'card', bgColor: '#000000', bgOpacity: 85, accent: '#ffffff', textColor: '#ffffff', subColor: '#bdbdbd', iconColor: '#ffffff', radius: 6, borderWidth: 0, shadow: 'none', textShadow: 'none', font: 'Arial Black', fontWeight: 900 } },
   ];
   const CONTENT_KEYS = new Set(PROPS.filter((p) => p.group === 'content').map((p) => p.key).concat(['layout', 'cover']));
+  // Not in share codes: pictures are files on this PC, and code is only run when you write it yourself.
+  const NO_SHARE = new Set(['bgImage', 'iconImage', 'customCss']);
 
   const propsFor = (w) => PROPS.filter((p) => p.kinds.includes(KIND[w]));
   const valuesFor = (p, w) => (Array.isArray(p.values) ? p.values : p.values[KIND[w]]);
@@ -156,6 +168,8 @@
   function defaultLook(w) { const o = {}; for (const p of propsFor(w)) o[p.key] = defFor(p, w); return o; }
 
   const COLOR_RE = /^#[0-9a-f]{6}$/i;
+  // Pictures imported through the app: /backgrounds/<hash> or a picture of the "Son Twitch" folder (/media/<name>).
+  const IMAGE_RE = /^(\/backgrounds\/[a-f0-9]{16}\.(png|jpg|webp|gif)|\/media\/[^"'()\\<>\s]{1,240})?$/;
   const FONT_RE = /^[\w .,'-]{1,60}$/; // goes into CSS font-family: no quotes, braces or semicolons
   function cleanValue(p, w, v) {
     switch (p.type) {
@@ -164,6 +178,8 @@
       case 'bool': return typeof v === 'boolean' ? v : undefined;
       case 'font': return typeof v === 'string' && FONT_RE.test(v.trim()) ? v.trim() : undefined;
       case 'text': return typeof v === 'string' ? v.replace(/[\u0000-\u001f\u007f]/g, '').slice(0, p.max) : undefined;
+      case 'image': return typeof v === 'string' && IMAGE_RE.test(v) ? v : undefined;
+      case 'code': return typeof v === 'string' ? v.replace(/\u0000/g, '').slice(0, p.max) : undefined;
       case 'num': {
         const n = typeof v === 'string' && v.trim() !== '' ? Number(v) : v;
         if (typeof n !== 'number' || !Number.isFinite(n)) return undefined;
@@ -221,7 +237,7 @@
     return typeof TextDecoder !== 'undefined' ? new TextDecoder().decode(bytes) : Buffer.from(bytes).toString('utf8');
   }
   function encodeStyle(look) {
-    const o = {}; for (const [k, v] of Object.entries(look)) if (!CONTENT_KEYS.has(k)) o[k] = v;
+    const o = {}; for (const [k, v] of Object.entries(look)) if (!CONTENT_KEYS.has(k) && !NO_SHARE.has(k)) o[k] = v;
     return 'WID1.' + b64e(JSON.stringify(o));
   }
   /** Returns the look with the shared style applied, or null when the code is not valid. */
@@ -231,10 +247,23 @@
     let o;
     try { o = JSON.parse(b64d(m[1])); } catch (e) { return null; }
     if (!o || typeof o !== 'object') return null;
+    for (const k of NO_SHARE) delete o[k];
     return sanitizeLook(w, copyStyle(o, look, w), look);
   }
+  /** "My templates": the style part of a look, every value checked (any widget kind). */
+  function cleanStyle(style) {
+    const out = {};
+    if (!style || typeof style !== 'object') return out;
+    for (const p of PROPS) {
+      if (CONTENT_KEYS.has(p.key) || !(p.key in style)) continue;
+      const w = WIDGETS.find((x) => p.kinds.includes(KIND[x]));
+      const v = w ? cleanValue(p, w, style[p.key]) : undefined;
+      if (v !== undefined) out[p.key] = v;
+    }
+    return out;
+  }
 
-  const api = { KIND, WIDGETS, GROUPS, FONTS, PROPS, PRESETS, CONTENT_KEYS, propsFor, valuesFor, defFor, defaultLook, sanitizeLook, sanitizeLooks, applyPreset, copyStyle, encodeStyle, decodeStyle };
+  const api = { KIND, WIDGETS, GROUPS, FONTS, PROPS, PRESETS, CONTENT_KEYS, NO_SHARE, IMAGE_RE, cleanStyle, propsFor, valuesFor, defFor, defaultLook, sanitizeLook, sanitizeLooks, applyPreset, copyStyle, encodeStyle, decodeStyle };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else root.WidgetSchema = api;
 })(typeof window !== 'undefined' ? window : globalThis);

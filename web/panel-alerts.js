@@ -1,4 +1,7 @@
-/* Panel tab "Alert sounds": several audio files per Twitch event, uploaded to the app (/api/sounds). */
+/*
+ * Panel tab "Alert sounds": several sounds per Twitch event, chosen in the Son Twitch folder (or imported into it),
+ * each with an optional GIF shown by the OBS "Alerts" source while it plays. Sounds uploaded before v1.7 still play.
+ */
 (function () {
   'use strict';
   const { $, t, escapeHtml, toast } = Panel;
@@ -23,29 +26,32 @@
     Panel.save(`alerts.${key}.sounds`, list);
     render(true);
   }
-  // Removes the stored file unless another event still uses it.
+  // Removes an old uploaded file (not the Son Twitch folder: those are yours) unless another event still uses it.
   function forget(file) {
+    if (!/^[a-f0-9]{16}\.(mp3|wav|ogg)$/.test(file)) return;
     const used = EVENTS.some(([k]) => cfg()[k].sounds.some((x) => x.file === file));
     if (!used) fetch('/api/sounds/' + encodeURIComponent(file), { method: 'DELETE' }).catch(() => {});
   }
   function play(s) {
     if (preview) preview.pause();
-    preview = new Audio('/sounds/' + encodeURIComponent(s.file));
+    preview = new Audio(Panel.mediaUrl(s.file));
     preview.volume = Math.max(0, Math.min(1, s.volume * cfg().volume));
     preview.play().catch(() => toast(t('Could not play this file')));
   }
 
-  async function upload(key, files) {
+  // Adds files of the Son Twitch folder to an event (imported files are copied into the folder first).
+  function addFiles(key, files) {
     const list = sounds(key);
-    for (const f of files) {
+    for (const file of files) {
       if (list.length >= 30) { toast(t('30 sounds max per event')); break; }
-      if (f.size > 20 * 1024 * 1024) { toast(t('{name}: file too large (max 20 MB)', { name: f.name })); continue; }
-      const r = await fetch('/api/sounds?name=' + encodeURIComponent(f.name.replace(/\.(mp3|wav|ogg)$/i, '')), { method: 'POST', headers: { 'Content-Type': f.type || 'audio/mpeg' }, body: f })
-        .then((x) => x.json()).catch(() => ({ ok: false }));
-      if (!r.ok) { toast(f.name + ' — ' + t(r.error || 'Upload failed')); continue; }
-      list.push({ file: r.file, name: r.name, volume: 1, min: 0 });
+      if (!file || list.some((x) => x.file === file)) continue;
+      list.push({ file, name: file.replace(/\.(mp3|wav|ogg)$/i, ''), volume: 1, min: 0, gif: '' });
     }
     setSounds(key, list);
+  }
+  async function upload(key, files) {
+    const got = await Panel.uploadMedia(files);
+    addFiles(key, got.filter((g) => g.kind === 'audio').map((g) => g.file));
   }
 
   function row(key, s, i, minLabel) {
@@ -54,7 +60,8 @@
       <span class="name" title="${escapeHtml(s.name)}">${escapeHtml(s.name)}</span>
       <label class="inline">${escapeHtml(t('Volume'))} <input type="range" min="0" max="1" step="0.05" value="${s.volume}" data-f="volume"><output>${Math.round(s.volume * 100)}%</output></label>
       ${minLabel ? `<label class="inline">${escapeHtml(t(minLabel))} <input type="number" min="0" value="${s.min}" data-f="min" style="width:90px"></label>` : '<span></span>'}
-      <button class="danger" data-act="del" title="${escapeHtml(t('Delete'))}">✕</button>
+      <button class="ghost small snd-gif${s.gif ? ' on' : ''}" data-act="gif" title="${escapeHtml(s.gif ? s.gif : t('Add a GIF shown on stream while it plays'))}">${s.gif ? `<img src="${escapeHtml(Panel.mediaUrl(s.gif))}" alt="">` : '🖼'} GIF</button>
+      <button class="danger" data-act="del" title="${escapeHtml(t('Remove from the list'))}">✕</button>
     </div>`;
   }
 
@@ -72,7 +79,8 @@
         <p class="muted">${escapeHtml(t(help))}</p>
         <div class="snds">${ev.sounds.map((s, i) => row(k, s, i, minLabel)).join('') || `<span class="muted">${escapeHtml(t('No sound yet.'))}</span>`}</div>
         <div class="btns">
-          <label class="button ghost">${escapeHtml(t('Add MP3 files…'))}<input type="file" accept=".mp3,.wav,.ogg,audio/mpeg,audio/wav,audio/ogg" multiple hidden data-act="add"></label>
+          <button data-act="pick">🎵 ${escapeHtml(t('Choose in Son Twitch'))}</button>
+          <label class="button ghost">${escapeHtml(t('Import files…'))}<input type="file" accept=".mp3,.wav,.ogg,audio/mpeg,audio/wav,audio/ogg" multiple hidden data-act="add"></label>
           <button class="ghost" data-act="test">🔊 ${escapeHtml(t('Test'))}</button>
           <button class="ghost" data-act="sim">${escapeHtml(t('Simulate the event'))}</button>
         </div>
@@ -83,10 +91,19 @@
   // One delegated listener set for the whole list.
   const evKey = (el) => el.closest(".alert-ev").dataset.ev;
   const idx = (el) => Number(el.closest('.snd').dataset.i);
-  box.addEventListener('click', (e) => {
+  box.addEventListener('click', async (e) => {
     const b = e.target.closest('[data-act]');
     if (!b || b.tagName === 'SELECT' || b.tagName === 'INPUT') return;
     const k = evKey(b);
+    if (b.dataset.act === 'pick') { addFiles(k, (await Panel.pickMedia({ kind: 'audio', multiple: true })).filter(Boolean)); return; }
+    if (b.dataset.act === 'gif') {
+      const i = idx(b), cur = sounds(k)[i];
+      const got = await Panel.pickMedia({ kind: 'image', current: cur.gif, allowNone: true });
+      if (!got.length) return;
+      const list = sounds(k);
+      if (list[i]) { list[i].gif = got[0] || ''; setSounds(k, list); }
+      return;
+    }
     if (b.dataset.act === 'play') play(sounds(k)[idx(b)]);
     if (b.dataset.act === 'del') {
       const list = sounds(k); const [gone] = list.splice(idx(b), 1);

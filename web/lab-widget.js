@@ -1,7 +1,8 @@
 /*
- * Labo test overlays for OBS (one Browser Source each): lab.html?w=giveaway | poll | queue | counter&id=… | hype | ad | session | emotes
+ * Hub Labo → My stream overlays for OBS (one Browser Source each): lab.html?w=giveaway | poll | ad
  * Optional: &accent=ffc93c (frame colour), &demo=1 (fake data, to place it in OBS before the stream).
- * Data: the app state (lab.play, lab.tools, settings.lab), chat messages (emote rain) and 'lab-event' events, over SSE.
+ * Data: the app state (lab.play, lab.tools, settings.lab) and 'lab-event' events, over SSE.
+ * (Game counters are a stream widget now: widget.html?w=counter&id=…)
  */
 (function () {
   'use strict';
@@ -13,9 +14,9 @@
   const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   const root = document.getElementById('root');
   const mmss = (ms) => { const s = Math.max(0, Math.ceil(ms / 1000)); return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`; };
-  let st = {}, lastCounter = null, pollShownUntil = 0;
+  let st = {}, pollShownUntil = 0;
 
-  // ---------- Particles: confetti and emote rain on one canvas ----------
+  // ---------- Particles: confetti ----------
   const cv = document.getElementById('fx'), ctx = cv.getContext('2d');
   const parts = [];
   const imgs = new Map();
@@ -47,26 +48,6 @@
     for (let i = 0; i < n; i++) parts.push({ x: cv.width / 2, y: cv.height * 0.45, vx: (Math.random() - 0.5) * 22 * d, vy: (-Math.random() * 18 - 6) * d, g: 0.45 * d, r: Math.random() * 6, vr: (Math.random() - 0.5) * 0.4, s: 8 + Math.random() * 8, c: cols[i % cols.length], life: 160 + Math.random() * 80 });
     kick();
   }
-  function emote(id) {
-    const max = (st.settings && st.settings.lab && st.settings.lab.emotes.max) || 40;
-    if (parts.filter((p) => p.img).length >= max) return;
-    if (!imgs.has(id)) { const im = new Image(); im.src = `https://static-cdn.jtvnw.net/emoticons/v2/${encodeURIComponent(id)}/default/dark/3.0`; imgs.set(id, im); if (imgs.size > 300) imgs.delete(imgs.keys().next().value); }
-    const d = devicePixelRatio, s = 56 + Math.random() * 40;
-    parts.push({ img: imgs.get(id), x: Math.random() * cv.width, y: -s * d, vx: (Math.random() - 0.5) * 4 * d, vy: (2 + Math.random() * 3) * d, g: 0.25 * d, r: (Math.random() - 0.5) * 0.6, vr: (Math.random() - 0.5) * 0.05, s, life: 420 + Math.random() * 120 });
-    kick();
-  }
-  function onChat(m) {
-    if (W !== 'emotes' || !m || !m.emotes) return;
-    // "id:0-4,6-10/id2:12-16": one emote per range, at most 8 per message.
-    let n = 0;
-    for (const part of String(m.emotes).split('/')) {
-      const [id, ranges] = part.split(':');
-      if (!/^[\w-]{1,60}$/.test(id || '')) continue;
-      for (let k = 0; k < (ranges || '').split(',').length && n < 8; k++, n++) setTimeout(() => emote(id), n * 120);
-    }
-  }
-
-  // ---------- Winner roulette ----------
   function winner(name, names) {
     const box = document.getElementById('winner'), el = document.getElementById('winName');
     document.getElementById('winLbl').textContent = '🎉 ' + t('GIVEAWAY');
@@ -111,29 +92,6 @@
           ${p.open ? `<div class="timer"><i style="width:${(left / (p.seconds * 1000)) * 100}%"></i></div>` : ''}`, !p.open && now > pollShownUntil);
         break;
       }
-      case 'queue': {
-        const qu = play.queue || { list: [] };
-        const list = qu.list || [];
-        view.html = card(`<div class="head">🎮 ${esc(t('Queue'))}<span class="tag">!${esc((cfg.queue && cfg.queue.joinCmd) || 'play')}</span></div>
-          ${list.length ? list.slice(0, 8).map((x, i) => `<div class="q${i ? '' : ' first'}"><b>${i + 1}</b>${esc(x.display)}${x.sub ? ' ⭐' : ''}</div>`).join('') + (list.length > 8 ? `<div class="sub">+${list.length - 8}</div>` : '') : `<div class="empty">${esc(qu.open === false ? t('The queue is closed') : t('Empty: type !{cmd} to join', { cmd: (cfg.queue && cfg.queue.joinCmd) || 'play' }))}</div>`}`, cfg.queue && !cfg.queue.enabled);
-        break;
-      }
-      case 'counter': {
-        const id = q.get('id') || '';
-        const c = (cfg.counters || []).find((x) => x.id === id || x.cmd === id) || (cfg.counters || [])[0];
-        if (!c) { view.html = card(`<div class="empty">${esc(t('No counter yet: create one in Labo test.'))}</div>`); break; }
-        const bump = lastCounter !== null && lastCounter !== c.value;
-        lastCounter = c.value;
-        view.html = card(`<div class="counter"><span class="l">${esc(c.name)}</span><span class="v${bump ? ' bump' : ''}">${c.value}</span></div>`);
-        break;
-      }
-      case 'hype': {
-        const r = lab.hype || 1, f = (cfg.hype && cfg.hype.factor) || 3;
-        const pc = Math.max(4, Math.min(100, ((r - 0.5) / (f - 0.5)) * 100));
-        const level = pc >= 100 ? t('ON FIRE 🔥🔥🔥') : pc > 66 ? t('Hot 🔥') : pc > 33 ? t('Warming up') : t('Calm');
-        view.html = card(`<div class="head">🔥 ${esc(t('Chat hype'))}<span class="tag">×${r}</span></div><div class="meter${pc >= 100 ? ' hot' : ''}"><i style="width:${pc}%"></i></div><div class="sub">${esc(level)} · ${esc(t('{n} msg/min', { n: lab.perMin || 0 }))}</div>`);
-        break;
-      }
       case 'ad': {
         const a = (lab.tools && lab.tools.ad) || {};
         const warn = ((cfg.ads && cfg.ads.warnSec) || 60) * 1000;
@@ -142,25 +100,13 @@
         view.html = card(`<div class="head">📺 ${during ? esc(t('Ad break')) : esc(t('Ad break in {t}', { t: mmss(before) }))}</div><div class="sub">${during ? esc(t('Back in {t}, stay with us!', { t: mmss(a.nextAt + a.duration * 1000 - now) })) : esc(t('Grab a drink, we will be right back 💜'))}</div>`, !show);
         break;
       }
-      case 'session': {
-        const s = play.session || {};
-        const live = st.stats && st.stats.live;
-        const dur = live ? mmssH(now - Date.parse(live.startedAt)) : s.since ? mmssH(now - s.since) : '—';
-        view.html = card(`<div class="head">💜 ${esc(t('Thanks for watching!'))}<span class="tag">${esc(dur)}</span></div><div class="stats">
-          <div><b>${s.messages || 0}</b>${esc(t('messages'))}</div><div><b>${s.chatters || 0}</b>${esc(t('chatters'))}</div>
-          <div><b>${s.follows || 0}</b>${esc(t('new followers'))}</div><div><b>${(s.subs || 0) + (s.gifts || 0)}</b>${esc(t('subs'))}</div>
-          <div><b>${s.bits || 0}</b>${esc(t('bits'))}</div><div><b>${s.raids || 0}</b>${esc(t('raids'))}</div></div>`);
-        break;
-      }
       default: view.html = '';
     }
   }
-  const mmssH = (ms) => { const m = Math.floor(ms / 60000); return `${Math.floor(m / 60)} h ${String(m % 60).padStart(2, '0')}`; };
 
   function onEvent(e) {
     if (W === 'giveaway' && e.type === 'giveaway-winner') winner(e.name, e.names);
     if (W === 'poll' && e.type === 'poll-end') confetti(60);
-    if (W === 'queue' && e.type === 'queue-next') confetti(40);
   }
 
   // ---------- Data ----------
@@ -174,24 +120,20 @@
   else {
     const es = new EventSource('/api/events');
     es.addEventListener('state', (e) => apply(JSON.parse(e.data)));
-    es.addEventListener('chat', (e) => onChat(JSON.parse(e.data)));
     es.addEventListener('lab-event', (e) => onEvent(JSON.parse(e.data)));
   }
   // Countdowns move on their own.
-  if (['poll', 'ad', 'session', 'giveaway'].includes(W)) setInterval(render, 1000);
-  if (W === 'emotes') root.style.display = 'none';
+  if (['poll', 'ad', 'giveaway'].includes(W)) setInterval(render, 1000);
 
   function demo() {
     const names = ['Civibrr', 'trkzlive', 'Pixelcat', 'MamieGaming', 'kiwi', 'ZeroCool', 'tartiflette', 'Bobby_42'];
     const now = Date.now();
     apply({
-      settings: { lab: { queue: { enabled: true, joinCmd: 'play' }, hype: { factor: 3 }, ads: { warnSec: 60 }, emotes: { max: 40 }, counters: [{ id: 'demo', name: t('Deaths'), cmd: 'death', value: 12 }] } },
-      lab: { hype: 2.4, perMin: 38, tools: { ad: { nextAt: now + 45000, duration: 90 } },
-        play: { giveaway: { open: true, keyword: 'join', count: 27, recent: names.slice(0, 6) }, queue: { open: true, list: names.slice(0, 5).map((d, i) => ({ display: d, sub: i === 1 })) },
-          poll: { question: t('Which game next?'), options: [{ text: 'Valorant', votes: 12 }, { text: 'Minecraft', votes: 21 }, { text: 'Mario Kart', votes: 7 }], open: true, endsAt: now + 42000, seconds: 60, winner: -1 },
-          session: { messages: 1284, chatters: 96, follows: 23, subs: 7, gifts: 5, bits: 1500, raids: 2, since: now - 3 * 3600000 - 1200000 } } },
+      settings: { lab: { ads: { warnSec: 60 } } },
+      lab: { tools: { ad: { nextAt: now + 45000, duration: 90 } },
+        play: { giveaway: { open: true, keyword: 'join', count: 27, recent: names.slice(0, 6) },
+          poll: { question: t('Which game next?'), options: [{ text: 'Valorant', votes: 12 }, { text: 'Minecraft', votes: 21 }, { text: 'Mario Kart', votes: 7 }], open: true, endsAt: now + 42000, seconds: 60, winner: -1 } } },
     });
     if (W === 'giveaway') setTimeout(() => winner('Pixelcat', names), 1500);
-    if (W === 'emotes') setInterval(() => onChat({ emotes: ['25:0-4', '1902:0-4,6-10', '354:0-4'][Math.floor(Math.random() * 3)] }), 400);
   }
 })();

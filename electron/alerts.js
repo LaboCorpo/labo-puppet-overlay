@@ -32,7 +32,7 @@ class AlertPicker {
     this.last = {}; // last file played per key (random mode avoids repeating it)
   }
 
-  /** cfg: settings.alerts. Returns [{ file, volume }] (empty = nothing to play). */
+  /** cfg: settings.alerts. Returns [{ file, volume, gif }] (empty = nothing to play; gif: picture shown by the OBS source). */
   pick(cfg, key, amount) {
     if (!cfg || !cfg.enabled || !ALERT_KEYS.includes(key)) return [];
     let ev = cfg[key];
@@ -45,7 +45,7 @@ class AlertPicker {
     const top = Math.max(...pool.map((s) => s.min || 0));
     pool = pool.filter((s) => (s.min || 0) === top);
     const master = cfg.volume == null ? 1 : cfg.volume;
-    const out = (list) => list.map((s) => ({ file: s.file, volume: Math.round(s.volume * master * 1000) / 1000 }));
+    const out = (list) => list.map((s) => ({ file: s.file, volume: Math.round(s.volume * master * 1000) / 1000, gif: s.gif || '' }));
     if (ev.mode === 'all') return out(pool);
     let chosen;
     if (ev.mode === 'sequence') {

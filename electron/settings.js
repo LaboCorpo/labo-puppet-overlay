@@ -18,6 +18,11 @@ const DEFAULTS = {
     hotkeys: { toggleOverlay: 'CommandOrControl+Shift+O', placement: 'CommandOrControl+Shift+P', muteChat: 'CommandOrControl+Shift+M', marker: 'CommandOrControl+Alt+M' },
     firstRunDone: false, // tray notification shown once, on the first panel close
     welcomeDone: false, // first-run guide finished or skipped
+    // v1.7: top tabs kept (chosen at install or in the first-run setup); a hidden tab also stops its background work.
+    tabs: { puppet: true, hud: true, hub: true, deck: true, bababot: true },
+    tabNames: {}, // renamed top tabs: { group: 'name' }
+    setupDone: false, // first-run setup (language + tabs) done
+    tours: [], // top tabs whose tour was shown (or skipped)
   },
   discord: { clientId: '', clientSecret: '', redirectUri: 'http://localhost' },
   overlay: {
@@ -46,22 +51,22 @@ const DEFAULTS = {
   sync: { url: '', intervalSec: 120 },
   // Twitch account (optional, Device Code login): follower/sub counts, raids, Stream Together invites, sending chat.
   twitchApi: { clientId: '' },
-  // La savane: video room through VDO.Ninja (room + password shared by the crew) and its scene for OBS.
+  // "Cam des copains" (key kept from La savane): each friend opens a VDO.Ninja link and their camera becomes an OBS source.
+  // friends: [{ id, name, on }] — id = their VDO.Ninja stream id, password protects every stream; `on` = shown in the scene.
   savane: {
-    room: '', password: '', name: '', audioInObs: true,
+    password: '', audioInObs: true, friends: [],
     layout: 'grid', shape: 'rounded', radius: 28, gap: 28, padding: 56, border: 5, borderColor: '#ffc93c', glow: true,
     names: true, nameBg: '#14110a', nameFg: '#ffffff', speaking: true,
-    bg: 'gradient', bgColor1: '#2b1a4a', bgColor2: '#f0a83a', bgAngle: 135, bgAnimate: true, bgImage: '', bgBlur: 0, bgDim: 15,
-    width: 1920, height: 1080, hidden: [], title: '', titleColor: '#ffffff',
-    // Room window edits: free layout positions (ratios of the scene, last = on top), names shown instead of the real ones, order, logo.
-    positions: [], labels: {}, order: [], logo: '', logoPos: 'tr', logoSize: 180,
+    bg: 'none', bgColor1: '#2b1a4a', bgColor2: '#f0a83a', bgAngle: 135, bgAnimate: true, bgImage: '', bgBlur: 0, bgDim: 15,
+    width: 1920, height: 1080, title: '', titleColor: '#ffffff',
+    // Scene edits: free layout positions (ratios of the scene, last = on top), order for the automatic layouts, logo.
+    positions: [], order: [], logo: '', logoPos: 'tr', logoSize: 180,
   },
   // Discord bot for creating puppets in Discord (runs on the host's LaboHub). Tokens are kept encrypted outside the settings.
   bot: { enabled: false, githubRepo: 'LaboCorpo/labo-puppet-avatars', githubPath: 'avatars.txt' },
-  // Labo test experiments (electron/lab.js).
+  // Key kept from "Labo test": stream health and channel points (electron/lab.js), Baba Bot (chatbot, sounds, raidThanks),
+  // Hub → My stream (giveaway, poll, ads, discordLive, profiles, checklist, summary) and the game counters widget.
   lab: {
-    hype: { enabled: false, factor: 3, minPerMin: 15 },
-    breakMinutes: 0,
     healthAlerts: true,
     raidThanks: { enabled: false, text: 'Merci pour le raid {name} ! Allez voir twitch.tv/{login} 💜' },
     points: { enabled: false, map: [] },
@@ -80,9 +85,7 @@ const DEFAULTS = {
     sounds: { enabled: false, who: 'all', cooldown: 15, userCooldown: 60, list: [] },
     giveaway: { keyword: 'join', subLuck: 2, announce: true },
     poll: { announce: true, seconds: 60 },
-    counters: [], // [{ id, name, cmd, value, modOnly }]
-    queue: { enabled: false, joinCmd: 'play', leaveCmd: 'leave', max: 50, announce: true },
-    emotes: { enabled: false, max: 40 }, // emote rain overlay (keeps your chat connected)
+    counters: [], // game counters: [{ id, name, cmd, value, modOnly, plusKey, minusKey }]
     ads: { enabled: false, warnSec: 60, chat: true, chatText: '📺 Petite pub dans {s} s : merci de rester, on revient vite ! 💜' },
     discordLive: { enabled: false, text: '🔴 {name} est en live : **{title}** ({game})\nhttps://twitch.tv/{login}' }, // the webhook URL is kept encrypted outside the settings
     profiles: [], // stream info presets: [{ name, title, gameId, gameName }]
@@ -92,7 +95,9 @@ const DEFAULTS = {
   // OBS remote (obs-websocket v5). The password is kept encrypted outside the settings.
   obs: { enabled: false, host: '127.0.0.1', port: 4455 },
   // BabaDeck: pages of buttons (see electron/deck.js).
-  deck: { cols: 5, rows: 3, pages: [{ name: 'Page 1', buttons: [] }], onTop: true },
+  // hud: the info-only shortcut strip (click-through window): position/size in screen pixels (x = -1: centred at the top).
+  deck: { cols: 5, rows: 3, pages: [{ name: 'Page 1', buttons: [] }], onTop: true,
+    hud: { enabled: false, x: -1, y: 8, w: 640, h: 64, opacity: 92, labels: true, all: false } },
   // OBS scenes made of several widgets: [{ id, name, width, height, items: [{ w, x, y, width, height }] }]
   scenes: [],
   // LaboHub updates: GitHub releases of this repo whose tag starts with tagPrefix and that carry an app.asar.
@@ -107,7 +112,8 @@ const DEFAULTS = {
   // OBS widgets (one browser source each). `looks`: one complete look per widget, validated by web/shared/widget-schema.js.
   // spotify.enabled runs the "now playing" watcher; source: 'spotify' only, or 'any' player that shows in the Windows media controls.
   // chat.channels: channels of the OBS chat widget (empty = your own channel).
-  widgets: { looks: WidgetSchema.sanitizeLooks({}), spotify: { enabled: false, source: 'spotify', fetchCovers: true }, chat: { channels: [] } },
+  // templates: the user's own looks ("My templates"), style properties only.
+  widgets: { looks: WidgetSchema.sanitizeLooks({}), spotify: { enabled: false, source: 'spotify', fetchCovers: true }, chat: { channels: [] }, templates: [] },
   // Streaming hub: the crew's Twitch channels (logins).
   hub: { members: [], notify: true, pollSec: 60 },
   // Stream timestamps (hotkey in app.hotkeys.marker): "!clip [note]" by the broadcaster or a mod,
@@ -143,8 +149,8 @@ for (const k of ALERT_KEYS) ENUMS[`alerts.${k}.mode`] = ['random', 'sequence', '
 // [min, max, integer?]
 const RANGES = {
   'lab.sounds.cooldown': [0, 600, true], 'lab.sounds.userCooldown': [0, 3600, true], 'lab.giveaway.subLuck': [1, 10, true], 'lab.poll.seconds': [10, 1800, true],
-  'lab.queue.max': [1, 500, true], 'lab.emotes.max': [5, 150, true], 'lab.ads.warnSec': [10, 300, true], 'lab.chatbot.timerLines': [0, 200, true],
-  'lab.hype.factor': [1.5, 10], 'lab.hype.minPerMin': [3, 500, true], 'lab.breakMinutes': [0, 600, true],
+  'lab.ads.warnSec': [10, 300, true], 'lab.chatbot.timerLines': [0, 200, true],
+  'deck.hud.x': [-1, 20000, true], 'deck.hud.y': [-20000, 20000, true], 'deck.hud.w': [160, 3000, true], 'deck.hud.h': [40, 1200, true], 'deck.hud.opacity': [20, 100, true],
   'savane.radius': [0, 400, true], 'savane.gap': [0, 200, true], 'savane.padding': [0, 400, true], 'savane.border': [0, 30, true],
   'savane.bgAngle': [0, 360, true], 'savane.bgBlur': [0, 40, true], 'savane.bgDim': [0, 90, true], 'savane.width': [320, 3840, true], 'savane.height': [240, 3840, true], 'savane.logoSize': [40, 600, true],
   port: [1024, 65535, true],
@@ -164,7 +170,7 @@ const RANGES = {
   'markers.leadSeconds': [0, 600, true],
 };
 const PATTERNS = {
-  'savane.room': /^([A-Za-z0-9_]{4,40})?$/, 'savane.password': /^([\w.-]{4,40})?$/, 'savane.name': /^[^<>"&]{0,24}$/, 'savane.title': /^[^<>"&]{0,60}$/,
+  'savane.password': /^([\w.-]{4,40})?$/, 'savane.title': /^[^<>"&]{0,60}$/,
   'savane.borderColor': /^#[0-9a-f]{6}$/i, 'savane.nameBg': /^#[0-9a-f]{6}$/i, 'savane.nameFg': /^#[0-9a-f]{6}$/i, 'savane.bgColor1': /^#[0-9a-f]{6}$/i,
   'savane.bgColor2': /^#[0-9a-f]{6}$/i, 'savane.titleColor': /^#[0-9a-f]{6}$/i, 'savane.bgImage': /^(\/backgrounds\/[a-f0-9]{16}\.(png|jpg|webp|gif))?$/,
   'savane.logo': /^(\/backgrounds\/[a-f0-9]{16}\.(png|jpg|webp|gif))?$/,
@@ -180,14 +186,19 @@ const PATTERNS = {
   'lab.raidThanks.text': /^[^\n]{1,400}$/,
   'lab.chatbot.uptimeText': /^[^\n]{1,400}$/, 'lab.chatbot.soText': /^[^\n]{1,400}$/, 'lab.chatbot.lurkText': /^[^\n]{1,400}$/, 'lab.chatbot.welcomeText': /^[^\n]{1,400}$/,
   'lab.ads.chatText': /^[^\n]{1,400}$/, 'lab.discordLive.text': /^[\s\S]{1,1500}$/,
-  'lab.giveaway.keyword': /^[a-z0-9_]{1,25}$/, 'lab.queue.joinCmd': /^[a-z0-9_]{1,25}$/, 'lab.queue.leaveCmd': /^[a-z0-9_]{1,25}$/,
+  'lab.giveaway.keyword': /^[a-z0-9_]{1,25}$/,
   'bot.githubRepo': /^([\w.-]{1,39}\/[\w.-]{1,100})?$/, 'bot.githubPath': /^[\w./-]{1,100}$/,
   'updates.tagPrefix': /^[\w.-]{1,20}$/,
   'markers.commandName': /^[a-z0-9_]{1,20}$/,
 };
 const MAX_LEN = { 'twitch.ignore': 1000, 'sync.url': 500, 'discord.redirectUri': 200, 'discord.clientSecret': 200, 'lab.raidThanks.text': 400,
   'lab.chatbot.uptimeText': 400, 'lab.chatbot.soText': 400, 'lab.chatbot.lurkText': 400, 'lab.chatbot.welcomeText': 400, 'lab.ads.chatText': 400, 'lab.discordLive.text': 1500 };
-const SOUND_FILE_RE = /^[a-f0-9]{16}\.(mp3|wav|ogg)$/;
+const SOUND_FILE_RE = /^[a-f0-9]{16}\.(mp3|wav|ogg)$/; // uploads before v1.7 (userData/sounds)
+// v1.7: files of the "Son Twitch" folder, by name (no folders, no Windows-forbidden characters).
+const MEDIA_RE = /^(?![. ])[^\\/:*?"<>|\u0000-\u001f]{1,120}\.(mp3|wav|ogg|gif|png|jpe?g|webp)$/i;
+const isSoundRef = (f) => typeof f === 'string' && (SOUND_FILE_RE.test(f) || (MEDIA_RE.test(f) && /\.(mp3|wav|ogg)$/i.test(f)));
+const isImageRef = (f) => typeof f === 'string' && MEDIA_RE.test(f) && /\.(gif|png|jpe?g|webp)$/i.test(f);
+const GROUP_KEYS = ['puppet', 'hud', 'hub', 'deck', 'bababot'];
 const LOGIN_RE = /^[a-z0-9_]{3,25}$/;
 const HOTKEY_RE = /^[\x21-\x7e]{0,60}$/; // Electron accelerator: printable ASCII, no spaces
 const ID_RE = /^\d{15,22}$/;
@@ -249,13 +260,14 @@ function sanitizeSounds(value, fallback) {
   if (!Array.isArray(value)) return fallback;
   const out = [];
   for (const x of value.slice(0, 30)) {
-    if (!isObj(x) || typeof x.file !== 'string' || !SOUND_FILE_RE.test(x.file)) continue;
+    if (!isObj(x) || !isSoundRef(x.file)) continue;
     const vol = Number(x.volume), min = Number(x.min);
     out.push({
       file: x.file,
       name: typeof x.name === 'string' ? x.name.slice(0, 80) : x.file,
       volume: Number.isFinite(vol) && x.volume !== null && x.volume !== '' ? Math.min(1, Math.max(0, vol)) : 1,
       min: Number.isFinite(min) ? Math.min(10000000, Math.max(0, Math.round(min))) : 0,
+      gif: isImageRef(x.gif) ? x.gif : '', // picture shown by the OBS alerts source while it plays
     });
   }
   return out;
@@ -271,20 +283,23 @@ const SPECIAL = {
   'hub.members': (v, fb) => (Array.isArray(v) ? [...new Set(v.map((c) => String(c).trim().toLowerCase().replace(/^@/, '')).filter((c) => LOGIN_RE.test(c)))].slice(0, 100) : fb),
   deck: (v, fb) => require('./deck').cleanDeck(v, fb),
   scenes: (v, fb) => (Array.isArray(v) ? v.filter(isObj).slice(0, 20).map(cleanScene).filter(Boolean) : fb),
-  'savane.hidden': (v, fb) => (Array.isArray(v) ? v.map(String).filter((x) => SAV_ID.test(x)).slice(0, 30) : fb),
+  'savane.friends': (v, fb) => (Array.isArray(v) ? uniqBy(v.filter(isObj).map((x) => ({ id: String(x.id || ''), name: line(x.name, 24).replace(/[<>"&]/g, '') || 'Copain', on: x.on !== false })).filter((x) => /^F[a-z0-9]{8,16}$/.test(x.id)), 'id').slice(0, 30) : fb),
   'savane.order': (v, fb) => (Array.isArray(v) ? [...new Set(v.map(String).filter((x) => SAV_ID.test(x)))].slice(0, 30) : fb),
   'savane.positions': (v, fb) => (Array.isArray(v) ? cleanPositions(v) : fb),
-  'savane.labels': (v, fb) => {
-    if (!isObj(v)) return fb;
-    const out = {};
-    for (const [id, name] of Object.entries(v).slice(0, 60)) { const n = String(name == null ? '' : name).replace(/[<>"&]/g, '').trim().slice(0, 24); if (SAV_ID.test(id) && n) out[id] = n; }
-    return out;
-  },
   'lab.points.map': (v, fb) => (Array.isArray(v) ? v.filter(isObj).slice(0, 30).map((x) => ({ reward: String(x.reward || '').slice(0, 45), button: /^[a-z0-9]{4,16}$/.test(x.button || '') ? x.button : '' })).filter((x) => x.reward && x.button) : fb),
   'lab.chatbot.commands': (v, fb) => (Array.isArray(v) ? uniqBy(v.filter(isObj).map((x) => ({ name: cmdName(x.name), reply: line(x.reply, 400), cooldown: clampN(x.cooldown, 0, 3600, 30), modOnly: !!x.modOnly })).filter((x) => x.name && x.reply), 'name').slice(0, 50) : fb),
   'lab.chatbot.timers': (v, fb) => (Array.isArray(v) ? v.filter(isObj).map((x) => ({ text: line(x.text, 400), minutes: clampN(x.minutes, 1, 240, 15) })).filter((x) => x.text).slice(0, 10) : fb),
-  'lab.sounds.list': (v, fb) => (Array.isArray(v) ? uniqBy(v.filter(isObj).filter((x) => SOUND_FILE_RE.test(String(x.file || ''))).map((x) => ({ name: cmdName(x.name), file: String(x.file), volume: Math.min(1, Math.max(0, Number.isFinite(Number(x.volume)) && x.volume !== null && x.volume !== '' ? Number(x.volume) : 1)) })).filter((x) => x.name), 'name').slice(0, 40) : fb),
-  'lab.counters': (v, fb) => (Array.isArray(v) ? uniqBy(v.filter(isObj).map((x, i) => ({ id: /^[a-z0-9]{4,12}$/.test(String(x.id || '')) ? String(x.id) : 'c' + i + Math.random().toString(36).slice(2, 7).replace(/[^a-z0-9]/g, 'x'), name: line(x.name, 30) || 'Counter', cmd: cmdName(x.cmd), value: clampN(x.value, -1e6, 1e6, 0), modOnly: x.modOnly !== false })).filter((x) => x.cmd), 'cmd').slice(0, 12) : fb),
+  'lab.sounds.list': (v, fb) => (Array.isArray(v) ? uniqBy(v.filter(isObj).filter((x) => isSoundRef(x.file)).map((x) => ({ name: cmdName(x.name), file: String(x.file), volume: Math.min(1, Math.max(0, Number.isFinite(Number(x.volume)) && x.volume !== null && x.volume !== '' ? Number(x.volume) : 1)) })).filter((x) => x.name), 'name').slice(0, 40) : fb),
+  'lab.counters': (v, fb) => (Array.isArray(v) ? uniqBy(v.filter(isObj).map((x, i) => ({ id: /^[a-z0-9]{4,12}$/.test(String(x.id || '')) ? String(x.id) : 'c' + i + Math.random().toString(36).slice(2, 7).replace(/[^a-z0-9]/g, 'x'), name: line(x.name, 30) || 'Counter', cmd: cmdName(x.cmd), value: clampN(x.value, -1e6, 1e6, 0), modOnly: x.modOnly !== false,
+    plusKey: hotkey(x.plusKey), minusKey: hotkey(x.minusKey) })).filter((x) => x.cmd), 'cmd').slice(0, 12) : fb),
+  'widgets.templates': (v, fb) => (Array.isArray(v) ? v.filter(isObj).map((x) => ({ id: /^[a-z0-9]{6,16}$/.test(String(x.id || '')) ? String(x.id) : 't' + Math.random().toString(36).slice(2, 10).replace(/[^a-z0-9]/g, 'x'), name: line(x.name, 30) || 'Template', style: WidgetSchema.cleanStyle(x.style) })).slice(0, 40) : fb),
+  'app.tabNames': (v, fb) => {
+    if (!isObj(v)) return fb;
+    const out = {};
+    for (const g of GROUP_KEYS) { const n = line(v[g], 24).replace(/[<>"&]/g, ''); if (n) out[g] = n; }
+    return out;
+  },
+  'app.tours': (v, fb) => (Array.isArray(v) ? [...new Set(v.map(String).filter((g) => GROUP_KEYS.includes(g) || g === 'setup'))] : fb),
   'lab.profiles': (v, fb) => (Array.isArray(v) ? v.filter(isObj).map((x) => ({ name: line(x.name, 30), title: line(x.title, 140), gameId: /^\d{1,20}$/.test(String(x.gameId || '')) ? String(x.gameId) : '', gameName: line(x.gameName, 80) })).filter((x) => x.name && (x.title || x.gameId)).slice(0, 12) : fb),
   'lab.checklist': (v, fb) => (Array.isArray(v) ? v.map((x) => line(x, 80)).filter(Boolean).slice(0, 20) : fb),
   'widgets.chat.channels': (v, fb) => (Array.isArray(v) ? [...new Set(v.map((x) => String(x).toLowerCase()).filter((x) => /^[a-z0-9_]{3,25}$/.test(x)))].slice(0, 6) : fb),
@@ -311,6 +326,7 @@ function sanitize(settings, previous) {
 // Labo test lists: one-line texts, chat command names (letters, digits, _), no duplicates.
 const line = (v, n) => String(v == null ? '' : v).replace(/[\r\n]+/g, ' ').trim().slice(0, n);
 const cmdName = (v) => { const s = String(v || '').trim().toLowerCase().replace(/^!/, ''); return /^[a-z0-9_]{1,25}$/.test(s) ? s : ''; };
+const hotkey = (v) => (typeof v === 'string' && HOTKEY_RE.test(v) ? v : '');
 const uniqBy = (list, k) => { const seen = new Set(); return list.filter((x) => (seen.has(x[k]) ? false : seen.add(x[k]))); };
 
 // La savane free layout: one entry per camera, ratios of the scene size; duplicates keep the last one (on top).
@@ -340,4 +356,4 @@ function cleanScene(sc) {
   }));
   return { id, name: String(sc.name || 'Scene').slice(0, 40), width, height, items };
 }
-module.exports = { DEFAULTS, sanitize, deepMerge, isObj, ALERT_KEYS, SOUND_FILE_RE };
+module.exports = { DEFAULTS, sanitize, deepMerge, isObj, ALERT_KEYS, SOUND_FILE_RE, MEDIA_RE, isSoundRef, isImageRef, GROUP_KEYS };

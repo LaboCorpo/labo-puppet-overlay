@@ -82,7 +82,8 @@ class StreamStats extends EventEmitter {
     try {
       const r = await this.api.helix('GET', 'streams', { user_id: id });
       const st = (r.data || [])[0];
-      const live = st ? { startedAt: st.started_at, title: st.title, game: st.game_name, viewers: st.viewer_count } : null;
+      const box = st && st.game_id ? (await this.api.gameBoxes([st.game_id]))[st.game_id] || '' : '';
+      const live = st ? { startedAt: st.started_at, title: st.title, game: st.game_name, gameId: st.game_id || '', box, viewers: st.viewer_count } : null;
       if (JSON.stringify(live) !== JSON.stringify(this.data.live)) { this.data.live = live; changed = true; }
     } catch (e) { /* the counters are still useful without it */ }
 

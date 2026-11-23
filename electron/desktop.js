@@ -110,6 +110,10 @@ function createDesktop(ctx) {
     for (const { id, acc } of (actions.deckHotkeys ? actions.deckHotkeys() : [])) {
       try { if (!globalShortcut.register(acc, () => actions.pressDeck(id))) hotkeyErrors['deck:' + id] = 'Already used by another app'; } catch (e) { hotkeyErrors['deck:' + id] = 'Invalid shortcut'; }
     }
+    // Game counters +1 / -1 (errors keyed "counter+:<id>" / "counter-:<id>").
+    for (const { acc, key, fn } of (actions.counterHotkeys ? actions.counterHotkeys() : [])) {
+      try { if (!globalShortcut.register(acc, () => { try { fn(); } catch (e) { /* counter removed */ } })) hotkeyErrors[key] = 'Already used by another app'; } catch (e) { hotkeyErrors[key] = 'Invalid shortcut'; }
+    }
   }
 
   function applyLoginItem() {

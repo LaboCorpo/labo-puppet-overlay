@@ -29,7 +29,7 @@ This file is everything needed to continue the project exactly where the previou
 
 ## 2. Project summary
 
-> **Current state (LaboHub 1.6.0, branch `labohub`, PR to `main` for F4ilortrue to review — do not merge yourself)**: the app is now **LaboHub** (`appId fr.labo.hub`, data in `%APPDATA%/LaboHub`, imports the Puppet Overlay config on first run). Top tabs: Puppet Overlay, HUD Twitch (widgets, scenes, alert sounds), Hub Labo (friends' streams, multi-stream with merged chats + moderation, clips/timestamps), La savane 🍌 (VDO.Ninja video room + OBS scene), BabaDeck (Stream Deck clone, OBS WebSocket v5), Labo test (experiments, chat bot, viewer games, streamer tools). Release notes per version: `web/shared/changelog.js`; maintainer notes per version: `docs/MAINTAINER.md` (“LaboHub 1.5 notes”, “LaboHub 1.6 notes”). The maintainer installs test builds with a hand-made `app.asar` + `Installer LaboHub.bat` that reuses the Puppet Overlay Electron runtime (no CI build needed).
+> **Current state (LaboHub 1.7.0, branch `labohub`, PR to `main` for F4ilortrue to review — do not merge yourself)**: the app is **LaboHub** (`appId fr.labo.hub`, data in `%APPDATA%/LaboHub`, imports the Puppet Overlay config on first run). Top tabs (chosen at install or in Settings → Tabs, renamable by double-click, a tour on first visit + "?"/F1, a Guide page with manual ticks): Puppet Overlay, **Widget Twitch** (widgets incl. game counters, editor with pictures/custom CSS/My templates, Friends' cams = VDO.Ninja push links → `cams.html`, scenes, alert sounds + GIFs from the **Son Twitch** folder), **Hub Labo** (My stream: live banner with box art, title/category, giveaway, poll, stream health, ads, Discord go-live, summary, checklist; friends' streams, multi-stream, clips), **BabaDeck** (dock, right-click edit, drag swap, shortcuts page with QWERTY/AZERTY recommended keys, click-through shortcut strip `deck-hud.html`, OBS connection, channel points), **Baba Bot** (chat bot, automatic messages, sound commands). La savane and Labo test were removed in 1.7 (settings keys `savane`/`lab` kept, see MAINTAINER “LaboHub 1.7 notes”). Release notes: `web/shared/changelog.js`. Test builds: hand-made `app.asar` + `tools/installer/` (PowerShell window: language + tabs; layout `LaboHub\app\` + `LaboHub\Son Twitch\`), reusing an Electron runtime already on the PC.
 >
 > **Before that (v0.11.0, commit on this branch)**: alert sounds, OBS stream widgets, streaming hub, optional Twitch account login (Device Code flow).
 >
@@ -104,6 +104,7 @@ The app is a Windows desktop overlay that shows people in your **Discord voice c
   - LaboHub 1.0–1.4 (installed by hand on the maintainer's PC): rename to LaboHub, tabbed shell, widget editor with themes/share codes, Spotify via Windows media session, multi-stream hub, timestamps/clips;
   - LaboHub 1.5.0: La savane, BabaDeck + OBS WebSocket, Labo test, Discord bot (`/puppet`), scenes, chat widget, moderation, new accessories, logo, `app.asar` updates;
   - LaboHub 1.6.0 (branch `labohub`, PR): La savane window closable, own device picker, drag/resize free layout, OBS links per camera; Labo test chat bot, viewer games (giveaway, poll, counters, queue, emote rain, hype, end screen), streamer tools (title/category presets, ads, Discord go-live, summary, checklist).
+  - LaboHub 1.7.0: tabs restructured (Widget Twitch, Hub Labo → My stream, BabaDeck, Baba Bot; La savane → Friends' cams; Labo test removed), first-run setup + tours, tab choice/renaming, Son Twitch folder, alert GIFs, game counters with in-game shortcuts, widget pictures/CSS/templates, BabaDeck dock/right-click/shortcut strip/recommended keys, live box art, album cover sync fix, baboon icon, installer with language and tabs.
 
 ## 4. Architecture
 
@@ -149,10 +150,11 @@ web/
 build/             icon.png/.ico, taskbar badges (badge-*.png), thumbnail icons (thumb-*.png)
 
 LaboHub additions (see the header comment of each file):
-electron/  obs.js (obs-websocket v5), deck.js (BabaDeck actions), lab.js (experiments), lab-chat.js (chat bot, games, session),
+electron/  obs.js (obs-websocket v5), deck.js (BabaDeck actions), lab.js (health alerts, raid thanks, channel points), lab-chat.js (Baba Bot, giveaway, poll, counters, session),
            lab-tools.js (ads, Discord webhook, title/category), markers.js (timestamps/clips), discord-bot.js, secrets.js (safeStorage)
-web/       savane.html/.js (+ shared/savane-id.js), lab.html + lab-widget.js (viewer-game overlays), scene.html/.js, deck.html/.js,
-           countdown.html, render.html, widget-chat.js, panel-*.js (one file per panel page), shared/twitchchat.js, shared/widget-schema.js,
+web/       cams.html/.js (friends' cams), lab.html + lab-widget.js (giveaway / poll / ad overlays), scene.html/.js, deck.html/.js, deck-hud.html,
+           render.html, widget-chat.js, panel-*.js (one file per panel page; panel-tour.js = setup + tours + Settings → Tabs, panel-media.js = Son Twitch picker,
+           panel-keys.js = shortcuts page, panel-counters.js, panel-cams.js, panel-mystream.js, panel-bababot.js), shared/twitchchat.js, shared/widget-schema.js,
            shared/puppet/extras.js
 tools/check.js     automated checks (`npm test`, also in CI)
 tools/mock-discord.js   fake Discord IPC server for tests (Windows named pipe or $XDG_RUNTIME_DIR)

@@ -43,8 +43,6 @@ const ICON = path.join(__dirname, '..', 'build', 'icon.png');
 const START_HIDDEN = process.argv.includes('--hidden');
 
 let log, store, srv, rpc, twitch, sync, updater, windows, desktop, obs, deck;
-// La savane: who is in the room, reported by the room window every few seconds (kept 25 s).
-let savanePresence = { list: [], at: 0 };
 let lab = null, bot = null, renderWin = null, labChat = null, labTools = null, lastLive = null;
 
 // Puppet picture for the Discord bot: a hidden window draws it with the same renderer as the overlay.
@@ -86,6 +84,31 @@ const notify = (title, body) => { if (log) log.info('[notify] ' + String(title).
 let lastSoundLog = 0;
 function logSound(what) { const now = Date.now(); if (now - lastSoundLog < 1000) return; lastSoundLog = now; if (log) log.info('[sound] ' + what); }
 const syncLang = () => I18N.setLang(I18N.resolve(store.settings.app.language, app.getLocale()));
+// Top tabs kept at setup: a removed tab also stops its background work (Discord, polling, hotkeys…).
+const tabOn = (g) => store.settings.app.tabs[g] !== false;
+
+// "Son Twitch": sounds and pictures you drop in, used by the alerts, their GIFs and the sound commands.
+// Installed by the LaboHub installer (…\LaboHub\app\LaboHub.exe): next to the app folder; otherwise in the data folder.
+function mediaDir() {
+  const exeDir = path.dirname(process.execPath);
+  if (app.isPackaged && path.basename(exeDir).toLowerCase() === 'app') return path.join(path.dirname(exeDir), 'Son Twitch');
+  return path.join(app.getPath('userData'), 'Son Twitch');
+}
+
+// Choices made in the installer (language, tabs): %APPDATA%\LaboHub\setup.json, applied once.
+function applySetupFile() {
+  const f = path.join(app.getPath('userData'), 'setup.json');
+  let j = null;
+  try { j = JSON.parse(fs.readFileSync(f, 'utf8').replace(/^\uFEFF/, '')); } catch (e) { return; }
+  try { fs.unlinkSync(f); } catch (e) { /* read-only: applied again next time, harmless */ }
+  if (!isObj(j)) return;
+  const tabs = {};
+  if (isObj(j.tabs)) for (const g of ['puppet', 'hud', 'hub', 'deck', 'bababot']) if (typeof j.tabs[g] === 'boolean') tabs[g] = j.tabs[g];
+  const patch = { app: { setupDone: true, tabs } };
+  if (['en', 'fr', 'auto'].includes(j.language)) patch.app.language = j.language;
+  store.updateSettings(patch);
+  log.info('[setup] installer choices applied: ' + JSON.stringify(patch.app));
+}
 
 process.on('uncaughtException', (e) => { if (log) log.error('uncaught: ' + ((e && e.stack) || e)); });
 process.on('unhandledRejection', (e) => { if (log) log.error('unhandled rejection: ' + ((e && e.stack) || e)); });
@@ -128,12 +151,12 @@ function appState() {
     nowPlaying: nowPlaying ? nowPlaying.snapshot() : null,
     hub: hub ? hub.snapshot() : null,
     obs: obs ? Object.assign({}, obs.snapshot(), { hasPassword: !!store.getSecret('obs') }) : null,
-    savane: { presence: Date.now() - savanePresence.at < 25000 ? savanePresence.list : [] },
     lab: lab ? Object.assign({}, lab.snapshot(), { play: labChat ? labChat.snapshot() : null, tools: labTools ? Object.assign(labTools.snapshot(), { hasWebhook: !!store.getSecret('discordWebhook') }) : null }) : null,
     bot: bot ? Object.assign(bot.snapshot(), { hasToken: !!store.getSecret('botToken'), hasGithub: !!store.getSecret('githubToken') }) : null,
     markers: markers ? markers.snapshot() : [],
     app: {
       version: app.getVersion(), placement: windows ? windows.placement : false, lang: I18N.lang,
+      hudPlacing: windows ? windows.hudPlacing : false, mediaDir: mediaDir(),
       hotkeyErrors: desktop ? desktop.hotkeyErrors : {},
       update: updater ? updater.state : null,
       portable: !!process.env.PORTABLE_EXECUTABLE_FILE,
@@ -172,12 +195,12 @@ function startDiscord() {
 }
 
 // ---------- Twitch ----------
-// Labo test features that read your chat keep the anonymous chat connection open.
+// Baba Bot, game counters (!death+) and the giveaway / poll of My stream read your chat: keep the anonymous chat connection open.
 function labNeedsChat() {
   const l = store.settings.lab;
   const play = labChat ? labChat.snapshot() : null;
-  return !!(l.chatbot.enabled || l.sounds.enabled || l.queue.enabled || l.emotes.enabled || l.counters.length || l.hype.enabled
-    || (play && (play.giveaway.open || (play.poll && play.poll.open))));
+  return !!((tabOn('bababot') && (l.chatbot.enabled || l.sounds.enabled || l.raidThanks.enabled)) || (tabOn('hud') && l.counters.length)
+    || (tabOn('hub') && play && (play.giveaway.open || (play.poll && play.poll.open))));
 }
 function startTwitch() {
   twitch = new TwitchChat({
@@ -185,7 +208,7 @@ function startTwitch() {
     setOverride: (login, patch) => { store.setViewer(login, patch); srv.broadcast('viewer', { login, override: store.getViewer(login) }); },
     // Alert sounds and "!clip" need your chat even when viewer puppets are off; the channel defaults to your Twitch account.
     getExtra: () => ({
-      active: store.settings.alerts.enabled || store.settings.markers.chatCommand || labNeedsChat(),
+      active: (tabOn('hud') && store.settings.alerts.enabled) || (tabOn('hub') && store.settings.markers.chatCommand) || labNeedsChat(),
       channel: twitchApi && twitchApi.connected ? twitchApi.login : '',
       marker: { enabled: store.settings.markers.chatCommand, name: store.settings.markers.commandName },
     }),
@@ -194,7 +217,6 @@ function startTwitch() {
   twitch.on('status', () => { log.info(`[twitch] ${twitch.status} ${twitch.detail || ''}`); push(); });
   twitch.on('chat', (m) => {
     srv.broadcast('chat', m);
-    if (lab) lab.onChat(m);
     // The chat bot and games only act on your own channel (the puppets may watch another one).
     if (labChat && (!twitchApi || !twitchApi.login || twitch.channel === twitchApi.login.toLowerCase())) labChat.onChat(m);
     const snd = store.settings.twitch.sound;
@@ -207,12 +229,13 @@ function startTwitch() {
 // Every Twitch event (IRC or Helix follow): overlay effects, alert sounds, latest-sub widget.
 function onTwitchEvent(e) {
   srv.broadcast('twitch-event', e);
-  if (lab) lab.onTwitchEvent(e);
+  if (lab && tabOn('bababot')) lab.onTwitchEvent(e);
   if (labChat) labChat.onEvent(e);
   if (e.type === 'sub' && stats) stats.onSub(e);
   playAlert(e);
 }
 function playAlert(e) {
+  if (!tabOn('hud')) return;
   const key = alertKey(e);
   if (!key) return;
   const sounds = alertPicker.pick(store.settings.alerts, key, amountOf(e, key));
@@ -233,8 +256,12 @@ function startStreamTools() {
   markers.on('change', () => push());
   twitchApi.on('status', () => { stats.sync(); hub.schedule(); twitch.sync(); if (lab) lab.syncPoints(); push(); });
   lab = new Lab({
-    getSettings: () => store.settings.lab, isLive: () => !!(stats && stats.data.live), api: twitchApi, log, t,
-    addMarker: (note) => addMarker('hotkey', note, 'Labo test'), notify, say: (text) => hub.say(twitchApi.login, text),
+    // Each helper follows its tab: raid thanks = Baba Bot, health alerts = Hub Labo, channel points = BabaDeck.
+    getSettings: () => {
+      const l = store.settings.lab;
+      return Object.assign({}, l, { raidThanks: tabOn('bababot') ? l.raidThanks : { enabled: false, text: '' }, healthAlerts: tabOn('hub') && l.healthAlerts, points: tabOn('deck') ? l.points : { enabled: false, map: [] } });
+    },
+    api: twitchApi, log, t, notify, say: (text) => hub.say(twitchApi.login, text),
     obsStats: () => (obs && obs.state.status === 'connected' ? obs.state.stats : null),
     pressDeck: (id) => deck.press(id).catch((e) => log.warn('[lab] deck: ' + e.message)),
   });
@@ -242,9 +269,10 @@ function startStreamTools() {
   lab.syncPoints();
   labChat = new LabChat({
     getSettings: () => store.settings.lab, live: () => (stats ? stats.data.live : null), api: twitchApi, log, t, notify,
+    on: (what) => tabOn({ bot: 'bababot', games: 'hub', counters: 'hud' }[what]),
     say: (text) => (twitchApi.login ? hub.say(twitchApi.login, text) : Promise.reject(new Error('Log in with Twitch first'))),
     userIdOf: (login) => hub.userId(login),
-    playSound: (snd) => srv.broadcast('alert-sound', { key: 'viewer', sounds: [{ file: snd.file, volume: snd.volume }], output: store.settings.alerts.output }),
+    playSound: (snd) => srv.broadcast('alert-sound', { key: 'viewer', sounds: [{ file: snd.file, volume: snd.volume, gif: '' }], output: store.settings.alerts.output }),
     setCounters: (list) => applySettings({ lab: { counters: list } }),
     broadcast: (ev, data) => srv.broadcast(ev, data),
   });
@@ -274,10 +302,23 @@ function startStreamTools() {
   });
   nowPlaying = new NowPlaying({ log, coversDir: path.join(app.getPath('userData'), 'covers'), getSettings: () => ({ showCover: store.settings.widgets.spotify.fetchCovers !== false && (store.settings.widgets.looks.spotify.cover !== 'none' || store.settings.widgets.looks.spotify.coverColors) }) });
   nowPlaying.on('change', () => push());
-  nowPlaying.setEnabled(store.settings.widgets.spotify.enabled, store.settings.widgets.spotify.source === 'any');
+  syncModules();
   twitchApi.start();
-  hub.schedule();
   markers.start();
+}
+// Background work of each top tab follows the tab being kept (and its own switches).
+function syncModules() {
+  const s = store.settings;
+  if (nowPlaying) nowPlaying.setEnabled(tabOn('hud') && s.widgets.spotify.enabled, s.widgets.spotify.source === 'any');
+  if (hub) { if (tabOn('hub')) hub.schedule(); else hub.stop(); }
+  if (rpc) { if (tabOn('puppet')) { if (rpc.stopped) startDiscord(); } else if (!rpc.stopped) { rpc.stop(); rpc.stopped = true; push(); } }
+  if (windows) { windows.updateOverlayVisibility(); windows.syncDeckHud(); }
+  if (obs) {
+    const want = (tabOn('deck') || tabOn('hub')) && s.obs.enabled;
+    if (!want && obs.state.status !== 'off') { obs.stop(); obs.set({ status: 'off', detail: '' }); }
+    else if (want && obs.state.status === 'off') obs.restart();
+  }
+  if (lab) lab.syncPoints();
 }
 
 // Stream timestamp (hotkey, panel button or "!clip" in chat): confirmation as a Windows notification.
@@ -310,7 +351,6 @@ async function runDeckAction(a) {
     case 'app.overlay': return toggleOverlay();
     case 'app.muteChat': return toggleChatMute();
     case 'app.fx': return replayFx();
-    case 'app.savane': return windows.openSavane && windows.openSavane();
     case 'app.alert': {
       const sounds = alertPicker.pick(Object.assign({}, store.settings.alerts, { enabled: true }), a.key, 1e7);
       if (!sounds.length) throw new Error('No sound for this event yet');
@@ -326,11 +366,10 @@ async function runDeckAction(a) {
       return;
     }
     case 'twitch.title': if (!a.text) throw new Error('Empty title'); return twitchApi.helix('PATCH', 'channels', { broadcaster_id: twitchApi.userId }, { title: a.text.slice(0, 140) });
-    // Labo test
+    // Hub → My stream, Baba Bot, game counters
     case 'lab.giveaway': return labChat.giveawayOp(a.op);
     case 'lab.poll': return labChat.pollEnd();
     case 'lab.counter': return labChat.bumpCounter(a.name, a.delta === 'reset' ? 'reset' : Number(a.delta) || 1);
-    case 'lab.queue': return labChat.queueOp(a.op);
     case 'lab.ad': return labTools.snooze();
     case 'lab.profile': return labTools.applyProfile(a.name);
     case 'lab.sound': return labChat.playByName(a.name);
@@ -351,11 +390,12 @@ function applySettings(patch) {
   if (changed(prev.alerts.enabled, s.alerts.enabled) || changed(prev.markers, s.markers)) twitch.sync();
   if (twitchApi) {
     if (prev.twitchApi.clientId !== s.twitchApi.clientId) twitchApi.start();
-    if (changed(prev.hub, s.hub)) hub.schedule();
-    nowPlaying.setEnabled(s.widgets.spotify.enabled, s.widgets.spotify.source === 'any');
+    if (changed(prev.hub, s.hub) && tabOn('hub')) hub.schedule();
   }
-  if (changed(prev.app.hotkeys, s.app.hotkeys) || changed(deckKeys(prev.deck), deckKeys(s.deck))) desktop.registerHotkeys();
+  const counterKeys = (l) => l.counters.map((c) => c.id + c.plusKey + c.minusKey).join();
+  if (changed(prev.app.hotkeys, s.app.hotkeys) || changed(deckKeys(prev.deck), deckKeys(s.deck)) || counterKeys(prev.lab) !== counterKeys(s.lab) || changed(prev.app.tabs, s.app.tabs)) desktop.registerHotkeys();
   if (changed(prev.obs, s.obs)) obs.restart();
+  if (changed(prev.app.tabs, s.app.tabs) || changed(prev.deck.hud, s.deck.hud) || changed(prev.widgets.spotify, s.widgets.spotify)) syncModules();
   if (lab && changed(prev.lab.points, s.lab.points)) lab.syncPoints();
   if (changed(prev.lab, s.lab)) twitch.sync(); // chat bot / games may need the chat connection
   if (bot && prev.bot.enabled !== s.bot.enabled) { if (s.bot.enabled) bot.start(); else { bot.stop(); bot.set('off'); } }
@@ -429,29 +469,28 @@ async function onAction(name, b) {
     case 'deck-press': return await deck.press(String(b.id || ''));
     case 'deck-test': await runDeckAction(require('./deck').cleanAction(b.action) || {}); return;
     case 'deck-window': windows.openDeck(); return;
-    // ---------- La savane ----------
-    case 'savane-open': windows.openSavane(); return;
+    case 'deck-hud-place': windows.setHudPlacing(!!b.on); return;
+    // ---------- "Son Twitch" folder ----------
+    case 'open-media-dir': await fs.promises.mkdir(mediaDir(), { recursive: true }); shell.openPath(mediaDir()); return;
+    // ---------- First-run setup (language + tabs) when the installer did not ask ----------
+    case 'setup-done': {
+      const tabs = {};
+      if (isObj(b.tabs)) for (const g of ['puppet', 'hud', 'hub', 'deck', 'bababot']) if (typeof b.tabs[g] === 'boolean') tabs[g] = b.tabs[g];
+      applySettings({ app: Object.assign({ setupDone: true, tabs }, ['en', 'fr', 'auto'].includes(b.language) ? { language: b.language } : {}) });
+      return;
+    }
     // ---------- Discord bot ----------
     case 'bot-token': store.setSecret('botToken', b.token ? secrets.seal(String(b.token).trim().slice(0, 200)) : ''); if (store.settings.bot.enabled) bot.start(); else bot.stop(); push(); return;
     case 'bot-github-token': store.setSecret('githubToken', b.token ? secrets.seal(String(b.token).trim().slice(0, 300)) : ''); push(); return;
     case 'bot-restart': if (store.settings.bot.enabled) await bot.start(); else bot.stop(); return;
-    case 'savane-presence': {
-      const list = (Array.isArray(b.ids) ? b.ids : []).filter((x) => x && /^[A-Za-z0-9_]{3,60}$/.test(x.id || '')).slice(0, 30).map((x) => ({ id: x.id, label: String(x.label || '').slice(0, 24), me: !!x.me }));
-      const same = JSON.stringify(list) === JSON.stringify(savanePresence.list) && Date.now() - savanePresence.at < 25000;
-      savanePresence = { list, at: Date.now() };
-      if (!same) push(); // the room window repeats the list every 8 s: only real changes reach the pages
-      return;
-    }
-    case 'savane-speaking': srv.broadcast('savane-speaking', { ids: (Array.isArray(b.ids) ? b.ids : []).map(String).filter((x) => /^[A-Za-z0-9_]{3,60}$/.test(x)).slice(0, 30) }); return;
     case 'chat-badges': return { badges: await hub.badges(Array.isArray(b.rooms) ? b.rooms : []) };
-    // ---------- Labo test v2 ----------
+    // ---------- My stream, Baba Bot, game counters ----------
     case 'lab-giveaway': { const winner = labChat.giveawayOp(String(b.op || '')); twitch.sync(); return { winner }; }
     case 'lab-poll':
       if (b.op === 'start') labChat.pollStart(b); else if (b.op === 'end') labChat.pollEnd(); else labChat.pollClear();
       twitch.sync();
       return;
     case 'lab-counter': labChat.bumpCounter(String(b.id || ''), b.delta === 'reset' ? 'reset' : Math.round(Number(b.delta) || 0)); return;
-    case 'lab-queue': labChat.queueOp(String(b.op || ''), String(b.login || '')); return;
     case 'lab-sound-test': labChat.playByName(String(b.name || '')); return;
     case 'lab-summary': return { text: labChat.summaryText() };
     case 'lab-info': return { info: await labTools.info() };
@@ -526,7 +565,9 @@ app.whenReady().then(async () => {
   if (store.data.lastVersion === null) { store.data.lastVersion = app.getVersion(); store.save(); } // fresh install: nothing new to show
   syncLang();
 
-  srv = createServer({ webDir: WEB_DIR, soundsDir: path.join(app.getPath('userData'), 'sounds'), coversDir: path.join(app.getPath('userData'), 'covers'), bgDir: path.join(app.getPath('userData'), 'backgrounds'), store, getState: appState, onSettings: applySettings, onAction, onAvatarsChanged: () => push({ avatars: true }) });
+  applySetupFile();
+  try { fs.mkdirSync(mediaDir(), { recursive: true }); } catch (e) { log.warn('[media] ' + e.message); }
+  srv = createServer({ webDir: WEB_DIR, getMediaDir: mediaDir, soundsDir: path.join(app.getPath('userData'), 'sounds'), coversDir: path.join(app.getPath('userData'), 'covers'), bgDir: path.join(app.getPath('userData'), 'backgrounds'), store, getState: appState, onSettings: applySettings, onAction, onAvatarsChanged: () => push({ avatars: true }) });
   try { await listen(store.settings.port); } catch (e) {
     dialog.showErrorBox('LaboHub', 'Could not start the local server: ' + e.message);
     app.exit(1);
@@ -546,6 +587,7 @@ app.whenReady().then(async () => {
     quit: () => { quitting = true; app.quit(); },
     onChange: push,
     onPanelShown: () => desktop.onPanelShown(),
+    saveHud: (pos) => applySettings({ deck: { hud: pos } }),
   });
   desktop = createDesktop({
     store, t, windows, icon: ICON,
@@ -555,7 +597,9 @@ app.whenReady().then(async () => {
       openPanel: () => windows.openPanel(), openCreator: (u) => windows.openCreator(u),
       toggleOverlay, togglePlacement, toggleChatMute, replayFx,
       addMarker: () => { if (markers) addMarker('hotkey').catch(() => {}); },
-      deckHotkeys: () => (deck ? deck.hotkeys() : []),
+      deckHotkeys: () => (deck && tabOn('deck') ? deck.hotkeys() : []),
+      // Game counters (Widget Twitch → Counters): their own +1 / -1 shortcuts.
+      counterHotkeys: () => (tabOn('hud') ? store.settings.lab.counters.flatMap((c) => [c.plusKey && { acc: c.plusKey, key: 'counter+:' + c.id, fn: () => labChat && labChat.bumpCounter(c.id, 1) }, c.minusKey && { acc: c.minusKey, key: 'counter-:' + c.id, fn: () => labChat && labChat.bumpCounter(c.id, -1) }]).filter(Boolean) : []),
       pressDeck: (id) => deck.press(id).catch((e) => notify('BabaDeck', t(e.message))),
       reconnect: () => rpc && rpc.restart(),
       installUpdate: () => updater.install(),
@@ -571,10 +615,8 @@ app.whenReady().then(async () => {
 
   obs = new Obs({ getSettings: () => store.settings.obs, getPassword: () => secrets.open(store.getSecret('obs')), log });
   obs.on('change', () => push());
-  obs.restart();
+  if (tabOn('deck') || tabOn('hub')) obs.restart();
   deck = new Deck({ getSettings: () => store.settings.deck, run: runDeckAction, log });
-  // Expire La savane's presence when the room window stopped reporting.
-  setInterval(() => { if (savanePresence.list.length && Date.now() - savanePresence.at > 25000) { savanePresence = { list: [], at: 0 }; push(); } }, 10000);
 
   startBot();
   desktop.createTray();
@@ -582,6 +624,7 @@ app.whenReady().then(async () => {
   startTwitch();
   startStreamTools();
   windows.createOverlay();
+  syncModules();
   sync.schedule();
   desktop.registerHotkeys();
   desktop.applyLoginItem();

@@ -7,9 +7,10 @@ const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
 const { cleanAvatar } = require('./avatars');
-const { SOUND_FILE_RE } = require('./settings');
+const { SOUND_FILE_RE, MEDIA_RE } = require('./settings');
 
-const MIME = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8', '.png': 'image/png', '.svg': 'image/svg+xml', '.ico': 'image/x-icon', '.json': 'application/json', '.mp3': 'audio/mpeg', '.wav': 'audio/wav', '.ogg': 'audio/ogg' };
+const MIME = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8', '.png': 'image/png', '.svg': 'image/svg+xml', '.ico': 'image/x-icon', '.json': 'application/json', '.mp3': 'audio/mpeg', '.wav': 'audio/wav', '.ogg': 'audio/ogg',
+  '.gif': 'image/gif', '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.webp': 'image/webp' };
 const MAX_SOUND = 20 * 1024 * 1024;
 
 // Alert sounds are stored under a random name; the content must really be MP3, WAV or Ogg.
@@ -39,7 +40,22 @@ function imageType(b) {
 const BG_RE = /^[a-f0-9]{16}\.(png|jpg|webp|gif)$/;
 const BG_TYPES = { png: 'image/png', jpg: 'image/jpeg', webp: 'image/webp', gif: 'image/gif' };
 
-function createServer({ webDir, soundsDir, coversDir, bgDir, store, getState, onSettings, onAction, onAvatarsChanged }) {
+// "Son Twitch" folder: a file name (no folder parts) that stays inside the folder.
+function mediaPath(dir, name) {
+  if (!dir || !MEDIA_RE.test(name)) return null;
+  const f = path.resolve(dir, name);
+  return path.dirname(f) === path.resolve(dir) ? f : null;
+}
+// A name the user will recognise in the folder, made safe for Windows, and not taken yet.
+function freeMediaName(dir, wanted, ext) {
+  let stem = String(wanted || 'son').replace(/\.[^.]*$/, '').replace(/[\\/:*?"<>|\u0000-\u001f]/g, ' ').replace(/\s+/g, ' ').trim().replace(/^[. ]+/, '').slice(0, 80) || 'son';
+  let name = `${stem}.${ext}`, i = 2;
+  while (fs.existsSync(path.join(dir, name))) name = `${stem} (${i++}).${ext}`;
+  return name;
+}
+
+/** getMediaDir(): the "Son Twitch" folder (sounds and pictures the user drops in, alert GIFs). */
+function createServer({ webDir, soundsDir, coversDir, bgDir, getMediaDir, store, getState, onSettings, onAction, onAvatarsChanged }) {
   const root = path.resolve(webDir);
   const clients = new Set();
 
@@ -154,6 +170,17 @@ function createServer({ webDir, soundsDir, coversDir, bgDir, store, getState, on
         if (m !== 'GET' && m !== 'HEAD') { res.writeHead(405); return res.end(); }
         if (p.startsWith('/sounds/') && soundsDir) return serveSound(p.slice(8), res);
         if (p.startsWith('/covers/') && coversDir) return serveCover(p.slice(8), res);
+        if (p.startsWith('/media/') && getMediaDir) {
+          let name;
+          try { name = decodeURIComponent(p.slice(7)); } catch (e) { res.writeHead(400); return res.end(); }
+          const f = mediaPath(getMediaDir(), name);
+          if (!f) { res.writeHead(404); return res.end(); }
+          return fs.readFile(f, (err, data) => {
+            if (err) { res.writeHead(404); return res.end('Not found'); }
+            res.writeHead(200, { 'Content-Type': MIME[path.extname(f).toLowerCase()] || 'application/octet-stream', 'Content-Length': data.length, 'Cache-Control': 'no-cache', 'X-Content-Type-Options': 'nosniff' });
+            res.end(data);
+          });
+        }
         if (p.startsWith('/backgrounds/') && bgDir) {
           const name = p.slice(13);
           if (!BG_RE.test(name)) { res.writeHead(404); return res.end(); }
@@ -206,6 +233,30 @@ function createServer({ webDir, soundsDir, coversDir, bgDir, store, getState, on
         await fs.promises.writeFile(path.join(bgDir, file), buf);
         return json(res, 200, { ok: true, url: '/backgrounds/' + file });
       }
+      // "Son Twitch" folder: list, add (the file keeps its name), so alerts and sound commands can pick from it.
+      if (p === '/api/media' && m === 'GET' && getMediaDir) {
+        const dir = getMediaDir();
+        await fs.promises.mkdir(dir, { recursive: true }).catch(() => {});
+        const names = (await fs.promises.readdir(dir).catch(() => [])).filter((n) => MEDIA_RE.test(n)).slice(0, 1000);
+        const files = [];
+        for (const name of names) {
+          const st = await fs.promises.stat(path.join(dir, name)).catch(() => null);
+          if (st && st.isFile()) files.push({ name, kind: /\.(mp3|wav|ogg)$/i.test(name) ? 'audio' : 'image', size: st.size });
+        }
+        files.sort((a, b) => a.name.localeCompare(b.name, 'fr', { sensitivity: 'base' }));
+        return json(res, 200, { ok: true, dir, files });
+      }
+      if (p === '/api/media' && m === 'POST' && getMediaDir) {
+        const buf = await readRaw(req, MAX_SOUND);
+        const type = soundType(buf) || imageType(buf);
+        if (!type) throw new Error('Not an MP3, WAV, Ogg, GIF, PNG, JPEG or WebP file');
+        if (!soundType(buf) && buf.length > 8 * 1024 * 1024) throw new Error('Picture too big (8 MB max)');
+        const dir = getMediaDir();
+        await fs.promises.mkdir(dir, { recursive: true });
+        const name = freeMediaName(dir, url.searchParams.get('name'), type);
+        await fs.promises.writeFile(path.join(dir, name), buf);
+        return json(res, 200, { ok: true, file: name, kind: soundType(buf) ? 'audio' : 'image' });
+      }
       if (p.startsWith('/api/sounds/') && m === 'DELETE' && soundsDir) {
         const file = decodeURIComponent(p.slice('/api/sounds/'.length));
         if (!SOUND_FILE_RE.test(file)) throw new Error('Invalid file name');
@@ -233,4 +284,4 @@ function createServer({ webDir, soundsDir, coversDir, bgDir, store, getState, on
   return { server, broadcast, pushState, close };
 }
 
-module.exports = { createServer, soundType };
+module.exports = { createServer, soundType, mediaPath, freeMediaName };

@@ -34,7 +34,8 @@ try {
   $mgr = Await ([Windows.Media.Control.GlobalSystemMediaTransportControlsSessionManager]::RequestAsync()) ([Windows.Media.Control.GlobalSystemMediaTransportControlsSessionManager])
   $smtc = $true
 } catch { Out ('E:' + $_.Exception.Message) }
-$last = ''; $lastTrack = ''; $thumb = ''; $sent = $true; $tries = 0; $lastT = $null
+$last = ''; $lastTrack = ''; $thumbHash = ''; $prevHash = ''; $since = 0; $lastT = $null
+$md5 = [System.Security.Cryptography.MD5]::Create()
 while ($true) {
   if (-not (Get-Process -Id $parent -ErrorAction SilentlyContinue)) { exit }
   if ($smtc) {
@@ -46,23 +47,30 @@ while ($true) {
         $p = Await ($s.TryGetMediaPropertiesAsync()) ([Windows.Media.Control.GlobalSystemMediaTransportControlsSessionMediaProperties])
         $pb = $s.GetPlaybackInfo(); $tl = $s.GetTimelineProperties()
         $track = "$($p.Artist)|$($p.Title)|$($p.AlbumTitle)"
-        if ($track -ne $lastTrack) { $lastTrack = $track; $thumb = ''; $sent = $true; $tries = 0 }
-        if (-not $thumb -and $p.Thumbnail -and $tries -lt 4) {
-          $tries++
-          try {
-            $ras = Await ($p.Thumbnail.OpenReadAsync()) ([Windows.Storage.Streams.IRandomAccessStreamWithContentType])
-            $st = [System.IO.WindowsRuntimeStreamExtensions]::AsStreamForRead($ras)
-            $ms = New-Object System.IO.MemoryStream; $st.CopyTo($ms); $st.Dispose()
-            if ($ms.Length -gt 0) { $thumb = [Convert]::ToBase64String($ms.ToArray()); $sent = $false }
-          } catch { }
-        }
+        if ($track -ne $lastTrack) { $lastTrack = $track; $prevHash = $thumbHash; $thumbHash = ''; $since = 0 }
+        $since++
         $o = [ordered]@{ app = [string]$s.SourceAppUserModelId; title = [string]$p.Title; artist = [string]$p.Artist; album = [string]$p.AlbumTitle;
           status = [int]$pb.PlaybackStatus; pos = [math]::Round($tl.Position.TotalSeconds, 1); dur = [math]::Round($tl.EndTime.TotalSeconds, 1);
           upd = $tl.LastUpdatedTime.ToUnixTimeMilliseconds() }
       } else { $o = [ordered]@{ status = 0 } }
       $j = $o | ConvertTo-Json -Compress
       if ($j -ne $last) { Out ('J:' + $j); $last = $j }
-      if (-not $sent) { Out ('C:' + $thumb); $sent = $true }
+      # Spotify publishes the new cover a moment after the new title, and sometimes changes it later:
+      # read it every second for 10 s after a change, then every 5 s, and send it whenever the picture changes.
+      if ($s -and $p.Thumbnail -and ($since -le 10 -or ($since % 5) -eq 0)) {
+        try {
+          $ras = Await ($p.Thumbnail.OpenReadAsync()) ([Windows.Storage.Streams.IRandomAccessStreamWithContentType])
+          $st = [System.IO.WindowsRuntimeStreamExtensions]::AsStreamForRead($ras)
+          $ms = New-Object System.IO.MemoryStream; $st.CopyTo($ms); $st.Dispose()
+          $bytes = $ms.ToArray()
+          if ($bytes.Length -gt 0) {
+            $h = [BitConverter]::ToString($md5.ComputeHash($bytes))
+            # Right after a change the previous song's picture may still be there: wait for a new one (same album: sent after 4 s).
+            $stale = ($h -eq $prevHash) -and ($since -le 4)
+            if ($h -ne $thumbHash -and -not $stale) { $thumbHash = $h; Out ('C:' + [Convert]::ToBase64String($bytes)) }
+          }
+        } catch { }
+      }
     } catch { }
   } else {
     $t = ''
@@ -219,7 +227,7 @@ class NowPlaying extends EventEmitter {
     }
     this.update(Object.assign({ status: s.title || s.artist ? 'running' : 'waiting', source: 'media' }, s, same ? {} : { cover: null }));
     // The session usually sends the cover right after; if it doesn't, look it up online.
-    if (!same && s.title) { clearTimeout(this.lookupTimer); this.lookupTimer = setTimeout(() => { if (!this.state.cover) this.lookupCover(s.artist, s.title); }, 3000); }
+    if (!same && s.title) { clearTimeout(this.lookupTimer); this.lookupTimer = setTimeout(() => { if (!this.state.cover) this.lookupCover(s.artist, s.title); }, 6000); }
   }
 
   onCover(b64) {
@@ -227,17 +235,24 @@ class NowPlaying extends EventEmitter {
     if (st && st.showCover === false) return;
     let buf;
     try { buf = Buffer.from(b64, 'base64'); } catch (e) { return; }
+    const url = this.saveCover(buf);
+    if (!url) return;
+    clearTimeout(this.lookupTimer);
+    this.update({ cover: url });
+  }
+  // Covers are served by the app itself (/covers/<hash>): same origin for the widgets, no CORS or hotlink surprises.
+  saveCover(buf) {
     const type = imageType(buf);
     const dir = this.o.coversDir;
-    if (!type || !dir || buf.length > 5 * 1024 * 1024) return;
+    if (!type || !dir || buf.length > 5 * 1024 * 1024) return null;
     const name = crypto.createHash('sha1').update(buf).digest('hex').slice(0, 12) + '.' + type;
     try {
       fs.mkdirSync(dir, { recursive: true });
       const file = path.join(dir, name);
       if (!fs.existsSync(file)) { fs.writeFileSync(file, buf); this.pruneCovers(dir); }
-    } catch (e) { return; }
-    clearTimeout(this.lookupTimer);
-    this.update({ cover: '/covers/' + name });
+      else fs.utimesSync(file, new Date(), new Date()); // recently used: kept by pruneCovers
+    } catch (e) { return null; }
+    return '/covers/' + name;
   }
 
   // Keep the cover folder small: only the most recent covers.
@@ -278,6 +293,14 @@ class NowPlaying extends EventEmitter {
           const art = j.data && j.data[0] && j.data[0].album && (j.data[0].album.cover_big || j.data[0].album.cover_medium);
           if (typeof art === 'string' && /^https:\/\//.test(art)) url = art;
         } catch (e) { /* no cover */ }
+      }
+      // Keep a local copy: the widget then never depends on the catalogue's server (or its CORS headers).
+      if (url) {
+        try {
+          const res = await this.fetch(url);
+          const local = res.ok ? this.saveCover(Buffer.from(await res.arrayBuffer())) : null;
+          if (local) url = local;
+        } catch (e) { /* keep the remote picture */ }
       }
       if (this.lookups.size > 300) this.lookups.clear();
       this.lookups.set(key, url);

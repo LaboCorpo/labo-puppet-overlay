@@ -1,5 +1,5 @@
 /*
- * Labo test — streamer tools that talk to Twitch / Discord for you:
+ * Hub Labo → My stream — streamer tools that talk to Twitch / Discord for you:
  *  - ad warning: Helix "Get Ad Schedule" while you are live; N seconds before a mid-roll, a chat message,
  *    a Windows notification and the lab.html?w=ad countdown; "Snooze" pushes it back 5 minutes (Twitch limits the snoozes);
  *  - Discord go-live: one message to a Discord webhook when your live starts (the webhook URL stays encrypted);
@@ -38,7 +38,7 @@ class LabTools extends EventEmitter {
       this.warned = a.nextAt;
       const s = Math.max(5, Math.round((a.nextAt - now) / 1000));
       if (c.chat) this.o.say(c.chatText.replace(/\{s\}/g, String(s)).replace(/\{duration\}/g, String(a.duration || 0))).catch((e) => this.o.log.warn('[lab-tools] ad message: ' + e.message));
-      this.o.notify(this.o.t('Ad break in {s} s', { s }), a.snoozes ? this.o.t('Snooze it from Labo test (or the BabaDeck): {n} left.', { n: a.snoozes }) : this.o.t('No snooze left.'));
+      this.o.notify(this.o.t('Ad break in {s} s', { s }), a.snoozes ? this.o.t('Snooze it in Hub Labo → My stream (or the BabaDeck): {n} left.', { n: a.snoozes }) : this.o.t('No snooze left.'));
       this.o.broadcast('lab-event', { type: 'ad', at: a.nextAt, duration: a.duration });
     }
   }

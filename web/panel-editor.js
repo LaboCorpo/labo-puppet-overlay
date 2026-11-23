@@ -1,8 +1,9 @@
 /*
  * Widget editor: one page per widget (sidebar entries "w-<widget>" under Stream widgets), with a menu of
  * categories (themes, appearance, picture, colours, text, size, icon, animations, content) and a search box.
- * Every property comes from web/shared/widget-schema.js. Illustrated choices, a live preview, themes,
- * "apply to all", reset (widget or menu) and share codes.
+ * Every property comes from web/shared/widget-schema.js. Illustrated choices, a live preview, themes and
+ * "My templates" (settings.widgets.templates), your pictures (background, icon), custom CSS, "apply to all",
+ * reset (widget or menu) and share codes (without pictures and CSS).
  * Edits update a local draft and the preview at once; saving is debounced through Panel.save.
  */
 (function () {
@@ -11,14 +12,16 @@
   const S = WidgetSchema;
   const box = $('#widgetEditor');
   if (!box) return;
-  const W_PARAM = { followers: 'followers', subs: 'subs', latestFollower: 'latest-follower', latestSub: 'latest-sub', spotify: 'spotify', chat: 'chat' };
+  const W_PARAM = { followers: 'followers', subs: 'subs', latestFollower: 'latest-follower', latestSub: 'latest-sub', spotify: 'spotify', chat: 'chat', gameCounter: 'counter' };
   let current = 'spotify'; // widget of the open page (tab "w-<widget>")
   let draft = null; // look being edited
   let lastEdit = 0, builtFor = '';
   let bg = 'checker';
 
-  const names = () => ({ followers: t('Followers'), subs: t('Subs'), latestFollower: t('Latest follower'), latestSub: t('Latest sub'), spotify: t('Now playing (Spotify)'), chat: t('Live chat') });
-  const groupNames = () => ({ presets: t('Themes'), appearance: t('Appearance'), colors: t('Colours'), text: t('Text'), box: t('Size & spacing'), icon: t('Icon'), anim: t('Animations'), content: t('Content') });
+  const names = () => ({ followers: t('Followers'), subs: t('Subs'), latestFollower: t('Latest follower'), latestSub: t('Latest sub'), spotify: t('Now playing (Spotify)'), chat: t('Live chat'), gameCounter: t('Game counters') });
+  const groupNames = () => ({ presets: t('Themes & templates'), appearance: t('Appearance'), colors: t('Colours'), text: t('Text'), box: t('Size & spacing'), icon: t('Icon'), anim: t('Animations'), content: t('Content'), code: t('Custom code') });
+  // A Son Twitch file as a picture address the widget accepts (no space, quote or bracket left unencoded).
+  const mediaRef = (name) => '/media/' + encodeURIComponent(name).replace(/[!'()*]/g, (c) => '%' + c.charCodeAt(0).toString(16).toUpperCase());
   // Labels of the choices (by property when the same word means different things).
   const valueLabel = (key, v) => {
     const byProp = {
@@ -28,7 +31,8 @@
       align: { left: t('Left'), center: t('Center'), right: t('Right') },
       textShadow: { none: t('None'), soft: t('Soft'), strong: t('Strong'), outline: t('Outline'), glow: t('Glow') },
       shadow: { none: t('None'), soft: t('Soft'), strong: t('Strong'), glow: t('Glow') },
-      icon: { none: t('None'), heart: t('Heart'), star: t('Star'), user: t('Person'), crown: t('Crown'), gift: t('Gift'), bolt: t('Lightning'), music: t('Note'), fire: t('Flame'), custom: t('Custom') },
+      icon: { none: t('None'), heart: t('Heart'), star: t('Star'), user: t('Person'), crown: t('Crown'), gift: t('Gift'), bolt: t('Lightning'), music: t('Note'), fire: t('Flame'), skull: t('Skull'), trophy: t('Trophy'), custom: t('Custom'), image: t('My picture') },
+      bgImageFit: { cover: t('Fill'), contain: t('Whole picture'), tile: t('Tiles') },
       entrance: { none: t('None'), fade: t('Fade'), 'slide-up': t('Slide up'), 'slide-down': t('Slide down'), 'slide-left': t('From the right'), 'slide-right': t('From the left'), pop: t('Pop'), blur: t('Blur'), flip: t('Flip') },
       update: { none: t('None'), bump: t('Bump'), flip: t('Flip'), count: t('Count up'), glow: t('Glow'), shake: t('Shake'), confetti: t('Confetti') },
       idle: { none: t('None'), float: t('Float'), pulse: t('Pulse'), breathe: t('Breathe'), shine: t('Shine'), wobble: t('Wobble') },
@@ -122,12 +126,49 @@
       return `<label class="we-field"><span class="we-label">${lbl}</span><span class="we-font"><select data-k="${p.key}" data-font>${S.FONTS.map((f) => `<option value="${escapeHtml(f)}" style="font-family:'${escapeHtml(f)}'"${f === v ? ' selected' : ''}>${escapeHtml(f)}</option>`).join('')}<option value="__other"${known ? '' : ' selected'}>${escapeHtml(t('Other font…'))}</option></select>
         <input data-k="${p.key}" data-fontcustom class="${known ? 'hidden' : ''}" value="${escapeHtml(known ? '' : v)}" placeholder="${escapeHtml(t('Font name installed on Windows'))}" spellcheck="false"></span></label>`;
     }
+    if (p.type === 'image') {
+      return `<div class="we-field wide"><div class="we-label">${lbl}</div><div class="we-img">
+        <span class="we-img-prev">${v ? `<img src="${escapeHtml(v)}" alt="">` : '<i>∅</i>'}</span>
+        <button class="small" data-pickimg="${p.key}">🖼 ${escapeHtml(t('Choose a picture'))}</button>
+        ${v ? `<button class="ghost small" data-clearimg="${p.key}">✕ ${escapeHtml(t('Remove'))}</button>` : ''}
+        <span class="muted">${escapeHtml(t('GIF, PNG, JPG or WEBP from the Son Twitch folder.'))}</span></div></div>`;
+    }
+    if (p.type === 'code') {
+      return `<div class="we-field wide"><div class="we-label">${lbl}</div>
+        <textarea class="we-code" data-k="${p.key}" rows="10" maxlength="${p.max}" spellcheck="false" placeholder="${escapeHtml('.wg { transform: rotate(-2deg); }\n.wg-label { letter-spacing: .2em; }')}">${escapeHtml(v)}</textarea>
+        <div class="we-code-help muted">${escapeHtml(t('Classes: .wg (the box), .wg-label, .wg-val, .num, .wg-ic (icon), .wg-bar, .np-title, .np-cover, .wg-name… Applied live; only on this widget, in OBS and in the preview.'))}
+          <span class="btns" style="margin:6px 0 0">${CSS_SNIPPETS.map(([n], i) => `<button class="ghost small" data-snip="${i}">＋ ${escapeHtml(t(n))}</button>`).join('')}</span></div></div>`;
+    }
     return `<label class="we-field"><span class="we-label">${lbl}</span><input data-k="${p.key}" value="${escapeHtml(v)}" maxlength="${p.max}" placeholder="${p.key === 'label' ? escapeHtml(names()[current]) : ''}"></label>`;
   }
+  // Ready-made bits of CSS to start from.
+  const CSS_SNIPPETS = [
+    ['Tilted', '.wg { transform: rotate(-3deg); }'],
+    ['Rainbow text', '.wg-val, .wg-name, .np-title { background: linear-gradient(90deg, #ff4f5e, #ffc93c, #2fd4a3, #3d8bff, #a970ff); -webkit-background-clip: text; color: transparent; }'],
+    ['Pulse', '.wg { animation: pulse 2s ease-in-out infinite; }\n@keyframes pulse { 50% { transform: scale(1.06); } }'],
+    ['Big number', '.num { font-size: 1.6em; }'],
+  ];
   const fmtNum = (p, v) => (p.key === 'width' && !v ? t('auto') : `${v}${p.unit || ''}`);
 
+  // A small swatch of a look (themes and templates).
+  function swatch(p, label, attrs, extra) {
+    const bgc = p.frame === 'gradient' ? `linear-gradient(${p.gradAngle}deg, ${p.accent}, ${p.gradColor})` : p.frame === 'none' ? 'transparent' : hexA(p.bgColor, p.bgOpacity / 100);
+    const border = p.frame === 'neon' || p.frame === 'outline' ? `2px solid ${p.accent}` : p.frame === 'paper' ? '2px solid #1d1520' : p.frame === 'glass' ? '1px solid #ffffff60' : '1px solid transparent';
+    const glow = p.frame === 'neon' ? `0 0 10px ${p.accent}` : p.frame === 'paper' ? '3px 3px 0 #0008' : 'none';
+    const img = p.bgImage ? `, center / cover url("${p.bgImage.replace(/"/g, '')}")` : '';
+    return `<button class="we-preset" ${attrs}><span class="pv" style="background:${bgc}${img};border:${border};box-shadow:${glow};color:${p.textColor};font-family:'${p.font}';border-radius:${Math.min(p.radius, 14)}px;${p.frame === 'paper' ? 'transform:rotate(-2deg);' : ''}">
+        <i style="background:${p.accent}"></i>${escapeHtml(label)}</span>${extra || ''}</button>`;
+  }
+  function templatesHtml() {
+    const list = (Panel.state.settings.widgets.templates || []);
+    return `<div class="we-sub">${escapeHtml(t('My templates'))}</div>
+      <p class="muted">${escapeHtml(t('Save the look of this widget (colours, frame, text, pictures, CSS…) and reuse it on any widget.'))}</p>
+      <div class="we-presets">${list.map((tp) => swatch(Object.assign({}, S.defaultLook(current), tp.style), tp.name, `data-tpl="${escapeHtml(tp.id)}"`, `<span class="we-tpl-del" data-tpldel="${escapeHtml(tp.id)}" title="${escapeHtml(t('Delete'))}">✕</span>`)).join('')}
+        <button class="we-preset we-tpl-new" data-act="tpl-save"><span class="pv">＋ ${escapeHtml(t('Save this look'))}</span></button></div>
+      <div class="we-sub">${escapeHtml(t('Themes'))}</div>`;
+  }
   function presetsHtml() {
-    return `<div class="we-presets">${S.PRESETS.map((pr) => {
+    return templatesHtml() + `<div class="we-presets">${S.PRESETS.map((pr) => {
       const p = Object.assign({}, S.defaultLook(current), pr.props);
       const bgc = p.frame === 'gradient' ? `linear-gradient(${p.gradAngle}deg, ${p.accent}, ${p.gradColor})` : p.frame === 'none' ? 'transparent' : hexA(p.bgColor, p.bgOpacity / 100);
       const border = p.frame === 'neon' || p.frame === 'outline' ? `2px solid ${p.accent}` : p.frame === 'paper' ? '2px solid #1d1520' : p.frame === 'glass' ? '1px solid #ffffff60' : '1px solid transparent';
@@ -141,7 +182,7 @@
 
   // ---------- Page: header, menu of categories, preview, the fields of one category ----------
   const ORIGIN = location.origin.replace('127.0.0.1', 'localhost');
-  let cat = 'presets', query = '';
+  let cat = 'presets', query = '', codeTimer = 0;
   const catName = (g) => (g === 'media' ? (S.KIND[current] === 'spotify' ? t('Album cover') : t('Profile picture')) : groupNames()[g]);
   const cats = () => { const props = S.propsFor(current); return S.GROUPS.map(([g]) => g).filter((g) => g === 'presets' || props.some((p) => p.group === g)); };
 
@@ -210,7 +251,7 @@
         ? cats().filter((g) => hits.some((p) => p.group === g)).map((g) => `<div class="we-sub">${escapeHtml(catName(g))}</div><div class="we-grid">${hits.filter((p) => p.group === g).map(control).join('')}</div>`).join('')
         : `<p class="muted">${escapeHtml(t('No setting matches.'))}</p>`);
     } else if (cat === 'presets') {
-      html = `<div class="we-pane-head"><h3>${escapeHtml(catName('presets'))}</h3></div><p class="muted">${escapeHtml(t('A theme changes colours, frame and text style; your texts, goals and layout stay.'))}</p>${presetsHtml()}`;
+      html = `<div class="we-pane-head"><h3>${escapeHtml(catName('presets'))}</h3></div>${presetsHtml()}<p class="muted">${escapeHtml(t('A theme changes colours, frame and text style; your texts, goals and layout stay.'))}</p>`;
     } else {
       html = `<div class="we-pane-head"><h3>${escapeHtml(catName(cat))}</h3><button class="ghost small" data-act="reset-cat">↺ ${escapeHtml(t('Reset this menu'))}</button></div>
         <div class="we-grid">${props.filter((p) => p.group === cat).map(control).join('')}</div>`;
@@ -265,6 +306,17 @@
   box.addEventListener('click', (e) => {
     const b = e.target.closest('button');
     if (!b || !box.contains(b)) return;
+    if (b.dataset.tpl) {
+      if (e.target.closest('[data-tpldel]')) {
+        if (!confirm(t('Delete this template?'))) return;
+        const list = (Panel.state.settings.widgets.templates || []).filter((x) => x.id !== b.dataset.tpl);
+        Panel.state.settings.widgets.templates = list; Panel.save('widgets.templates', list); refreshControls();
+        return;
+      }
+      const tp = (Panel.state.settings.widgets.templates || []).find((x) => x.id === b.dataset.tpl);
+      if (tp) setLook(S.copyStyle(tp.style, draft, current), 'Template applied');
+      return;
+    }
     if (b.dataset.cat) {
       cat = b.dataset.cat; query = '';
       renderMenu(); renderPane(true);
@@ -281,6 +333,20 @@
       return;
     }
     if (b.dataset.preset) { setLook(S.applyPreset(draft, b.dataset.preset), 'Theme applied'); return; }
+    if (b.dataset.pickimg) {
+      const k = b.dataset.pickimg;
+      Panel.pickMedia({ kind: 'image' }).then((got) => { if (got[0]) { set(k, mediaRef(got[0]), true); if (k === 'iconImage' && draft.icon !== 'image') set('icon', 'image', true); } });
+      return;
+    }
+    if (b.dataset.clearimg) { set(b.dataset.clearimg, '', true); return; }
+    if (b.dataset.snip) {
+      const ta = box.querySelector('textarea[data-k="customCss"]');
+      const add = CSS_SNIPPETS[+b.dataset.snip][1];
+      const v = ((draft.customCss || '').trim() ? draft.customCss.trimEnd() + '\n' : '') + add;
+      if (ta) ta.value = v;
+      set('customCss', v.slice(0, 8000));
+      return;
+    }
     const act = b.dataset.act;
     if (act === 'reset') setLook(S.defaultLook(current), 'Widget reset');
     if (act === 'reset-cat') {
@@ -288,7 +354,18 @@
       for (const p of S.propsFor(current)) if (p.group === cat) next[p.key] = def[p.key];
       setLook(next, 'Menu reset');
     }
-    if (act === 'share') navigator.clipboard.writeText(S.encodeStyle(draft)).then(() => toast(t('Style code copied: send it to a friend')), () => toast(t('Could not copy')));
+    if (act === 'share') navigator.clipboard.writeText(S.encodeStyle(draft)).then(() => toast(t('Style code copied: send it to a friend (pictures and CSS stay on your PC)')), () => toast(t('Could not copy')));
+    if (act === 'tpl-save') {
+      const list = (Panel.state.settings.widgets.templates || []).slice();
+      if (list.length >= 40) { toast(t('40 templates max')); return; }
+      const name = prompt(t('Template name'), t('My look {n}', { n: list.length + 1 }));
+      if (!name) return;
+      list.push({ id: 't' + Math.random().toString(36).slice(2, 10).replace(/[^a-z0-9]/g, 'x'), name: name.trim().slice(0, 30), style: S.cleanStyle(draft) });
+      Panel.state.settings.widgets.templates = list;
+      Panel.save('widgets.templates', list);
+      refreshControls();
+      toast(t('Template saved: it is in Themes & templates of every widget'));
+    }
     if (act === 'import') {
       const next = S.decodeStyle($('#weCode').value, draft, current);
       if (!next) { toast(t('This is not a valid style code')); return; }
@@ -319,6 +396,7 @@
       box.querySelectorAll(`[data-k="${k}"]`).forEach((x) => { if (x !== el) x.value = v; });
       set(k, v.toLowerCase());
     } else if (p.type === 'text') set(k, el.value.slice(0, p.max));
+    else if (p.type === 'code') { clearTimeout(codeTimer); codeTimer = setTimeout(() => set(k, el.value.slice(0, p.max)), 250); }
     else if (p.type === 'font' && el.hasAttribute('data-fontcustom')) { if (/^[\w .,'-]{1,60}$/.test(el.value.trim())) set(k, el.value.trim()); }
   });
   box.addEventListener('change', (e) => {

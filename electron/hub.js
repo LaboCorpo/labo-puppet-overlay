@@ -21,6 +21,7 @@ class Hub extends EventEmitter {
     this.timer = null;
     this.polledOnce = false;
     this.raid = null; // { login, at }
+    this.boxes = {}; // game id -> box art URL (live banner)
   }
 
   snapshot() { return { status: this.status, detail: this.detail, list: this.list, raid: this.raid, updatedAt: this.updatedAt || 0 }; }
@@ -47,7 +48,7 @@ class Hub extends EventEmitter {
       const s = this.live.get(login);
       return {
         login, id: u.id || null, display: u.display || login, avatar: u.avatar || null, me: login === me,
-        live: !!s, title: s ? s.title : '', game: s ? s.game_name : '', viewers: s ? s.viewer_count : 0,
+        live: !!s, title: s ? s.title : '', game: s ? s.game_name : '', box: s ? this.boxes[s.game_id] || '' : '', viewers: s ? s.viewer_count : 0,
         startedAt: s ? s.started_at : null,
         thumb: s && s.thumbnail_url ? s.thumbnail_url.replace('{width}', '320').replace('{height}', '180') : null,
       };
@@ -70,8 +71,9 @@ class Hub extends EventEmitter {
       const r = await this.api.helix('GET', 'streams', { user_login: logins.slice(0, 100), first: 100 });
       const next = new Map();
       for (const s of r.data || []) next.set(String(s.user_login).toLowerCase(), s);
+      if (this.api.gameBoxes) Object.assign(this.boxes, await this.api.gameBoxes([...next.values()].map((s) => s.game_id)));
       // Notify for channels that just went live (not on the first poll: they were already live).
-      if (this.polledOnce) for (const [login, s] of next) if (!this.live.has(login) && login !== this.api.login) this.emit('live', { login, display: s.user_name, title: s.title, game: s.game_name });
+      if (this.polledOnce) for (const [login, s] of next) if (!this.live.has(login) && login !== this.api.login) this.emit('live', { login, display: s.user_name, title: s.title, game: s.game_name, box: this.boxes[s.game_id] || '' });
       this.live = next;
       this.polledOnce = true;
       this.updatedAt = Date.now();

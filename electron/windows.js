@@ -48,7 +48,8 @@ function createWindows(ctx) {
 
   function updateOverlayVisibility() {
     if (!alive(overlayWin)) return;
-    if (store.settings.overlay.enabled || placement) { if (!overlayWin.isVisible()) overlayWin.showInactive(); }
+    const tabOn = store.settings.app.tabs.puppet !== false; // Puppet Overlay tab removed at setup: no desktop overlay
+    if ((store.settings.overlay.enabled && tabOn) || placement) { if (!overlayWin.isVisible()) overlayWin.showInactive(); }
     else if (overlayWin.isVisible()) overlayWin.hide();
   }
 
@@ -130,20 +131,63 @@ function createWindows(ctx) {
   }
   function setDeckOnTop(on) { if (alive(deckWin)) deckWin.setAlwaysOnTop(!!on); }
 
-  // La savane: the room window (camera + microphone through VDO.Ninja).
-  let savaneWin = null;
-  function openSavane() {
-    if (alive(savaneWin)) { savaneWin.show(); savaneWin.focus(); return; }
-    savaneWin = new BrowserWindow({ width: 1400, height: 860, minWidth: 760, minHeight: 420, title: 'La savane', icon: ctx.icon, autoHideMenuBar: true, backgroundColor: '#14110a', show: false });
-    savaneWin.loadURL(`${ctx.base()}/savane.html?room=1`);
-    savaneWin.once('ready-to-show', () => savaneWin.show());
-    savaneWin.webContents.setWindowOpenHandler(({ url: u }) => { if (/^https:\/\//.test(u)) shell.openExternal(u); return { action: 'deny' }; });
-    // VDO.Ninja asks "leave the page?" through beforeunload; Electron has no dialog for it, so the close was silently cancelled.
-    savaneWin.webContents.on('will-prevent-unload', (e) => e.preventDefault());
+  // BabaDeck shortcut strip: an info-only, click-through bar showing the shortcuts and their state (muted mic…).
+  // "Move" mode makes it draggable for a moment; its position is saved when it stops moving.
+  let hudWin = null, hudPlacing = false, hudSave = null;
+  function hudBounds() {
+    const h = store.settings.deck.hud;
+    const prim = screen.getPrimaryDisplay().workArea;
+    let x = h.x < 0 ? Math.round(prim.x + (prim.width - h.w) / 2) : h.x;
+    let y = h.x < 0 ? prim.y + Math.max(0, h.y) : h.y;
+    // Lost on a display that is gone: back to the top of the main screen.
+    const on = screen.getAllDisplays().some((d) => x + 40 > d.bounds.x && x < d.bounds.x + d.bounds.width && y + 20 > d.bounds.y && y < d.bounds.y + d.bounds.height);
+    if (!on) { x = Math.round(prim.x + (prim.width - h.w) / 2); y = prim.y + 8; }
+    return { x, y, width: h.w, height: h.h };
+  }
+  function syncDeckHud() {
+    const h = store.settings.deck.hud;
+    if (!h.enabled || store.settings.app.tabs.deck === false) {
+      if (alive(hudWin)) hudWin.destroy();
+      hudWin = null; hudPlacing = false;
+      return;
+    }
+    if (!alive(hudWin)) {
+      hudWin = new BrowserWindow(Object.assign(hudBounds(), {
+        transparent: true, frame: false, resizable: false, movable: false, focusable: false, skipTaskbar: true, hasShadow: false,
+        alwaysOnTop: true, backgroundColor: '#00000000', show: false, title: 'BabaDeck HUD', webPreferences: { backgroundThrottling: false },
+      }));
+      hudWin.setAlwaysOnTop(true, 'screen-saver');
+      hudWin.setIgnoreMouseEvents(true);
+      hudWin.setVisibleOnAllWorkspaces(true);
+      hudWin.loadURL(`${ctx.base()}/deck-hud.html`);
+      hudWin.once('ready-to-show', () => alive(hudWin) && hudWin.showInactive());
+      hudWin.on('moved', () => {
+        if (!hudPlacing || !alive(hudWin)) return;
+        clearTimeout(hudSave);
+        hudSave = setTimeout(() => { if (!alive(hudWin)) return; const b = hudWin.getBounds(); ctx.saveHud({ x: Math.max(0, b.x), y: b.y }); }, 300);
+      });
+      hudWin.webContents.on('render-process-gone', () => { hudWin = null; setTimeout(syncDeckHud, 1000); });
+    } else if (!hudPlacing) {
+      const b = hudBounds(), cur = hudWin.getBounds();
+      if (b.x !== cur.x || b.y !== cur.y || b.width !== cur.width || b.height !== cur.height) hudWin.setBounds(b);
+    } else {
+      const cur = hudWin.getBounds();
+      if (cur.width !== h.w || cur.height !== h.h) hudWin.setBounds({ x: cur.x, y: cur.y, width: h.w, height: h.h });
+    }
+  }
+  function setHudPlacing(on) {
+    hudPlacing = !!on && alive(hudWin);
+    if (!alive(hudWin)) return;
+    hudWin.setIgnoreMouseEvents(!hudPlacing);
+    hudWin.setFocusable(hudPlacing);
+    hudWin.setMovable(hudPlacing);
+    if (hudPlacing) hudWin.focus();
+    ctx.onChange();
   }
 
   return {
-    openDeck, setDeckOnTop, openSavane,
+    openDeck, setDeckOnTop, syncDeckHud, setHudPlacing,
+    get hudPlacing() { return hudPlacing; },
     createOverlay, rebuildOverlay, updateOverlayVisibility, setPlacement, openPanel, openCreator, hidePanelIfMinimized,
     get placement() { return placement; },
     get panel() { return alive(panelWin) ? panelWin : null; },

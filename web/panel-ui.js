@@ -8,7 +8,7 @@
   const { $, $$, t, escapeHtml } = Panel;
 
   // ---------- Logos: the brand corner reuses the tab icons (with their animations) ----------
-  for (const g of ['hud', 'hub', 'savane', 'deck', 'lab']) {
+  for (const g of ['hud', 'hub', 'deck', 'bababot']) {
     const sym = document.getElementById('ic-' + g), el = $(`.blogo[data-g="${g}"]`);
     if (sym && el) el.innerHTML = sym.innerHTML;
   }
@@ -48,7 +48,8 @@
   }
   // Right-click outside text fields = previous page (Electron shows no context menu there anyway).
   document.addEventListener('contextmenu', (e) => {
-    if (editing(e.target) || modalOpen() || String(getSelection() || '').trim()) return;
+    // e.defaultPrevented: the page uses right-click itself (BabaDeck buttons: edit).
+    if (e.defaultPrevented || editing(e.target) || modalOpen() || String(getSelection() || '').trim()) return;
     e.preventDefault();
     if (Panel.goBack()) ripple(e.clientX, e.clientY, '←');
   });
@@ -60,19 +61,19 @@
   document.addEventListener('keydown', (e) => {
     if (e.altKey && !e.ctrlKey && e.key === 'ArrowLeft') { e.preventDefault(); Panel.goBack(); }
     else if (e.altKey && !e.ctrlKey && e.key === 'ArrowRight') { e.preventDefault(); Panel.goForward(); }
-    else if (e.key === 'Backspace' && !e.ctrlKey && !e.altKey && !editing(e.target) && !modalOpen()) { e.preventDefault(); Panel.goBack(); }
+    else if (e.key === 'Backspace' && !e.ctrlKey && !e.altKey && !editing(e.target) && !modalOpen() && !document.body.classList.contains('touring')) { e.preventDefault(); Panel.goBack(); }
     else if (e.ctrlKey && !e.altKey && (e.key === 'k' || e.key === 'K')) { e.preventDefault(); openPalette(); }
   });
 
   // ---------- Ctrl+K: jump to any page ----------
   const pal = $('#palette'), input = $('#palInput'), list = $('#palList');
-  const COLORS = { puppet: '#ff7a45', hud: '#a970ff', hub: '#2fd4a3', all: '#a49cb3' };
+  const COLORS = { puppet: '#ff7a45', hud: '#a970ff', hub: '#2fd4a3', deck: '#3d8bff', bababot: '#ff9f1c', all: '#a49cb3' };
   let items = [], sel = 0;
   const norm = (s) => String(s).toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
   function pages() {
-    return $$('.side .tab').map((b) => {
+    return $$('.side .tab').filter((b) => b.dataset.group === 'all' || Panel.groupOn(b.dataset.group)).map((b) => {
       const g = b.dataset.group;
-      const group = g === 'all' ? t('Settings') : t(Panel.GROUP_NAMES[g]);
+      const group = g === 'all' ? t('Settings') : Panel.groupName(g);
       return { tab: b.dataset.tab, label: b.textContent.trim(), group, color: COLORS[g] || COLORS.all };
     });
   }

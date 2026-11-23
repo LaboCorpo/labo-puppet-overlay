@@ -34,7 +34,7 @@
     return `<div class="hub-card${m.live ? ' is-live' : ''}" data-login="${escapeHtml(m.login)}">
       ${m.live && m.thumb ? `<img class="hub-thumb" src="${escapeHtml(m.thumb)}?t=${Math.floor(Date.now() / 300000)}" alt="">` : ''}
       <div class="hub-who">${avatar}<div><b>${escapeHtml(m.display)}</b>${m.me ? ` <span class="tag">${escapeHtml(t('you'))}</span>` : ''}<div>${live}</div></div></div>
-      ${m.live ? `<div class="hub-title" title="${escapeHtml(m.title)}">${escapeHtml(m.title)}</div><div class="muted">${escapeHtml(m.game || '')}</div>` : ''}
+      ${m.live ? `<div class="hub-title" title="${escapeHtml(m.title)}">${escapeHtml(m.title)}</div><div class="hub-game">${m.box ? `<img class="boxart" src="${escapeHtml(m.box)}" width="27" height="36" alt="" referrerpolicy="no-referrer">` : ''}<span>${escapeHtml(m.game || '')}</span></div>` : ''}
       <div class="btns">
         <button class="ghost small" data-hub="chat">💬 ${escapeHtml(t(m.live ? 'Watch & chat' : 'Chat'))}</button>
         ${canAct && m.live ? `<button class="small${armed === m.login ? ' danger-solid' : ''}" data-hub="raid"${raid ? ' disabled' : ''}>🚀 ${escapeHtml(raidLabel)}</button>` : ''}

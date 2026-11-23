@@ -1,9 +1,9 @@
 /*
- * Labo test — chat bot and viewer games on your own Twitch chat. Chat is read anonymously (IRC, twitch.js);
+ * Baba Bot (chat bot, sound commands), the game counters' chat commands and My stream's giveaway / poll, on your own Twitch chat. Chat is read anonymously (IRC, twitch.js);
  * replies are sent with your Twitch account (Helix "Send Chat Message"), at most one every 1.2 s.
  *  - commands you write (!discord…), timers, !uptime, !so, !lurk, !commands, a welcome for first-time chatters;
  *  - sound commands (!airhorn…) played where your alert sounds play;
- *  - giveaway, chat poll (!vote 2 or just "2"), counters (!death, !death+), viewer queue (!play / !leave);
+ *  - giveaway, chat poll (!vote 2 or just "2"), game counters (!death, !death+);
  *  - a stream session (messages, chatters, follows, subs…) summed up when the live ends.
  * What viewers see on stream: lab.html overlays, fed by snapshot() (app state `lab.play`) and 'lab-event' SSE events.
  */
@@ -38,7 +38,6 @@ class LabChat extends EventEmitter {
     this.sayBusy = false;
     this.giveaway = { open: false, entries: new Map(), winners: [], winner: null, recent: [] };
     this.poll = null;
-    this.queue = { open: true, list: [] };
     this.session = newSession(null);
     this.lastSummary = null;
     this.lines = 0;
@@ -91,7 +90,7 @@ class LabChat extends EventEmitter {
       this.session.chatters.add(m.login);
       if (m.first) {
         this.session.firsts++;
-        if (c.chatbot.welcome) this.reply(fill(c.chatbot.welcomeText, this.vars(m)));
+        if (c.chatbot.welcome && this.on('bot')) this.reply(fill(c.chatbot.welcomeText, this.vars(m)));
       }
     }
     const text = m.text.trim();
@@ -105,15 +104,14 @@ class LabChat extends EventEmitter {
     try { this.command(m, cmd, arg, isMod, c); } catch (e) { this.o.log.warn('[lab-chat] !' + cmd + ': ' + e.message); }
   }
 
+  // Which top tabs are kept (setup): 'bot' = Baba Bot, 'games' = Hub → My stream, 'counters' = Widget Twitch.
+  on(what) { return this.o.on ? this.o.on(what) !== false : true; }
+
   command(m, cmd, arg, isMod, c) {
     // Games first: they only answer while running.
     if (this.giveaway.open && cmd === c.giveaway.keyword) return this.enter(m);
     if (cmd === 'vote' && this.poll && this.poll.open) return this.vote(m, parseInt(arg, 10));
-    if (c.queue.enabled) {
-      if (cmd === c.queue.joinCmd) return this.queueJoin(m);
-      if (cmd === c.queue.leaveCmd) return this.queueLeave(m);
-      if (cmd === 'queue' || cmd === 'file') return this.queueWhere(m);
-    }
+    if (!this.on('counters')) return this.botCommand(m, cmd, arg, isMod, c);
     // Counters: !death shows it, !death+ / !death- / "!death +3" change it (moderators).
     const cm = cmd.match(/^([a-z0-9_]+?)([+-])?$/);
     const counter = cm && c.counters.find((x) => x.cmd === cm[1]);
@@ -127,6 +125,11 @@ class LabChat extends EventEmitter {
       if (this.cooled('counter:' + counter.id, 10)) this.reply(`${counter.name} : ${counter.value}`);
       return;
     }
+    return this.botCommand(m, cmd, arg, isMod, c);
+  }
+
+  botCommand(m, cmd, arg, isMod, c) {
+    if (!this.on('bot')) return;
     // Sound commands
     if (c.sounds.enabled) {
       if (cmd === 'sons' || cmd === 'sounds') { if (this.cooled('sndlist', 30)) this.reply(this.t('Sounds: {list}', { list: c.sounds.list.map((s) => '!' + s.name).join(' ') || '—' })); return; }
@@ -151,7 +154,6 @@ class LabChat extends EventEmitter {
       if (b.uptime) names.push('!uptime');
       if (b.lurk) names.push('!lurk');
       if (c.sounds.enabled && c.sounds.list.length) names.push('!sons');
-      if (c.queue.enabled) names.push('!' + c.queue.joinCmd);
       this.reply(this.t('Commands: {list}', { list: names.join(' ') || '—' }));
     }
   }
@@ -273,36 +275,6 @@ class LabChat extends EventEmitter {
     return ct;
   }
 
-  // ---------- Viewer queue ----------
-  queueJoin(m) {
-    const q = this.queue, c = this.cfg().queue;
-    if (!q.open || q.list.some((x) => x.login === m.login)) return;
-    if (q.list.length >= c.max) { if (this.cooled('qfull', 30)) this.reply(this.t('The queue is full.')); return; }
-    q.list.push({ login: m.login, display: m.display || m.login, sub: !!m.sub, at: Date.now() });
-    if (c.announce && this.cooled('qjoin:' + m.login, 60)) this.reply(this.t('{name} joins the queue (#{n})', { name: m.display || m.login, n: q.list.length }));
-    this.changed();
-  }
-  queueLeave(m) { const q = this.queue, i = q.list.findIndex((x) => x.login === m.login); if (i >= 0) { q.list.splice(i, 1); this.changed(); } }
-  queueWhere(m) {
-    if (!this.cooled('qwhere:' + m.login, 20)) return;
-    const i = this.queue.list.findIndex((x) => x.login === m.login);
-    this.reply(i >= 0 ? this.t('{name}: you are #{n} in the queue', { name: m.display, n: i + 1 }) : this.t('{n} in the queue. Type !{cmd} to join.', { n: this.queue.list.length, cmd: this.cfg().queue.joinCmd }));
-  }
-  queueOp(op, login) {
-    const q = this.queue;
-    if (op === 'next') {
-      const nx = q.list.shift();
-      if (!nx) throw new Error('The queue is empty');
-      this.reply(this.t('{name}, your turn! 🎮', { name: nx.display }));
-      this.o.broadcast('lab-event', { type: 'queue-next', name: nx.display });
-    } else if (op === 'remove') q.list = q.list.filter((x) => x.login !== login);
-    else if (op === 'clear') q.list = [];
-    else if (op === 'open') q.open = true;
-    else if (op === 'close') q.open = false;
-    else throw new Error('Unknown action');
-    this.changed();
-  }
-
   // ---------- Twitch events, timers, session ----------
   onEvent(e) {
     const s = this.session;
@@ -327,7 +299,7 @@ class LabChat extends EventEmitter {
     const live = this.o.live();
     if (live && live.viewers > this.session.peak) { this.session.peak = live.viewers; this.changed(); }
     const b = this.cfg().chatbot;
-    if (!b.enabled || !live) return;
+    if (!b.enabled || !live || !this.on('bot')) return;
     const now = Date.now();
     b.timers.forEach((tm, i) => {
       const st = this.timerState[i] || (this.timerState[i] = { at: now - (i * 60000), lines: this.lines });
@@ -348,7 +320,6 @@ class LabChat extends EventEmitter {
     return {
       giveaway: { open: g.open, keyword: c.giveaway.keyword, count: g.entries.size, tickets: [...g.entries.values()].reduce((a, e) => a + e.tickets, 0), recent: g.recent.slice(), winner: g.winner, entries: [...g.entries.values()].slice(-60).map((e) => e.display) },
       poll: p ? { question: p.question, options: p.options.map((o) => ({ text: o.text, votes: o.votes })), open: p.open, endsAt: p.endsAt, seconds: p.seconds, winner: p.winner == null ? -1 : p.winner, total: p.voters.size } : null,
-      queue: { open: this.queue.open, size: this.queue.list.length, list: this.queue.list.slice(0, 30).map((x) => ({ login: x.login, display: x.display, sub: x.sub })) },
       session: { startedAt: s.startedAt, since: s.since, messages: s.messages, chatters: s.chatters.size, firsts: s.firsts, follows: s.follows, subs: s.subs, gifts: s.gifts, bits: s.bits, raids: s.raids, raiders: s.raiders, peak: s.peak, sounds: s.sounds },
       lastSummary: this.lastSummary,
     };

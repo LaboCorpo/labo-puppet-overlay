@@ -6,11 +6,11 @@ const ACTIONS = {
   // OBS (obs-websocket)
   'obs.scene': ['scene'], 'obs.source': ['scene', 'source', 'mode'], 'obs.mute': ['input'], 'obs.stream': ['mode'], 'obs.record': ['mode'], 'obs.replay': [],
   // LaboHub
-  'app.marker': ['note'], 'app.overlay': [], 'app.muteChat': [], 'app.alert': ['key'], 'app.fx': [], 'app.savane': [],
+  'app.marker': ['note'], 'app.overlay': [], 'app.muteChat': [], 'app.alert': ['key'], 'app.fx': [],
   // Twitch
   'twitch.say': ['text'], 'twitch.clip': [], 'twitch.title': ['text'],
-  // Labo test (chat bot & games)
-  'lab.giveaway': ['op'], 'lab.poll': [], 'lab.counter': ['name', 'delta'], 'lab.queue': ['op'], 'lab.ad': [], 'lab.profile': ['name'], 'lab.sound': ['name'],
+  // Hub → My stream, Baba Bot, game counters (settings keys kept under "lab")
+  'lab.giveaway': ['op'], 'lab.poll': [], 'lab.counter': ['name', 'delta'], 'lab.ad': [], 'lab.profile': ['name'], 'lab.sound': ['name'],
   // Other
   'url': ['url'], 'delay': ['ms'],
 };
@@ -25,7 +25,7 @@ function cleanAction(a) {
     else if (k === 'mode') v = MODES.includes(v) ? v : 'toggle';
     else if (k === 'url') v = /^https?:\/\/\S{1,500}$/.test(String(v || '')) ? String(v) : '';
     else if (k === 'key') v = ['follow', 'sub', 'prime', 'gift', 'bits', 'raid'].includes(v) ? v : 'follow';
-    else if (k === 'op') v = (a.type === 'lab.giveaway' ? ['open', 'close', 'draw', 'reset'] : ['next', 'clear', 'open', 'close']).includes(v) ? v : (a.type === 'lab.giveaway' ? 'draw' : 'next');
+    else if (k === 'op') v = ['open', 'close', 'draw', 'reset'].includes(v) ? v : 'draw';
     else if (k === 'delta') v = v === 'reset' ? 'reset' : String(Math.max(-1000, Math.min(1000, Math.round(Number(v) || 1))));
     else v = String(v == null ? '' : v).slice(0, k === 'text' ? 500 : 200);
     out[k] = v;
@@ -33,13 +33,15 @@ function cleanAction(a) {
   return out;
 }
 const COLOR_RE = /^#[0-9a-f]{6}$/i;
+// Electron accelerator: modifiers and keys joined by "+" (letters, digits, F1-F24, num0-9, punctuation…).
+const HOTKEY_RE = /^[\w+\-=,./;'[\]\\`]{0,60}$/;
 function cleanButton(b, i) {
   if (!b || typeof b !== 'object') return null;
   return {
     id: /^[a-z0-9]{4,16}$/.test(b.id || '') ? b.id : 'b' + i + Math.random().toString(36).slice(2, 7).replace(/[^a-z0-9]/g, 'x'),
     label: String(b.label || '').slice(0, 30), icon: String(b.icon || '').slice(0, 8),
     color: COLOR_RE.test(b.color || '') ? b.color : '#2a2236', fg: COLOR_RE.test(b.fg || '') ? b.fg : '#ffffff',
-    hotkey: /^[\w+ ]{0,60}$/.test(b.hotkey || '') ? String(b.hotkey || '') : '',
+    hotkey: HOTKEY_RE.test(b.hotkey || '') ? String(b.hotkey || '') : '',
     actions: (Array.isArray(b.actions) ? b.actions : []).slice(0, 12).map(cleanAction).filter(Boolean),
   };
 }
@@ -51,7 +53,20 @@ function cleanDeck(d, fb) {
     name: String((p && p.name) || 'Page ' + (pi + 1)).slice(0, 30),
     buttons: (Array.isArray(p && p.buttons) ? p.buttons : []).slice(0, cols * rows).map((b, i) => (b ? cleanButton(b, i) : null)),
   }));
-  return { cols, rows, pages: pages.length ? pages : [{ name: 'Page 1', buttons: [] }], onTop: !!d.onTop };
+  return { cols, rows, pages: pages.length ? pages : [{ name: 'Page 1', buttons: [] }], onTop: !!d.onTop, hud: cleanHud(d.hud, fb && fb.hud) };
+}
+// Shortcut strip (info only, click-through): where it sits on screen, how big, what it lists.
+function cleanHud(h, fb) {
+  const f = fb && typeof fb === 'object' ? fb : { enabled: false, x: -1, y: 8, w: 640, h: 64, opacity: 92, labels: true, all: false };
+  if (!h || typeof h !== 'object') return Object.assign({}, f);
+  const n = (v, lo, hi, d) => { const x = Math.round(Number(v)); return Number.isFinite(x) ? Math.max(lo, Math.min(hi, x)) : d; };
+  return {
+    enabled: typeof h.enabled === 'boolean' ? h.enabled : !!f.enabled,
+    x: n(h.x, -1, 20000, f.x), y: n(h.y, -20000, 20000, f.y), w: n(h.w, 160, 3000, f.w), h: n(h.h, 40, 1200, f.h),
+    opacity: n(h.opacity, 20, 100, f.opacity),
+    labels: typeof h.labels === 'boolean' ? h.labels : f.labels !== false,
+    all: typeof h.all === 'boolean' ? h.all : !!f.all, // false: only the buttons that have a shortcut
+  };
 }
 
 class Deck {
@@ -80,4 +95,4 @@ class Deck {
   }
 }
 
-module.exports = { Deck, cleanDeck, cleanAction, ACTIONS };
+module.exports = { Deck, cleanDeck, cleanAction, cleanHud, ACTIONS, HOTKEY_RE };

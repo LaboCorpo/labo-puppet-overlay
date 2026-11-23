@@ -3,6 +3,23 @@
   'use strict';
   root.CHANGELOG = [
     {
+      version: '1.7.0',
+      en: [
+        'New layout: Puppet Overlay, Widget Twitch, Hub Labo, BabaDeck and Baba Bot. Choose your tabs and your language (installer or Settings → Tabs), rename a tab with a double-click. Each tab has a short tour the first time (replay it with ? or F1) and a Guide where you tick the steps.',
+        'Widget Twitch: game counters (deaths, wins / losses) with shortcuts that work in game; Friends\' cams (send a link, their camera becomes an OBS source); your pictures, your own CSS and “My templates” in the widget editor; a GIF per alert sound; the Son Twitch folder for your sounds and GIFs; album covers that follow every song.',
+        'Hub Labo → My stream: your live with the category picture, title & category, giveaway, chat poll, stream health, ad warning, Discord “I\'m live”, summary, checklist. Who is live in the crew is shown at the top, with their game.',
+        'BabaDeck: a dock, right-click to edit a button, drag to move it, shortcuts with combinations and the recommended keys for QWERTY and AZERTY, a shortcut strip on top of your games (information only).',
+        'Baba Bot: the chat bot gets its own tab (commands, automatic messages, sound commands). La savane and Labo test are gone; their best parts moved to the tabs above. New baboon logo.',
+      ],
+      fr: [
+        'Nouvelle organisation : Puppet Overlay, Widget Twitch, Hub Labo, BabaDeck et Baba Bot. Choisis tes onglets et ta langue (installateur ou Réglages → Onglets), renomme un onglet d’un double-clic. Chaque onglet a une petite visite la première fois (à revoir avec ? ou F1) et un Guide où tu coches les étapes.',
+        'Widget Twitch : compteurs de jeu (morts, victoires / défaites) avec des raccourcis qui marchent en jeu ; Cam des copains (envoie un lien, sa caméra devient une source OBS) ; tes images, ton propre CSS et « Mes modèles » dans l’éditeur de widgets ; un GIF par son d’alerte ; le dossier Son Twitch pour tes sons et GIF ; les pochettes suivent chaque musique.',
+        'Hub Labo → Mon stream : ton live avec l’image de la catégorie, titre et catégorie, giveaway, sondage, santé du stream, alerte pub, « je suis en live » sur Discord, résumé, checklist. Qui est en live dans la team s’affiche en haut, avec son jeu.',
+        'BabaDeck : un dock, clic droit pour modifier un bouton, glisser pour le déplacer, raccourcis avec combinaisons et la liste des touches conseillées pour QWERTY et AZERTY, un bandeau des raccourcis par-dessus tes jeux (info seulement).',
+        'Baba Bot : le bot de chat a son propre onglet (commandes, messages automatiques, commandes son). La savane et Labo test disparaissent ; le meilleur est passé dans les onglets ci-dessus. Nouveau logo babouin.',
+      ],
+    },
+    {
       version: '1.6.0',
       en: [
         'La savane: the room window can now be closed; pick your camera, microphone and quality before starting, mute buttons; drag and resize the cameras, background presets, logo, renaming; 📺 OBS links for the whole room and for every camera.',

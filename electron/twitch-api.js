@@ -192,4 +192,22 @@ class TwitchApi extends EventEmitter {
   }
 }
 
+// Category box art (Hub banners, My stream): cached by game id, as a 144×192 picture URL.
+const boxCache = new Map();
+TwitchApi.prototype.gameBoxes = async function gameBoxes(ids) {
+  const want = [...new Set((ids || []).map(String).filter((x) => /^\d{1,20}$/.test(x)))];
+  const todo = want.filter((x) => !boxCache.has(x));
+  for (let i = 0; i < todo.length; i += 100) {
+    try {
+      const r = await this.helix('GET', 'games', { id: todo.slice(i, i + 100) });
+      for (const g of r.data || []) boxCache.set(String(g.id), /^https:\/\//.test(g.box_art_url || '') ? g.box_art_url.replace('{width}', '144').replace('{height}', '192') : '');
+      for (const id of todo.slice(i, i + 100)) if (!boxCache.has(id)) boxCache.set(id, '');
+    } catch (e) { break; } // no box art is fine
+  }
+  if (boxCache.size > 2000) boxCache.clear();
+  const out = {};
+  for (const id of want) out[id] = boxCache.get(id) || '';
+  return out;
+};
+
 module.exports = { TwitchApi, SCOPES };

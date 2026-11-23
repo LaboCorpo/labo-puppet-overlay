@@ -73,31 +73,26 @@ Tu peux les changer dans **Réglages**.
 
 Les raids, subs et bits déclenchent des effets. Les messages du chat peuvent aussi être lus à voix haute ou transformés en charabia rigolo (dans l'onglet Twitch).
 
-## 8. Sons d'alerte, widgets de stream et hub streaming
+## 8. LaboHub : les onglets
 
-- Onglet **Sons d'alerte** : ajoute autant de MP3 que tu veux pour les follows, subs, subs Prime, subs offerts, bits et raids. Choisis *Aléatoire*, *Dans l'ordre* ou *Tous ensemble*. Pour les bits et les raids, « À partir de » fixe un palier (ex. un son plus gros à partir de 1000 bits). Clique sur **Tester** pour écouter.
-- Onglet **Widgets de stream** : followers, subs, dernier follower, dernier sub et la musique en cours sur Spotify. Chacun est sa propre source **Navigateur** dans OBS : copie son adresse, puis déplace-le et redimensionne-le comme tu veux.
-- Onglet **Hub streaming** : tape les chaînes Twitch de l'équipe pour voir qui est en live. De là, tu peux lire leurs chats, envoyer des messages, les **raid** (deux clics pour confirmer) ou les inviter en **Stream Together** (ouvre d'abord Stream Together dans ton Gestionnaire de stream Twitch).
-- Les compteurs, les follows, les raids, Stream Together et l'envoi de messages demandent de **te connecter avec Twitch** (dans ces onglets). Twitch affiche un code à confirmer sur son site ; tu ne tapes jamais ton mot de passe dans l'app.
-- Spotify : fonctionne avec l'application Spotify pour PC, sans connexion Spotify. Le widget affiche la musique, la vraie pochette, l'album et la progression (lus dans les contrôles multimédia de Windows). Garde Spotify ouvert ou réduit. Option : n'importe quel lecteur de musique.
-- Chaque widget a sa propre page dans le menu de gauche (sous **Widgets de stream**) : thèmes, apparence, image (pochette / photo de profil), couleurs, texte, tailles, icône, animations, contenu.
+LaboHub a cinq onglets. À l'installation (ou dans **Réglages → Onglets**) tu gardes seulement ceux que tu utilises, et tu peux les renommer (double-clic sur un onglet). La première fois que tu ouvres un onglet, une petite visite te le présente ; **?** en haut à droite (ou **F1**) la relance. Chaque onglet a aussi une page **Guide** : coche les étapes au fur et à mesure.
 
-- Widget **Chat en direct** (le chat Twitch dans OBS, fusionné pendant une collab) et **Scènes** : plusieurs widgets dans une seule source OBS, à la taille que tu veux (glisse-les sur le canevas).
-- **Hub Labo → Multi-stream** : jusqu’à 6 chaînes avec leur vidéo ; **Fusionner les chats** pendant une collab (« toi x ton pote »). Survole un message pour le supprimer, mettre un timeout ou bannir (ta chaîne ou là où tu es modo).
-- **Clips** : choisis le raccourci du timestamp ; un vrai clip Twitch peut être créé en même temps et s’ouvre en un clic.
+- **Puppet Overlay** : les marionnettes Discord (sections 3 à 7) et le bot Discord (`/puppet create` dans Discord).
+- **Widget Twitch** : une source **Navigateur** OBS par widget : followers, subs, dernier follower / sub, la musique en cours (Spotify), le chat, les **compteurs de jeu** et les alertes.
+  - Chaque widget a sa page : thèmes, couleurs, texte, icône, animations, **tes images** (fond, icône) et **ton propre CSS**. *Enregistrer ce style* le garde dans **Mes modèles** pour les autres widgets.
+  - **Compteurs de jeu** : morts, victoires, défaites… Donne à chacun un raccourci (ex. `Alt+1` = une défaite de plus) : il marche en jeu. Les viewers le voient avec `!commande` ; les modos le changent avec `!commande+` / `!commande-`. Un lien OBS par compteur, ou deux côte à côte.
+  - **Cam des copains** : ajoute un pote, clique sur **Son lien** et envoie-le-lui. Il l'ouvre, choisit sa caméra et clique sur *Démarrer* : sa caméra devient une source OBS (seule, ou toutes ensemble dans une scène que tu arranges à la souris). Service gratuit VDO.Ninja, rien à installer pour lui.
+  - **Sons d'alerte** : mets tes sons et tes GIF dans le dossier **Son Twitch** (bouton 📂), puis choisis-les pour chaque événement (follow, sub, Prime, subs offerts, bits, raid), avec un GIF si tu veux. Ajoute le widget *Alertes (GIF + son)* dans OBS pour voir les GIF.
+  - **Scènes** : plusieurs widgets dans une seule source OBS.
+- **Hub Labo**
+  - **Mon stream** : ton live avec l'image de sa catégorie, titre et catégorie (avec préréglages), giveaway et sondage du chat (chacun avec son overlay OBS), santé du stream depuis OBS (avec alerte quand ça galère), alerte pub, « je suis en live » sur Discord, résumé, checklist.
+  - **Streams des potes** : qui est en live dans la team (affiché en haut de chaque page du Hub, avec son jeu), raid, Stream Together, chat. **Multi-stream** : vidéos et chats fusionnés. **Clips** : marque les moments à clipper, même en jeu.
+- **BabaDeck** : ton Stream Deck sans le boîtier. Connecte OBS (*Outils → Paramètres du serveur WebSocket* dans OBS, puis **Connexion OBS**). Clique sur une case vide pour créer un bouton, **clic droit** sur un bouton pour le modifier, glisse-le pour le déplacer. Chaque bouton peut lancer plusieurs actions et avoir un raccourci (les combinaisons marchent).
+  - **Raccourcis** liste tous les raccourcis et les **touches conseillées** pour les claviers QWERTY et AZERTY (en AZERTY évite `Ctrl+Alt+chiffre` : c'est AltGr).
+  - Le **bandeau des raccourcis** affiche tes raccourcis et leur état (micro coupé, live, compteurs) par-dessus ton jeu, sans bloquer les clics. Déplace-le et redimensionne-le dans Raccourcis.
+- **Baba Bot** : un bot qui répond avec ton compte Twitch tant que LaboHub est ouvert : tes commandes, des messages réguliers, l'accueil des nouveaux, les remerciements de raid, les commandes son (`!airhorn`) avec des fichiers du dossier Son Twitch.
 
-## 8b. La savane 🍌, BabaDeck, Labo test, bot Discord
-
-- **La savane** : un salon vidéo pour l’équipe (il utilise le service gratuit VDO.Ninja). Crée un salon, envoie l’invitation, clique sur **Rejoindre**, choisis ta caméra, ton micro et la qualité, puis **Lancer** (le micro démarre coupé : 🔇 l’active). **🎨 Personnaliser** dans la fenêtre du salon : fais glisser et redimensionne les caméras, fonds prêts à l’emploi ou ton image, logo, titre, pseudos ; ce que tu vois, c’est ce qu’OBS affiche. **📺 Liens OBS** donne un lien pour tout le salon et un par caméra (avec ou sans cadre).
-- **BabaDeck** : ton Stream Deck sans le boîtier. Connecte OBS (dans OBS : *Outils → Paramètres du serveur WebSocket*), puis crée des boutons : changer de scène, couper le micro, lancer le live, clip, son, message dans le chat… Chaque bouton peut avoir un raccourci qui marche en jeu, et il y a une fenêtre de deck flottante.
-- **Labo test** : des choses à activer, toutes coupées par défaut.
-  - *Expériences* : détecteur de hype, points de chaîne → BabaDeck, remerciement des raids, rappel de pause, alertes santé du stream, compte à rebours « ça commence ».
-  - *Bot de chat* (répond avec ton compte Twitch) : tes commandes (`!discord`…), minuteurs, `!uptime`, `!so`, `!lurk`, `!commands`, un message de bienvenue pour les nouveaux, des commandes de sons que les viewers peuvent jouer (`!airhorn`…).
-  - *Jeux viewers* : giveaway (les subs peuvent avoir plus de tickets), sondage du chat, compteurs (`!death+`), file d’attente (`!play`), pluie d’emotes, jauge de hype, écran de fin. Chacun a son lien OBS et un aperçu.
-  - *Outils streamer* : changer le titre et la catégorie avec des préréglages, alerte pub avec report, message « je suis en live » sur Discord (webhook), résumé du live, checklist avant le live.
-  - L’alerte pub et le vrai shoutout de `!so` demandent de nouvelles autorisations Twitch : reconnecte ton compte Twitch une fois.
-- **Bot Discord** (onglet Puppet Overlay) : tes potes tapent `/puppet create` dans Discord pour créer leur marionnette sans rien installer. Une seule personne (l’hôte) le fait tourner.
-- **Mises à jour** : *Réglages → Rechercher une mise à jour* télécharge seulement la nouvelle version (quelques Mo) et redémarre l’app ; plus besoin de retélécharger l’installeur.
+Les compteurs, les follows, le bot, Mon stream et le Hub demandent de te **connecter à Twitch** (Widget Twitch → Widgets de stream). Twitch affiche un code à confirmer sur son site ; tu ne tapes jamais ton mot de passe dans l'app. **Mises à jour** : *Réglages → Rechercher des mises à jour* télécharge seulement la nouvelle version (quelques Mo).
 
 ## 9. Autres réglages
 
@@ -114,7 +109,8 @@ Les raids, subs et bits déclenchent des effets. Les messages du chat peuvent au
 | Je ne vois pas les marionnettes en jeu | Mets le jeu en mode **fenêtré sans bordure**. Le plein écran exclusif cache l'overlay |
 | Rien ne s'affiche dans OBS | Puppet Overlay doit être lancé. Vérifie l'adresse dans l'onglet **OBS / Streamlabs** |
 | « Se connecter avec Twitch » demande un Client ID | Demande le Client ID Twitch à la personne qui t'a partagé l'app et colle-le |
-| Pas de son d'alerte dans OBS | Dans **Sons d'alerte**, « Joué par » doit correspondre : *Cette app* (OBS l'entend via l'Audio du bureau) ou *OBS* (ajoute la source widget *Sons d'alerte*) |
+| Pas de son ou de GIF d'alerte dans OBS | Dans **Sons d'alerte**, « Joué par » doit correspondre : *Cette app* (OBS l'entend via l'Audio du bureau) ou *OBS*. Les GIF demandent toujours la source widget *Alertes (GIF + son)* |
+| La caméra d'un pote reste noire | Il doit garder ouverte la page de son lien, après avoir cliqué sur *Démarrer*. Un nouveau mot de passe (Sécurité) annule les anciens liens |
 | Le widget Spotify reste vide | Ouvre l'application Spotify **pour PC** (pas le lecteur web) et garde sa fenêtre ouverte ou réduite |
 | Autre chose | **Réglages → Ouvrir le dossier des logs** et envoie le fichier `main.log` à la personne qui t'a partagé l'app |
 

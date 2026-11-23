@@ -1,7 +1,7 @@
 {
   "name": "labohub",
   "productName": "LaboHub",
-  "version": "1.6.0",
+  "version": "1.7.0",
   "description": "LaboHub: Discord voice puppets, Twitch tools, OBS widgets, streaming hub and stream timestamps",
   "main": "electron/main.js",
   "private": true,

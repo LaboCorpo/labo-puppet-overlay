@@ -2,8 +2,8 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<title>Labo test — overlay</title>
-<link rel="icon" href="shared/labohub.svg">
+<title>LaboHub — overlay</title>
+<link rel="icon" href="shared/labohub.png">
 <style>
   html, body { margin: 0; height: 100%; background: transparent; overflow: hidden; font-family: "Segoe UI", system-ui, sans-serif; color: #fff; }
   :root { --ac: #ffc93c; --bg: rgba(20, 17, 10, .86); }
@@ -26,30 +26,14 @@
   .opt.win .bar { opacity: .9; }
   .timer { height: 5px; border-radius: 3px; background: #ffffff22; margin-top: 12px; overflow: hidden; }
   .timer i { display: block; height: 100%; background: var(--ac); transition: width 1s linear; }
-  /* queue */
-  .q { display: flex; align-items: center; gap: 10px; padding: 6px 4px; font-weight: 800; font-size: 18px; border-bottom: 1px solid #ffffff14; animation: pop .4s both; }
-  .q b { color: var(--ac); width: 28px; text-align: right; }
-  .q.first { font-size: 22px; }
-  /* counter */
-  .counter { display: inline-flex; align-items: baseline; gap: 14px; }
-  .counter .v { font-size: 56px; font-weight: 900; color: var(--ac); display: inline-block; }
-  .counter .v.bump { animation: bump .5s cubic-bezier(.2,.8,.2,1); }
-  @keyframes bump { 30% { transform: scale(1.45) rotate(-6deg); } }
-  .counter .l { font-size: 26px; font-weight: 900; }
-  /* hype */
-  .meter { height: 26px; border-radius: 14px; background: #ffffff18; overflow: hidden; margin-top: 10px; position: relative; }
-  .meter i { position: absolute; inset: 0 auto 0 0; background: linear-gradient(90deg, #ffc93c, #ff7a45, #ff2b5e); transition: width 1.2s cubic-bezier(.2,.8,.2,1); border-radius: 14px; }
-  .meter.hot i { animation: hot 0.6s ease-in-out infinite alternate; }
-  @keyframes hot { to { filter: brightness(1.35) saturate(1.3); } }
   /* winner */
+  @keyframes bump { 30% { transform: scale(1.45) rotate(-6deg); } }
   #winner { position: absolute; inset: 0; display: none; place-items: center; text-align: center; background: radial-gradient(circle, rgba(0,0,0,.55), transparent 70%); }
   #winner.on { display: grid; }
   #winner .roll { font-size: 64px; font-weight: 900; text-shadow: 0 6px 24px #000; }
   #winner .roll.final { color: var(--ac); animation: bump .7s cubic-bezier(.2,.8,.2,1); }
   #winner .lbl { font-size: 26px; font-weight: 900; letter-spacing: .08em; text-shadow: 0 4px 16px #000; }
   canvas { position: absolute; inset: 0; pointer-events: none; }
-  .stats { display: grid; grid-template-columns: 1fr 1fr; gap: 8px 18px; margin-top: 10px; }
-  .stats div { font-weight: 800; font-size: 18px; } .stats b { color: var(--ac); font-size: 24px; margin-right: 6px; }
   .empty { color: #ffffff88; font-weight: 700; padding: 6px 0; }
 </style>
 </head>
