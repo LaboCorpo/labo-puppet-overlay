@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>BabaDeck</title>
+<link rel="stylesheet" href="shared/ui.css">
+<style>body { margin: 0; padding: 10px; background: #120f17; } #deck { height: calc(100vh - 20px); }</style>
+</head>
+<body data-group="deck">
+<div id="deck" class="dk-wrap dk-fill" data-no-i18n></div>
+<div id="toast" class="toast"></div>
+<script src="shared/i18n.js"></script>
+<script src="deck.js"></script>
+<script>
+  // Floating BabaDeck window: same buttons as the panel page, pressed here.
+  (function () {
+    const toast = (text) => { const t = document.getElementById('toast'); t.textContent = text; t.classList.add('show'); clearTimeout(toast.t); toast.t = setTimeout(() => t.classList.remove('show'), 2000); };
+    const view = DeckView(document.getElementById('deck'), {
+      onClick: async (page, i, el) => {
+        const st = view.state || {};
+        if (el.classList.contains('empty')) return;
+        el.classList.add('pressed'); setTimeout(() => el.classList.remove('pressed'), 250);
+        const d = window.__deck, b = d && d.pages[page] && d.pages[page].buttons[i];
+        if (!b) return;
+        const r = await fetch('/api/action', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: 'deck-press', id: b.id }) }).then((x) => x.json()).catch(() => null);
+        if (!r || !r.ok) toast(I18N.t((r && r.error) || 'Something went wrong'));
+      },
+    });
+    const es = new EventSource('/api/events');
+    es.addEventListener('state', (e) => {
+      const s = JSON.parse(e.data);
+      if (s.app && s.app.lang) I18N.setLang(s.app.lang);
+      if (s.settings) window.__deck = s.settings.deck;
+      view.setState(s);
+    });
+  })();
+</script>
+</body>
+</html>

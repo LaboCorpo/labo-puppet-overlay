@@ -14,16 +14,162 @@
   // ---------- Tabs (remembered between openings) ----------
   const preview = $('#preview');
   const PREVIEW_SRC = preview.getAttribute('src');
-  function showTab(name) {
+  // Extra tabs (panel-*.js) register here: called on every state update and tab change.
+  const hooks = { state: [], tab: [], group: [] };
+  let currentTab = 'status';
+  // Top tabs (groups): each shows its own side tabs and remembers the last one opened. 'all' = shown in every group.
+  // Default names (translated); app.tabNames holds the names the user gave them, app.tabs the ones kept.
+  const GROUP_NAMES = { puppet: 'Puppet Overlay', hud: 'Widget Twitch', hub: 'Hub Labo', deck: 'BabaDeck', bababot: 'Baba Bot' };
+  const GROUPS = Object.keys(GROUP_NAMES);
+  const groupOf = (tab) => { const b = $(`.tab[data-tab="${tab}"]`); return b ? b.dataset.group : null; };
+  const lastInGroup = { puppet: 'status', hud: 'stream', hub: 'mystream', deck: 'deck', bababot: 'bb-cmds' };
+  let currentGroup = 'puppet';
+  const groupName = (g) => { const n = state.settings && state.settings.app.tabNames[g]; return n || t(GROUP_NAMES[g]); };
+  const groupOn = (g) => !state.settings || state.settings.app.tabs[g] !== false;
+  const visibleGroups = () => GROUPS.filter(groupOn);
+  // Each top tab has its colour (body[data-group] in ui.css) and its logo in the top-left corner.
+  function showGroup(g) {
+    const changed = g !== currentGroup;
+    currentGroup = g;
+    document.body.dataset.group = g;
+    $$('.gtab').forEach((x) => { const on = x.dataset.group === g; x.classList.toggle('active', on); x.setAttribute('aria-selected', on); });
+    $$('.tab').forEach((x) => x.classList.toggle('hidden', x.dataset.group !== g && x.dataset.group !== 'all'));
+    $$('.blogo').forEach((x) => x.classList.toggle('on', x.dataset.g === g));
+    $('#groupTitle').textContent = groupName(g);
+    $('#brandSub').textContent = groupName(g);
+    if (changed) { const side = $('.side'); side.classList.remove('swap'); void side.offsetWidth; side.classList.add('swap'); }
+    markSeen(g);
+  }
+  // Every time a top tab is shown: panel-tour.js starts its tour the first time.
+  function markSeen(g) { hooks.group.forEach((fn) => { try { fn(g); } catch (e) { console.error(e); } }); }
+  function openGroup(g) { if (groupOn(g)) showTab(lastInGroup[g]); }
+  // Names, kept tabs: the top bar follows app.tabs / app.tabNames.
+  let groupsKey = '';
+  function renderGroups() {
+    const key = I18N.lang + JSON.stringify([state.settings.app.tabs, state.settings.app.tabNames]);
+    if (key === groupsKey) return;
+    groupsKey = key;
+    $$('.gtab').forEach((b) => {
+      const g = b.dataset.group;
+      b.querySelector('.gname').textContent = groupName(g);
+      b.classList.toggle('hidden', !groupOn(g));
+      const i = visibleGroups().indexOf(g);
+      b.title = (i >= 0 && i < 9 ? 'Ctrl+' + (i + 1) + ' · ' : '') + t('Double-click to rename');
+    });
+    $('#groupTitle').textContent = groupName(currentGroup);
+    $('#brandSub').textContent = groupName(currentGroup);
+    $$('.bb-name').forEach((el) => { el.textContent = groupName('bababot'); });
+    if (!groupOn(currentGroup) && visibleGroups().length) openGroup(visibleGroups()[0]);
+  }
+  // Back / forward between pages, like File Explorer (buttons, right-click, Alt+arrows, mouse side buttons).
+  const hist = { back: [], fwd: [] };
+  let navReady = false;
+  function updateNav() { $('#navBack').disabled = !hist.back.length; $('#navFwd').disabled = !hist.fwd.length; }
+  function goBack() { const p = hist.back.pop(); if (!p) return false; hist.fwd.push(currentTab); showTab(p, true); return true; }
+  function goForward() { const n = hist.fwd.pop(); if (!n) return false; hist.back.push(currentTab); showTab(n, true); return true; }
+  function showTab(name, fromHistory) {
+    if (!$(`.tab[data-tab="${name}"]`)) return;
+    if (navReady && !fromHistory && name !== currentTab) { hist.back.push(currentTab); if (hist.back.length > 50) hist.back.shift(); hist.fwd = []; }
+    const g = groupOf(name);
+    if (g && g !== 'all') { lastInGroup[g] = name; if (g !== currentGroup) showGroup(g); }
+    currentTab = name;
+    hooks.tab.forEach((fn) => fn(name));
     $$('.tab').forEach((x) => x.classList.toggle('active', x.dataset.tab === name));
-    $$('section').forEach((s) => s.classList.toggle('active', s.dataset.panel === name));
+    $$('section').forEach((s) => s.classList.toggle('active', s.dataset.panel === name || (s.dataset.panels || '').split(' ').includes(name)));
     // The live preview only runs while its tab is shown (a hidden iframe would keep animating).
     const want = name === 'status' ? PREVIEW_SRC : 'about:blank';
     if (preview.getAttribute('src') !== want) preview.setAttribute('src', want);
-    try { localStorage.setItem('tab', name); } catch (e) { /* storage disabled */ }
+    try { localStorage.setItem('tab', name); localStorage.setItem('groups', JSON.stringify({ current: currentGroup, last: lastInGroup })); } catch (e) { /* storage disabled */ }
+    updateNav();
   }
+  $('#navBack').addEventListener('click', goBack);
+  $('#navFwd').addEventListener('click', goForward);
   $$('.tab').forEach((b) => b.addEventListener('click', () => showTab(b.dataset.tab)));
-  try { const t = localStorage.getItem('tab'); if (t && $(`.tab[data-tab="${t}"]`)) showTab(t); } catch (e) {}
+  $$('.gtab').forEach((b) => b.addEventListener('click', () => openGroup(b.dataset.group)));
+  // Double-click a top tab to rename it (empty = back to its default name).
+  $$('.gtab').forEach((b) => b.addEventListener('dblclick', () => {
+    const g = b.dataset.group;
+    const n = prompt(t('New name for this tab (empty = default name)'), groupName(g));
+    if (n === null) return;
+    save('app.tabNames', Object.assign({}, state.settings.app.tabNames, { [g]: n.trim().slice(0, 24) }));
+  }));
+  $('#gear').addEventListener('click', () => showTab('general'));
+  // Ctrl+Tab / Ctrl+Shift+Tab cycle the top tabs, Ctrl+1…5 jump to one (not while recording a hotkey).
+  document.addEventListener('keydown', (e) => {
+    if (!e.ctrlKey || e.altKey || (e.target.classList && (e.target.classList.contains('hotkey') || e.target.classList.contains('keyrec')))) return;
+    const vis = visibleGroups();
+    let i = -1;
+    if (e.key === 'Tab') i = (vis.indexOf(currentGroup) + (e.shiftKey ? vis.length - 1 : 1)) % vis.length;
+    else if (/^[1-9]$/.test(e.key)) i = Number(e.key) - 1;
+    if (i < 0 || !vis[i]) return;
+    e.preventDefault();
+    openGroup(vis[i]);
+  });
+  showGroup('puppet');
+  try {
+    const saved = JSON.parse(localStorage.getItem('groups') || 'null');
+    if (saved && saved.last) for (const g of GROUPS) if (groupOf(saved.last[g]) === g) lastInGroup[g] = saved.last[g];
+    if (saved && GROUPS.includes(saved.current)) showGroup(saved.current);
+    const t = localStorage.getItem('tab');
+    if (t && $(`.tab[data-tab="${t}"]`)) showTab(t); else showTab(lastInGroup[currentGroup]);
+  } catch (e) { showTab('status'); }
+  navReady = true;
+
+  // ---------- Shortcut capture (shared) ----------
+  // Digits and the numpad are read by their physical key (on AZERTY the top row types &é"… but Windows sees 1, 2, 3…);
+  // letters by the letter printed on the key. Returns null (modifier only), { acc } or { error }.
+  let kbLayout = 'qwerty';
+  if (navigator.keyboard && navigator.keyboard.getLayoutMap) {
+    navigator.keyboard.getLayoutMap().then((m) => { if (m.get('KeyQ') === 'a') kbLayout = 'azerty'; }).catch(() => {});
+  }
+  const CODE_KEYS = { Space: 'Space', Enter: 'Enter', Insert: 'Insert', Home: 'Home', End: 'End', PageUp: 'PageUp', PageDown: 'PageDown',
+    ArrowUp: 'Up', ArrowDown: 'Down', ArrowLeft: 'Left', ArrowRight: 'Right', ScrollLock: 'Scrolllock', PrintScreen: 'PrintScreen',
+    NumpadAdd: 'numadd', NumpadSubtract: 'numsub', NumpadMultiply: 'nummult', NumpadDivide: 'numdiv', NumpadDecimal: 'numdec',
+    Minus: '-', Equal: '=', BracketLeft: '[', BracketRight: ']', Backslash: '\\', Semicolon: ';', Quote: "'", Comma: ',', Period: '.', Slash: '/', Backquote: '`',
+    MediaPlayPause: 'MediaPlayPause', MediaTrackNext: 'MediaNextTrack', MediaTrackPrevious: 'MediaPreviousTrack', MediaStop: 'MediaStop' };
+  function keyFromEvent(e) {
+    if (['Control', 'Shift', 'Alt', 'Meta', 'AltGraph', 'OS'].includes(e.key)) return null;
+    const c = e.code || '';
+    let k = null;
+    if (/^F([1-9]|1\d|2[0-4])$/.test(c)) k = c;
+    else if (/^Digit\d$/.test(c)) k = c.slice(5);
+    else if (/^Numpad\d$/.test(c)) k = 'num' + c.slice(6);
+    else if (/^Key[A-Z]$/.test(c)) k = /^[a-z]$/i.test(e.key) ? e.key.toUpperCase() : c.slice(3);
+    else if (CODE_KEYS[c]) k = CODE_KEYS[c];
+    if (!k) return { error: 'This key cannot be used for a shortcut' };
+    const mods = [e.ctrlKey && 'CommandOrControl', e.altKey && 'Alt', e.shiftKey && 'Shift'].filter(Boolean);
+    const alone = /^F\d+$/.test(k) || k === 'Scrolllock' || /^Media/.test(k);
+    if (!mods.length && !alone) return { error: 'Use Ctrl, Alt or Shift with a key (or F1–F24)' };
+    // AZERTY: Ctrl+Alt is AltGr, which types @ # { [ | ` \\ ^ ~ € with these keys.
+    if (kbLayout === 'azerty' && e.ctrlKey && e.altKey && !e.shiftKey && /^([0-9]|E)$/.test(k)) return { error: 'On an AZERTY keyboard Ctrl+Alt+this key types a character (AltGr): choose another one' };
+    return { acc: mods.concat(k).join('+') };
+  }
+  const PRETTY = { numadd: 'Num +', numsub: 'Num −', nummult: 'Num *', numdiv: 'Num /', numdec: 'Num .', Scrolllock: 'Arrêt défil', Space: 'Space' };
+  function prettyKey(acc) {
+    if (!acc) return '';
+    return String(acc).split('+').map((k) => (k === 'CommandOrControl' ? 'Ctrl' : k === 'Shift' ? t('Shift') : /^num\d$/.test(k) ? 'Num ' + k.slice(3) : k === 'Scrolllock' ? t('Scroll Lock') : PRETTY[k] || k)).join('+');
+  }
+
+  // ---------- Shared with panel-*.js ----------
+  window.Panel = {
+    $, $$, t, api, action, toast, escapeHtml, showTab, openGroup, goBack, goForward, groupName, groupOn, visibleGroups,
+    get group() { return currentGroup; }, get tab() { return currentTab; }, GROUP_NAMES, GROUPS,
+    // Called every time a top tab is shown.
+    onGroup(fn) { hooks.group.push(fn); },
+    save: (key, value) => save(key, value),
+    get state() { return state; },
+    onState(fn) { hooks.state.push(fn); if (state.settings) fn(state, true); },
+    onTab(fn) { hooks.tab.push(fn); fn(currentTab); },
+    keyFromEvent, prettyKey,
+    get kbLayout() { return kbLayout; },
+    // Runs an action and shows its error (translated) as a toast; resolves to the result or null.
+    async run(name, extra, okText) {
+      const r = await action(name, extra);
+      if (!r || !r.ok) { toast(t((r && r.error) || 'Something went wrong')); return null; }
+      if (okText) toast(t(okText));
+      return r;
+    },
+  };
 
   // ---------- Settings binding ----------
   const get = (obj, key) => key.split('.').reduce((o, k) => (o ? o[k] : undefined), obj);
@@ -59,25 +205,17 @@
   });
   $('#customColors').addEventListener('change', (e) => save('twitch.colors', e.target.value.split(/[\s,;]+/).filter((c) => /^#[0-9a-f]{3,8}$/i.test(c))));
 
-  // Hotkey capture: build an Electron accelerator from the pressed keys.
+  // Hotkey capture: build an Electron accelerator from the pressed keys (Panel.keyFromEvent, shared with the BabaDeck).
   $$('.hotkey').forEach((el) => {
     el.addEventListener('keydown', (e) => {
       e.preventDefault();
       if (e.key === 'Backspace' || e.key === 'Delete') { el.value = ''; save(el.dataset.key, ''); return; }
-      if (['Control', 'Shift', 'Alt', 'Meta'].includes(e.key)) return;
-      const parts = [];
-      if (e.ctrlKey) parts.push('CommandOrControl');
-      if (e.altKey) parts.push('Alt');
-      if (e.shiftKey) parts.push('Shift');
-      let key = e.key.length === 1 ? e.key.toUpperCase() : e.key;
-      if (/^F\d{1,2}$/.test(e.key)) key = e.key;
-      const map = { ' ': 'Space', ArrowUp: 'Up', ArrowDown: 'Down', ArrowLeft: 'Left', ArrowRight: 'Right', Escape: null };
-      if (key in map) key = map[key];
-      if (!key) { el.blur(); return; }
-      if (!parts.length && !/^F\d{1,2}$/.test(key)) { toast(t('Use at least one modifier (Ctrl, Alt or Shift)')); return; }
-      const acc = [...parts, key].join('+');
-      el.value = acc.replace('CommandOrControl', 'Ctrl');
-      save(el.dataset.key, acc);
+      if (e.key === 'Escape') { el.blur(); return; }
+      const r = Panel.keyFromEvent(e);
+      if (!r) return;
+      if (r.error) { toast(t(r.error)); return; }
+      el.value = Panel.prettyKey(r.acc);
+      save(el.dataset.key, r.acc);
       el.blur();
     });
   });
@@ -122,7 +260,7 @@
   }
 
   // ---------- App / updates ----------
-  const UPD = { idle: '—', dev: 'Development build (updates disabled)', checking: 'Checking…', 'up-to-date': 'Up to date', downloading: 'Downloading', ready: 'Ready — restart to install', available: 'New version available', error: 'Error' };
+  const UPD = { idle: '—', dev: 'Development build (updates disabled)', disabled: 'No update source set', checking: 'Checking…', 'up-to-date': 'Up to date', downloading: 'Downloading', ready: 'Ready — restart to install', available: 'New version available', error: 'Error' };
   function renderApp() {
     const a = state.app || {};
     $('#version').textContent = a.version ? 'v' + a.version + (a.portable ? ' · ' + t('portable') : '') : '';
@@ -134,23 +272,26 @@
     if (u.status === 'error') txt += ': ' + t(u.error || '');
     $('#updStatus').textContent = txt;
     const banner = $('#updateBanner');
+    $('#installUpdate').classList.toggle('hidden', !(u.status === 'ready' || u.status === 'available'));
     if (u.status === 'ready' || u.status === 'available') {
       banner.classList.remove('hidden');
-      $('#updateText').textContent = u.status === 'ready' ? t('Version {v} is downloaded and ready.', { v: u.latest }) : t("Version {v} is available. The portable build can't update itself — grab the new .exe.", { v: u.latest });
-      $('#updateBtn').textContent = t(u.status === 'ready' ? 'Restart & update' : 'Download');
+      $('#updateText').textContent = u.status === 'ready' ? t('Version {v} is downloaded and ready.', { v: u.latest }) : t('Version {v} is available: it installs in a few seconds, no need to download the app again.', { v: u.latest });
+      $('#updateBtn').textContent = t(u.status === 'ready' ? 'Restart & update' : 'Update now');
     } else banner.classList.add('hidden');
-    for (const k of ['toggleOverlay', 'placement', 'muteChat']) $('#hk-' + k).textContent = t((a.hotkeyErrors || {})[k] || '');
+    for (const k of ['toggleOverlay', 'placement', 'muteChat', 'marker']) $('#hk-' + k).textContent = t((a.hotkeyErrors || {})[k] || '');
+    $$('.hk-err').forEach((el) => { el.textContent = t((a.hotkeyErrors || {})[el.dataset.hk] || ''); });
     const sel = $('#displaySelect');
     const opts = (a.displays || []).map((d) => `<option value="${d.index}">${escapeHtml(d.label.replace('Primary', t('Primary')))}</option>`).join('');
     if (sel.dataset.opts !== opts) { sel.innerHTML = opts; sel.dataset.opts = opts; sel.value = state.settings.overlay.display; }
     $$('[data-placement]').forEach((b) => (b.textContent = t(a.placement ? 'Finish placement' : b.dataset.label)));
   }
+  document.addEventListener('click', (e) => { if (e.target.closest('[data-open-media]')) action('open-media-dir'); });
   $('#updateBtn').onclick = () => action('update-install');
   $('#checkUpdate').onclick = () => action('update-check');
+  $('#installUpdate').onclick = () => action('update-install');
   $('#openLogs').onclick = () => action('open-logs');
   $('#exportConfig').onclick = () => action('export-config');
   $('#copyDiag').onclick = () => action('copy-diagnostics').then((r) => toast(t(r.ok ? 'Diagnostics copied — paste them to whoever helps you' : 'Could not copy the diagnostics')));
-  $('#showWelcome').onclick = () => openWelcome();
   $('#showWhatsNew').onclick = () => openWhatsNew(null);
   $$('[data-placement]').forEach((b) => (b.dataset.label = b.textContent));
   $$('[data-placement]').forEach((b) => (b.onclick = () => action('placement', { on: !state.app.placement })));
@@ -347,56 +488,6 @@
   $('#replayFx').onclick = () => { action('fx-test'); toast(t('Watch the preview, your overlay and OBS')); };
   $('#reconnect').onclick = () => { action('reconnect'); toast(t('Reconnecting to Discord…')); };
 
-  // ---------- First-run guide ----------
-  const LAST_STEP = 2;
-  let wStep = 0, welcomeOpen = false, welcomeShown = false;
-  const kbd = (acc) => (acc
-    ? acc.replace('CommandOrControl', 'Ctrl').split('+').map((k) => `<kbd>${escapeHtml(k)}</kbd>`).join(' + ')
-    : `<span class="muted">${escapeHtml(t('none'))}</span>`);
-  function openWelcome() { wStep = 0; welcomeOpen = true; $('#welcome').classList.remove('hidden'); renderWelcome(); }
-  function closeWelcome() {
-    welcomeOpen = false;
-    $('#welcome').classList.add('hidden');
-    if (!state.settings.app.welcomeDone) { state.settings.app.welcomeDone = true; save('app.welcomeDone', true); }
-    checkWhatsNew();
-  }
-  function discordHint(d) {
-    if (d.me) return `<p class="ok">✔ ${escapeHtml(t('Connected as {name}.', { name: d.me.name }))}</p>`;
-    if (d.status === 'Discord not found') return `<p class="warn">● ${escapeHtml(t('Start the Discord desktop app (the browser version does not work).'))}</p>`;
-    if (d.status === 'error' || d.status === 'refused') {
-      const detail = d.detail ? ' — ' + d.detail.split(' — ').map((x) => t(x)).join(' — ') : '';
-      return `<p class="err">● ${escapeHtml(t(d.status) + detail)}</p><p class="muted">${escapeHtml(t('Check that you accepted the App Tester invite from the app owner, then click Reconnect.'))}</p>`;
-    }
-    return `<p class="warn">● ${escapeHtml(t('Waiting for Discord: click “Authorize” in the Discord popup.'))}</p>`;
-  }
-  function renderWelcome() {
-    if (!welcomeOpen) return;
-    const d = state.discord || {}, me = d.me;
-    const mine = me && state.avatars[me.id];
-    $$('#welcome [data-step]').forEach((el) => el.classList.toggle('on', Number(el.dataset.step) === wStep));
-    $('#wDots').innerHTML = [0, 1, 2].map((i) => `<span class="${i <= wStep ? 'on' : ''}"></span>`).join('');
-    $('#wBack').style.visibility = wStep ? 'visible' : 'hidden';
-    $('#wNext').textContent = wStep === LAST_STEP ? t('Finish') : t('Next');
-    $('#wDiscord').innerHTML = discordHint(d);
-    $('#wAvatar').innerHTML = !me
-      ? `<p class="warn">${escapeHtml(t('Connect Discord first: the creator needs your Discord ID.'))}</p>`
-      : `<p>${escapeHtml(t('Your Discord ID: {id}', { id: me.id }))}</p>` + (mine
-        ? `<p class="ok">✔ ${escapeHtml(t('Your avatar is ready.'))}</p>`
-        : `<p class="muted">${escapeHtml(t('Not created yet. Until then, your Discord profile picture is used.'))}</p>`);
-    $('#wCreate').disabled = !me;
-    $('#wCreate').textContent = mine ? t('Edit my avatar') : t('Create my avatar');
-    $('#wShare').disabled = !mine;
-    const hk = state.settings.app.hotkeys;
-    const rows = [[hk.toggleOverlay, 'Show / hide overlay'], [hk.placement, 'Move puppets (placement mode)'], [t('Esc'), 'Finish placement'], [hk.muteChat, 'Mute / unmute chat sound']];
-    $('#wKeys').innerHTML = rows.map(([k, label]) => `<span>${kbd(k)}</span><span>${escapeHtml(t(label))}</span>`).join('');
-  }
-  $('#wNext').onclick = () => { if (wStep < LAST_STEP) { wStep++; renderWelcome(); } else closeWelcome(); };
-  $('#wBack').onclick = () => { if (wStep > 0) { wStep--; renderWelcome(); } };
-  $('#wSkip').onclick = closeWelcome;
-  $('#wReconnect').onclick = () => { action('reconnect'); toast(t('Reconnecting to Discord…')); };
-  $('#wCreate').onclick = () => { if (myId()) action('open-creator', { id: myId() }); };
-  $('#wShare').onclick = () => shareAvatar(state.avatars[myId()]);
-
   // ---------- What's new ----------
   const cmpVersion = (a, b) => {
     const pa = String(a).split('.').map(Number), pb = String(b).split('.').map(Number);
@@ -418,7 +509,7 @@
   // Shown once after an update, never on top of the first-run guide.
   function checkWhatsNew() {
     const from = state.app.whatsNew;
-    if (whatsNewChecked || welcomeOpen || from === null || from === undefined) return;
+    if (whatsNewChecked || from === null || from === undefined || !state.settings.app.setupDone || document.body.classList.contains('touring')) return;
     whatsNewChecked = true;
     if (!openWhatsNew(from)) action('whats-new-seen');
   }
@@ -460,16 +551,17 @@
       if (avatarsChanged) avatarsVersion++;
       // Language: translate static text once per change, then force the dynamic parts to re-render.
       const langChanged = I18N.setLang((state.app && state.app.lang) || 'en') || !langApplied;
-      if (langChanged) { langApplied = true; I18N.apply(document.body); lastCmdKey = ''; lastMembers = ''; $('#displaySelect').dataset.opts = ''; }
+      if (langChanged) { langApplied = true; I18N.apply(document.body); groupsKey = ''; lastCmdKey = ''; lastMembers = ''; $('#displaySelect').dataset.opts = ''; }
       fillInputs(); renderStatus(); renderApp(); renderVoices(); renderSync();
       if (avatarsChanged || langChanged) renderAvatars();
       const mk = I18N.lang + JSON.stringify([Object.keys(state.known || {}), (state.discord.members || []).map((m) => m.id), state.settings.memberOrder, state.settings.members, avatarsVersion]);
       if (mk !== lastMembers) { lastMembers = mk; renderMembers(); }
       const ck = I18N.lang + (state.settings.twitch.commandPrefix || '') + JSON.stringify(state.settings.twitch.disabledCommands || []);
       if (ck !== lastCmdKey) { lastCmdKey = ck; renderCommands(); }
-      if (!state.settings.app.welcomeDone && !welcomeShown) { welcomeShown = true; openWelcome(); }
-      renderWelcome();
+      renderGroups();
+      const md = $('#mediaDir'); if (md) md.textContent = (state.app && state.app.mediaDir) || '—';
       checkWhatsNew();
+      hooks.state.forEach((fn) => { try { fn(state, langChanged); } catch (err) { console.error(err); } });
     });
     es.addEventListener('speaking', (e) => {
       const d = JSON.parse(e.data);

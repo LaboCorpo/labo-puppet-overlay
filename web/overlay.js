@@ -82,11 +82,19 @@
     sound.configure(snd);
   }
 
+  // ---------- Alert sounds (follow, sub, bits, raid…) ----------
+  // Output 'app': the desktop overlay plays them. Output 'obs': the dedicated widget source does (widget.html?w=alerts).
+  const alerts = new AlertSound();
+  function onAlertSound(a) {
+    if (DESKTOP && !TEST && !DEMO && a.output !== 'obs') alerts.play(a);
+  }
+
   // ---------- Events ----------
   let lastRealChat = 0;
   function onChat(m) {
     if (!scene.settings) return;
-    const speak = !m.fake && !m.system && m.text && sound.enabled();
+    const snd = (scene.settings.twitch && scene.settings.twitch.sound) || {};
+    const speak = !m.fake && !m.system && m.text && sound.enabled() && !(m.self && snd.skipSelf !== false);
     if (speak) {
       sound.say({
         login: m.login, display: m.display, text: m.text,
@@ -132,7 +140,8 @@
     on('viewer', (d) => twitch.setOverride(d.login, d.override));
     on('viewers-reset', () => twitch.setOverrides({}));
     on('fx-test', () => { discord.replay(); wake(); });
-    es.onerror = () => { if (!DESKTOP) return; hint.style.display = 'block'; hint.textContent = t('Puppet Overlay app not reachable — retrying…'); };
+    on('alert-sound', onAlertSound);
+    es.onerror = () => { if (!DESKTOP) return; hint.style.display = 'block'; hint.textContent = t('LaboHub app not reachable — retrying…'); };
     es.onopen = () => { hint.style.display = 'none'; };
   }
 

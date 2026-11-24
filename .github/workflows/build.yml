@@ -4,6 +4,7 @@ on:
   push:
     branches: [main]
     tags: ['v*']
+  pull_request:
   workflow_dispatch:
 
 permissions:
@@ -29,12 +30,20 @@ jobs:
         # Merge, so the other bundled defaults (e.g. the avatar sync URL) are kept.
         run: |
           node -e "const f='electron/app-config.json',c=JSON.parse(require('fs').readFileSync(f,'utf8'));c.discord=Object.assign({},c.discord,{clientId:process.env.CLIENT_ID});require('fs').writeFileSync(f,JSON.stringify(c,null,2))"
+      # Same for the Twitch Client ID (repo variable TWITCH_CLIENT_ID), used by the optional Twitch account login.
+      - name: Bundle Twitch client ID
+        if: ${{ vars.TWITCH_CLIENT_ID != '' }}
+        shell: bash
+        env:
+          CLIENT_ID: ${{ vars.TWITCH_CLIENT_ID }}
+        run: |
+          node -e "const f='electron/app-config.json',c=JSON.parse(require('fs').readFileSync(f,'utf8'));c.twitchApi=Object.assign({},c.twitchApi,{clientId:process.env.CLIENT_ID});require('fs').writeFileSync(f,JSON.stringify(c,null,2))"
       - run: npx electron-builder --win portable nsis --publish never
         env:
           CSC_IDENTITY_AUTO_DISCOVERY: false
       - uses: actions/upload-artifact@v4
         with:
-          name: PuppetOverlay-windows
+          name: LaboHub-windows
           path: |
             dist/*.exe
             web/creator.html

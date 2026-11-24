@@ -170,7 +170,28 @@ You can change these in **Settings**.
 
 Raids, subs and bits trigger effects. Chat messages can also be read aloud or turned into funny gibberish (in the Twitch tab).
 
-## 8. Other things you can tweak
+## 8. LaboHub: the tabs
+
+LaboHub has five tabs. At install (or in **Settings → Tabs**) you keep only the ones you use, and you can rename them (double-click a tab). The first time you open a tab, a short tour shows you around; **?** at the top right (or **F1**) replays it. Each tab also has a **Guide** page: tick the steps as you go.
+
+- **Puppet Overlay**: the Discord puppets (sections 3 to 7) and the Discord bot (`/puppet create` in Discord).
+- **Widget Twitch**: one OBS **Browser** source per widget: followers, subs, latest follower / sub, the song playing (Spotify), live chat, **game counters** and the alerts.
+  - Each widget has its page: themes, colours, text, icon, animations, **your pictures** (background, icon) and **your own CSS**. *Save this look* keeps it in **My templates** for the other widgets.
+  - **Game counters**: deaths, wins, losses… Give each one a shortcut (e.g. `Alt+1` = one more loss): it works in game. Viewers see it with `!command`; mods change it with `!command+` / `!command-`. One OBS link per counter, or two side by side.
+  - **Friends' cams**: add a friend, click **Their link** and send it to them. They open it, choose their camera and click *Start*: their camera becomes an OBS source (alone, or all together in one scene you lay out with the mouse). Free VDO.Ninja service, nothing to install for them.
+  - **Alert sounds**: put your sounds and GIFs in the **Son Twitch** folder (📂 button), then choose them for each event (follow, sub, Prime, gifts, bits, raid), with a GIF if you like. Add the *Alerts (GIF + sound)* widget to OBS to see the GIFs.
+  - **Scenes**: several widgets in one OBS source.
+- **Hub Labo**
+  - **My stream**: your live with its category picture, title & category (with presets), giveaway and chat poll (each with its OBS overlay), stream health from OBS (with a warning when it struggles), ad warning, “I'm live” on Discord, summary, checklist.
+  - **Friends' streams**: who is live in the crew (shown at the top of every Hub page, with their game), raid, Stream Together, chat. **Multi-stream**: videos and merged chats. **Clips**: mark the moments to clip, even in game.
+- **BabaDeck**: your Stream Deck without the hardware. Connect OBS (*Tools → WebSocket Server Settings* in OBS, then **OBS connection**). Click an empty slot to make a button, **right-click** a button to edit it, drag it to move it. Each button can run several actions and have a shortcut (combinations work).
+  - **Shortcuts** lists every shortcut and the **recommended keys** for QWERTY and AZERTY keyboards (on AZERTY avoid `Ctrl+Alt+digit`: it is AltGr).
+  - The **shortcut strip** shows your shortcuts and their state (muted mic, live, counters) on top of your game, without catching clicks. Move and resize it in Shortcuts.
+- **Baba Bot**: a chat bot that answers with your Twitch account while LaboHub is open: your commands, timers, welcome for newcomers, thanks for raids, sound commands (`!airhorn`) with files from the Son Twitch folder.
+
+Counters, follows, the bot, My stream and the Hub need you to **log in with Twitch** (Widget Twitch → Stream widgets). Twitch shows a code to confirm on its website; you never type your password in the app. **Updates**: *Settings → Check for updates* downloads only the new version (a few MB).
+
+## 9. Other things you can tweak
 
 - **Overlay** tab: layout (row or column), size, entrance and exit effects, names, and more.
 - **Members** tab: hide someone, give them a nickname, make them bigger or smaller, change the order.
@@ -184,6 +205,10 @@ Raids, subs and bits trigger effects. Chat messages can also be read aloud or tu
 | Error about "tester" or "authorization" | Check that you accepted the tester invite, then click **Reconnect / re-authorize Discord** in the Status tab |
 | I can't see the puppets in my game | Set the game to **borderless window** mode. Exclusive fullscreen hides the overlay |
 | Nothing shows in OBS | Puppet Overlay must be running. Check the address in the **OBS / Streamlabs** tab |
+| “Log in with Twitch” asks for a Client ID | Ask the person who shared the app for the Twitch Client ID and paste it |
+| No alert sound or GIF in OBS | In **Alert sounds**, “Played by” must match: *This app* (OBS hears it through Desktop Audio) or *OBS*. The GIFs always need the *Alerts (GIF + sound)* widget source |
+| A friend's camera stays black | They must keep the page of their link open, with *Start* clicked. A new password (Security) cancels the old links |
+| The Spotify widget stays empty | Open the Spotify **desktop** app (not the web player) and keep its window open or minimized |
 | Something else | **Settings → Open logs folder** and send the `main.log` file to the person who shared the app |
 
 ---

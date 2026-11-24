@@ -17,11 +17,14 @@
     teeth: ['none', 'buck', 'fangs', 'gap'],
     hair: ['none', 'short', 'spiky', 'bowl', 'long', 'bun', 'mohawk', 'afro', 'curly', 'pigtails', 'ponytail', 'sidepart'],
     beard: ['none', 'beard', 'goatee', 'mustache', 'stubble', 'full', 'chinstrap', 'handlebar'],
-    hat: ['none', 'beanie', 'cap', 'crown', 'headphones', 'tophat', 'cowboy', 'wizard', 'beret', 'bandana', 'horns', 'halo', 'propeller', 'hardhat', 'party', 'pirate', 'santa', 'chef'],
+    hat: ['none', 'beanie', 'cap', 'crown', 'headphones', 'tophat', 'cowboy', 'wizard', 'beret', 'bandana', 'horns', 'halo', 'propeller', 'hardhat', 'party', 'pirate', 'santa', 'chef',
+      'viking', 'catears', 'bucket', 'graduation', 'flowercrown', 'sombrero', 'mushroom', 'frog'],
+    faceExtra: ['none', 'eyepatch', 'mask', 'warpaint', 'earrings', 'piercing', 'sparkle'],
+    back: ['none', 'wings', 'angelwings', 'backpack', 'jetpack', 'sword'],
     outfit: ['jacket', 'sweater', 'dress', 'suit', 'hoodie', 'tshirt', 'overalls', 'hawaiian', 'labcoat', 'cape', 'hivis', 'apron', 'jersey', 'kimono', 'superhero', 'raincoat'],
     pattern: ['none', 'stripes', 'dots', 'stars', 'checks'],
     neckwear: ['none', 'scarf', 'bowtie', 'tie', 'necklace', 'medal', 'lei', 'chain'],
-    held: ['none', 'mug', 'controller', 'sword', 'flower', 'phone', 'pizza', 'balloon', 'microphone', 'trophy', 'popcorn'],
+    held: ['none', 'mug', 'controller', 'sword', 'flower', 'phone', 'pizza', 'balloon', 'microphone', 'trophy', 'popcorn', 'guitar', 'banana', 'icecream', 'wand', 'book'],
     heldLayer: ['behind', 'front'],
   };
   // Numeric sliders: [min, max, default]
@@ -75,7 +78,7 @@
       hat: 'none', hatColor: PALETTES.cloth[0],
       outfit: 'jacket', pattern: 'none', clothColor: PALETTES.cloth[5], accentColor: PALETTES.cloth[2],
       bodyWidth: 1, bodyHeight: 1,
-      neckwear: 'none', neckColor: PALETTES.cloth[0], held: 'none', heldLayer: 'behind',
+      neckwear: 'none', neckColor: PALETTES.cloth[0], held: 'none', heldLayer: 'behind', faceExtra: 'none', back: 'none',
       photo: null, photoSplit: 0.58,
       ...Object.fromEntries(Object.entries(SLIDERS).map(([k, v]) => [k, v[2]])),
     };

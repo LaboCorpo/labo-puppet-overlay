@@ -44,6 +44,7 @@
     ctx.restore();
 
     ctx.save(); ctx.scale(a.bodyWidth || 1, a.bodyHeight || 1);
+    if (a.back && a.back !== 'none' && P.parts.drawBack) P.parts.drawBack(ctx, a, st); // wings, backpack… behind the body
     drawBody(ctx, a, st);
     ctx.restore();
 
@@ -109,6 +110,7 @@
       drawEyes(ctx, face, st.blinking, look);
       drawNose(ctx, face);
       drawBrows(ctx, face);
+      if (face.faceExtra && face.faceExtra !== 'none' && P.parts.drawFaceExtra) P.parts.drawFaceExtra(ctx, face, splitY);
       if (!backHair.includes(face.hair)) {
         // Tall hairstyles would poke through hats: flatten them under a hat.
         const hatted = face.hat && !['none', 'headphones', 'crown', 'halo', 'horns', 'bandana'].includes(face.hat);

@@ -76,6 +76,11 @@
         v.anim.jump(40); v.anim.wave(2.5);
         if (e.text) { v.msg = String(e.text).slice(0, 220); v.system = true; v.msgUntil = v.lastMsg + Math.max(6, c.bubbleSeconds || 7); }
         fx.confetti(v, 70);
+      } else if (e.type === 'follow' && c.followEffects !== false) {
+        const v = ensureViewer(e.login, e.display, e.color);
+        v.anim.jump(30); v.anim.wave(2);
+        v.msg = '♥ follow'; v.system = true; v.msgUntil = v.lastMsg + 5;
+        fx.confetti(v, 30);
       } else if (e.type === 'bits' && c.bitsEffects !== false) {
         const v = ensureViewer(e.login, e.display, e.color);
         v.anim.jump(30); v.anim.dance(2); fx.confetti(v, Math.min(120, 20 + (e.amount || 0) / 5));

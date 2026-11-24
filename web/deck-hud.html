@@ -1,0 +1,104 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>BabaDeck HUD</title>
+<style>
+  /* BabaDeck shortcut strip: information only (the window lets clicks through), always on top. */
+  html, body { margin: 0; height: 100%; background: transparent; overflow: hidden; font-family: "Segoe UI", system-ui, sans-serif; user-select: none; }
+  #strip { position: absolute; inset: 0; display: flex; align-items: center; gap: 6px; padding: 6px 8px; box-sizing: border-box; overflow: hidden;
+    background: rgba(18, 15, 23, .82); border-radius: 14px; box-shadow: 0 4px 18px rgba(0,0,0,.35), inset 0 0 0 1px rgba(255,255,255,.08); flex-wrap: nowrap; align-content: center; }
+  body.tall #strip { flex-wrap: wrap; } body.tall .chip { height: 40px; }
+  .chip { display: flex; align-items: center; gap: 6px; height: calc(var(--h) - 12px); max-height: 52px; min-height: 22px; padding: 0 10px 0 6px; border-radius: 10px; background: var(--bc, #2a2236); color: var(--fg, #fff);
+    font-weight: 800; font-size: clamp(10px, calc(var(--h) * .24), 15px); white-space: nowrap; box-shadow: inset 0 -2px 0 rgba(0,0,0,.25); transition: box-shadow .2s, transform .2s, opacity .2s; flex: 0 1 auto; min-width: 0; overflow: hidden; }
+  .chip .lb { overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+  .chip kbd, .chip .ic, .chip b { flex: none; }
+  .chip .ic { font-size: 1.35em; line-height: 1; }
+  .chip kbd { font: 800 .78em "Segoe UI", sans-serif; padding: 1px 5px; border-radius: 5px; background: rgba(0,0,0,.35); color: #fff; opacity: .9; }
+  .chip.on { box-shadow: 0 0 0 2px #fff, inset 0 -2px 0 rgba(0,0,0,.25); }
+  .chip.on.danger { box-shadow: 0 0 0 2px #ff4d4d, 0 0 12px #ff4d4d; }
+  .chip.on.live { animation: live 1.6s ease-in-out infinite; }
+  @keyframes live { 50% { box-shadow: 0 0 0 2px #ff4d4d, 0 0 14px #ff4d4d; } }
+  .chip.flash { transform: scale(1.08); }
+  .chip.counter { background: #2a2236; }
+  .chip.counter b { font-size: 1.15em; color: #ffc93c; }
+  .nolabels .chip .lb { display: none; }
+  #empty { color: #ffffffaa; font-weight: 700; font-size: 13px; padding: 0 8px; }
+  /* Move mode: the whole strip drags the window (frameless); the grip resizes it. */
+  body.placing #strip { outline: 2px dashed #ffc93c; outline-offset: -2px; -webkit-app-region: drag; cursor: move; }
+  #place { display: none; position: absolute; right: 6px; top: 4px; gap: 6px; align-items: center; z-index: 5; -webkit-app-region: no-drag; }
+  body.placing #place { display: flex; }
+  #place button { all: unset; cursor: pointer; padding: 3px 10px; border-radius: 7px; background: #ffc93c; color: #1d1520; font: 800 12px "Segoe UI", sans-serif; }
+  #place span { color: #ffc93c; font: 700 11px "Segoe UI", sans-serif; text-shadow: 0 1px 3px #000; }
+  #grip { display: none; position: absolute; right: 0; bottom: 0; width: 18px; height: 18px; cursor: nwse-resize; -webkit-app-region: no-drag; z-index: 6;
+    background: linear-gradient(135deg, transparent 50%, #ffc93c 50%); border-bottom-right-radius: 12px; }
+  body.placing #grip { display: block; }
+</style>
+</head>
+<body>
+<div id="strip" data-no-i18n></div>
+<div id="place"><span id="placeTxt"></span><button id="placeDone">OK</button></div>
+<div id="grip"></div>
+<script src="shared/i18n.js"></script>
+<script src="deck.js"></script>
+<script>
+  (function () {
+    'use strict';
+    const $ = (s) => document.querySelector(s);
+    const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+    const t = (s, v) => I18N.t(s, v);
+    let st = {}, key = '';
+    const prev = {};
+    function render() {
+      const s = st.settings;
+      if (!s) return;
+      const h = s.deck.hud;
+      document.body.style.setProperty('--h', h.h + 'px');
+      document.body.classList.toggle('tall', h.h >= 96); // room for two rows of chips
+      $('#strip').style.opacity = h.opacity / 100;
+      document.body.classList.toggle('nolabels', !h.labels);
+      document.body.classList.toggle('placing', !!(st.app && st.app.hudPlacing));
+      $('#placeTxt').textContent = t('Drag to move · corner to resize');
+      $('#placeDone').textContent = t('Done');
+      const chips = [];
+      for (const p of s.deck.pages) for (const b of p.buttons) {
+        if (!b || (!b.hotkey && !h.all)) continue;
+        const on = DeckView.isOn(b, st), a0 = b.actions[0];
+        chips.push({ id: b.id, html: `<div class="chip${on ? ' on ' + (DeckView.ON_STYLE[a0 && a0.type] || '') : ''}" data-id="${esc(b.id)}" style="--bc:${esc(b.color)};--fg:${esc(b.fg)}"><span class="ic">${esc(DeckView.stateIcon(b, on))}</span><span class="lb">${esc(b.label)}</span>${b.hotkey ? `<kbd>${esc(DeckView.pretty(b.hotkey))}</kbd>` : ''}</div>`, v: on });
+      }
+      for (const c of s.lab.counters) {
+        if (!c.plusKey && !c.minusKey && !h.all) continue;
+        chips.push({ id: 'c' + c.id, html: `<div class="chip counter" data-id="c${esc(c.id)}"><span class="lb">${esc(c.name)}</span><b>${c.value}</b>${c.plusKey ? `<kbd>+ ${esc(DeckView.pretty(c.plusKey))}</kbd>` : ''}${c.minusKey ? `<kbd>− ${esc(DeckView.pretty(c.minusKey))}</kbd>` : ''}</div>`, v: c.value });
+      }
+      const html = chips.map((c) => c.html).join('') || `<span id="empty">${esc(t('No shortcut yet: give your BabaDeck buttons a shortcut.'))}</span>`;
+      if (html !== key) {
+        key = html;
+        $('#strip').innerHTML = html;
+        // A chip whose state changed flashes once.
+        for (const c of chips) { if (c.id in prev && prev[c.id] !== c.v) { const el = document.querySelector(`[data-id="${CSS.escape(c.id)}"]`); if (el) { el.classList.add('flash'); setTimeout(() => el.classList.remove('flash'), 250); } } prev[c.id] = c.v; }
+      }
+    }
+    const action = (name, body) => fetch('/api/action', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(Object.assign({ name }, body || {})) }).catch(() => {});
+    $('#placeDone').onclick = () => action('deck-hud-place', { on: false });
+    addEventListener('keydown', (e) => { if (e.key === 'Escape' || e.key === 'Enter') action('deck-hud-place', { on: false }); });
+    // Resize from the corner: the new size is saved, the app resizes the window.
+    let rs = null, rsTimer = 0;
+    $('#grip').addEventListener('pointerdown', (e) => { rs = { x: e.screenX, y: e.screenY, w: innerWidth, h: innerHeight }; $('#grip').setPointerCapture(e.pointerId); });
+    $('#grip').addEventListener('pointermove', (e) => {
+      if (!rs) return;
+      const w = Math.max(160, Math.min(3000, Math.round(rs.w + e.screenX - rs.x))), h = Math.max(40, Math.min(1200, Math.round(rs.h + e.screenY - rs.y)));
+      clearTimeout(rsTimer);
+      rsTimer = setTimeout(() => fetch('/api/settings', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ deck: { hud: { w, h } } }) }).catch(() => {}), 60);
+    });
+    $('#grip').addEventListener('pointerup', () => { rs = null; });
+    const es = new EventSource('/api/events');
+    es.addEventListener('state', (e) => {
+      const s = JSON.parse(e.data);
+      if (s.app && s.app.lang && I18N.setLang(s.app.lang)) key = '';
+      st = Object.assign({}, st, s);
+      render();
+    });
+  })();
+</script>
+</body>
+</html>

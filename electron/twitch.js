@@ -57,7 +57,12 @@ function viewer(login, tags) {
 }
 
 class TwitchChat extends EventEmitter {
-  /** opts: { getSettings(), setOverride(login, patch|null) } */
+  /**
+   * opts: { getSettings(), setOverride(login, patch|null),
+   *         getExtra() -> { active, channel, marker: { enabled, name } } (optional) }
+   * extra.active keeps the chat connected without viewer puppets (alert sounds, timestamps);
+   * extra.channel is used when no channel is typed in the Twitch tab (the logged-in account).
+   */
   constructor(opts) {
     super();
     this.o = opts;
@@ -71,12 +76,16 @@ class TwitchChat extends EventEmitter {
     this.lastRx = 0;
   }
 
+  extra() { return (this.o.getExtra && this.o.getExtra()) || {}; }
+
   setStatus(s, detail) { this.status = s; this.detail = detail || ''; this.emit('status'); }
 
   // Called whenever settings change; (re)connects only when the channel actually changed.
   sync() {
     const cfg = this.o.getSettings();
-    const want = cfg.enabled && cfg.channel ? String(cfg.channel).toLowerCase().replace(/^#/, '').replace(/^https?:\/\/(www\.)?twitch\.tv\//, '').trim() : '';
+    const extra = this.extra();
+    const chan = cfg.channel || extra.channel || '';
+    const want = (cfg.enabled || extra.active) && chan ? String(chan).toLowerCase().replace(/^#/, '').replace(/^https?:\/\/(www\.)?twitch\.tv\//, '').trim() : '';
     if (want === this.channel && (this.ws || !want)) return;
     this.channel = want;
     this.close();
@@ -154,8 +163,26 @@ class TwitchChat extends EventEmitter {
     if (text.startsWith('\u0001ACTION ')) text = text.slice(8, -1);
     text = text.slice(0, MAX_TEXT);
     const base = viewer(login, tags);
+    if (login === this.channel) base.self = true; // the streamer's own messages: no chat sound by default
+    // Roles and extras for Baba Bot and My stream (bot permissions, giveaway luck, welcome).
+    const badges = String(tags.badges || '');
+    if (tags.mod === '1') base.mod = true;
+    if (/(^|,)broadcaster\//.test(badges)) base.broadcaster = true;
+    if (tags.subscriber === '1' || /(^|,)(subscriber|founder)\//.test(badges)) base.sub = true;
+    if (/(^|,)vip\//.test(badges)) base.vip = true;
+    if (tags['first-msg'] === '1') base.first = true;
+    if (tags.emotes && /^[\w:,\/-]{1,2000}$/.test(tags.emotes)) base.emotes = tags.emotes;
     if (tags.bits) this.emit('event', Object.assign({ type: 'bits', amount: Number(tags.bits) || 0 }, base));
     const cfg = this.o.getSettings();
+    // "!clip [note]": a stream timestamp, only from the broadcaster or a moderator.
+    const mk = this.extra().marker;
+    const mm = mk && mk.enabled ? text.match(/^!(\S+)\s*(.*)$/) : null;
+    if (mm && mm[1].toLowerCase() === mk.name) {
+      const allowed = tags.mod === '1' || /(^|,)broadcaster\//.test(tags.badges || '') || login === this.channel;
+      if (allowed) this.emit('marker', { by: base.display, note: mm[2].slice(0, 140) });
+      this.emit('chat', Object.assign({ text: cfg.hideCommands !== false ? null : text }, base));
+      return;
+    }
     const prefix = cfg.commandPrefix || '!';
     if (cfg.commandsEnabled !== false && text.startsWith(prefix)) {
       const handled = this.onCommand(base, text.slice(prefix.length).trim());
@@ -207,7 +234,14 @@ class TwitchChat extends EventEmitter {
     if (id === 'raid') {
       this.emit('event', Object.assign({ type: 'raid', count: Math.max(1, Number(tags['msg-param-viewerCount']) || 1), text: sys }, base));
     } else if (/^(sub|resub|subgift|submysterygift|giftpaidupgrade|primepaidupgrade|anongiftpaidupgrade)$/.test(id)) {
-      this.emit('event', Object.assign({ type: 'sub', text: String(text || sys).slice(0, MAX_TEXT) }, base));
+      // kind drives the alert sound: Prime subs, gifted subs and regular subs can each have their own sounds.
+      const gift = id === 'subgift' || id === 'submysterygift';
+      const kind = gift ? 'gift' : tags['msg-param-sub-plan'] === 'Prime' ? 'prime' : 'sub';
+      const e = { type: 'sub', kind, text: String(text || sys).slice(0, MAX_TEXT) };
+      if (gift) e.count = Math.max(1, Math.min(1000, Number(tags['msg-param-mass-gift-count']) || 1));
+      // A "gift 5 subs" notice is followed by 5 single subgift notices: those belong to the bundle (one alert, not six).
+      if (id === 'subgift' && tags['msg-param-community-gift-id']) e.bundled = true;
+      this.emit('event', Object.assign(e, base));
     }
   }
 
@@ -217,7 +251,9 @@ class TwitchChat extends EventEmitter {
     const n = names[Math.floor(Math.random() * names.length)];
     const base = { login: n.toLowerCase(), display: n, color: null };
     if (kind === 'raid') return this.emit('event', Object.assign({ type: 'raid', count: 12, text: n + ' is raiding with 12 viewers!' }, base));
-    if (kind === 'sub') return this.emit('event', Object.assign({ type: 'sub', text: 'Thanks for the sub!' }, base));
+    if (kind === 'sub') return this.emit('event', Object.assign({ type: 'sub', kind: 'sub', text: 'Thanks for the sub!' }, base));
+    if (kind === 'prime') return this.emit('event', Object.assign({ type: 'sub', kind: 'prime', text: n + ' subscribed with Prime!' }, base));
+    if (kind === 'gift') return this.emit('event', Object.assign({ type: 'sub', kind: 'gift', count: 5, text: n + ' is gifting 5 subs!' }, base));
     if (kind === 'bits') return this.emit('event', Object.assign({ type: 'bits', amount: 100 }, base));
     if (kind === 'command') {
       const c = ['jump', 'dance', 'wave', 'hat crown', 'color pink', 'hair afro'][Math.floor(Math.random() * 6)];

@@ -1,4 +1,4 @@
-/* JSON persistence in %APPDATA%/Puppet Overlay/config.json (atomic writes, debounced). */
+/* JSON persistence in %APPDATA%/LaboHub/config.json (atomic writes, debounced). */
 const fs = require('fs');
 const path = require('path');
 const { DEFAULTS, sanitize, deepMerge, isObj } = require('./settings');
@@ -16,6 +16,26 @@ function migrate(saved) {
   if (s.app.welcomeDone === undefined) s.app.welcomeDone = true;
   // v0.10: the close behaviour used to follow the taskbar toggle.
   if (s.app.closeAction === undefined && s.app.taskbarIcon === false) s.app.closeAction = 'tray';
+  // LaboHub 1.3: one look per widget instead of a few global widget settings.
+  const w = s.widgets;
+  if (isObj(w) && !isObj(w.looks) && ('font' in w || 'style' in w || isObj(w.followers))) {
+    const base = {};
+    if (typeof w.font === 'string') base.font = w.font;
+    if (typeof w.size === 'number') base.size = w.size;
+    if (typeof w.color === 'string') base.textColor = w.color;
+    if (typeof w.accent === 'string') base.accent = w.accent;
+    if (typeof w.style === 'string') base.frame = w.style === 'plain' ? 'none' : w.style;
+    if (typeof w.align === 'string') base.align = w.align;
+    if (w.shadow === false) base.textShadow = 'none';
+    const pick = (o, keys) => { const r = {}; if (isObj(o)) for (const k of keys) if (o[k] !== undefined) r[k] = o[k]; return r; };
+    w.looks = {
+      followers: Object.assign({}, base, pick(w.followers, ['label', 'goal'])),
+      subs: Object.assign({}, base, pick(w.subs, ['label', 'goal'])),
+      latestFollower: Object.assign({}, base, pick(w.latestFollower, ['label'])),
+      latestSub: Object.assign({}, base, pick(w.latestSub, ['label'])),
+      spotify: Object.assign({}, base, isObj(w.spotify) && w.spotify.showCover === false ? { cover: 'none' } : {}, isObj(w.spotify) && typeof w.spotify.hideWhenPaused === 'boolean' ? { hideWhenPaused: w.spotify.hideWhenPaused } : {}),
+    };
+  }
   return saved; // removed settings (e.g. v0.8.0 screen share) are dropped by sanitize()
 }
 
@@ -47,10 +67,16 @@ class Store {
       viewers: obj(saved.viewers),
       known: obj(saved.known),
       token: isObj(saved.token) ? saved.token : null,
+      twitchToken: isObj(saved.twitchToken) ? saved.twitchToken : null, // Twitch account (Device Code login)
+      markers: Array.isArray(saved.markers) ? saved.markers.filter(isObj).slice(-5000) : [], // stream timestamps
+      // Secrets kept out of the settings (never sent to the pages): values encrypted by Electron safeStorage when available.
+      secrets: obj(saved.secrets),
+      importedPuppetOverlay: typeof saved.importedPuppetOverlay === 'boolean' ? saved.importedPuppetOverlay : undefined,
       // Last version whose "What's new" was acknowledged ('' = installed before v0.9.0 tracked it).
       lastVersion: typeof saved.lastVersion === 'string' ? saved.lastVersion.slice(0, 20) : isObj(saved.settings) ? '' : null,
     };
     if (!this.data.settings.discord.clientId) this.data.settings.discord.clientId = defaults.discord.clientId;
+    if (!this.data.settings.twitchApi.clientId) this.data.settings.twitchApi.clientId = defaults.twitchApi.clientId;
     // Before v0.9.0 there was no bundled sync URL, so an empty one there means "never set": use the crew file.
     if (this.data.lastVersion === '' && !this.data.settings.sync.url) this.data.settings.sync.url = defaults.sync.url;
   }
@@ -83,6 +109,8 @@ class Store {
     return this.data.settings;
   }
 
+  getSecret(name) { const v = this.data.secrets[name]; return typeof v === 'string' ? v : ''; }
+  setSecret(name, value) { if (value) this.data.secrets[name] = String(value); else delete this.data.secrets[name]; this.save(); }
   allAvatars() { return Object.assign({}, this.data.syncedAvatars, this.data.avatars); } // local ones override synced ones
   setAvatar(a) { this.data.avatars[a.id] = a; this.save(); }
   deleteAvatar(id) { delete this.data.avatars[id]; this.save(); }

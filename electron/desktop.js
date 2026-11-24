@@ -21,7 +21,8 @@ function createDesktop(ctx) {
   let hotkeyErrors = {};
 
   function createTray() {
-    tray = new Tray(nativeImage.createFromPath(ctx.icon).resize({ width: 16, height: 16 }));
+    const small = img('icon-tray.png'); // drawn for small sizes (thicker letter)
+    tray = new Tray(small.isEmpty() ? nativeImage.createFromPath(ctx.icon).resize({ width: 16, height: 16 }) : small);
     tray.on('click', actions.openPanel);
     refreshNow();
   }
@@ -36,7 +37,7 @@ function createDesktop(ctx) {
     if (key === trayKey) return;
     trayKey = key;
     const dLine = t('Discord: {s}', { s: t(d.status) + (d.channel ? ' · ' + (d.channel.name || t('call')) : '') });
-    tray.setToolTip(`Puppet Overlay ${app.getVersion()} — ${dLine}`);
+    tray.setToolTip(`LaboHub ${app.getVersion()} — ${dLine}`);
     const items = [
       { label: dLine, enabled: false },
       { type: 'separator' },
@@ -58,7 +59,7 @@ function createDesktop(ctx) {
     const n = (d.members || []).length;
     const badge = d.channel ? 'live' : /error|refused/.test(d.status) ? 'error' : d.status === 'connected' ? null : 'idle';
     const progress = up && up.status === 'downloading' ? Math.max(0.02, (up.progress || 0) / 100) : -1;
-    const title = d.channel ? `Puppet Overlay — ${d.channel.name || t('Call')} (${n})` : 'Puppet Overlay';
+    const title = d.channel ? `LaboHub — ${d.channel.name || t('Call')} (${n})` : 'LaboHub';
     const key = JSON.stringify([title, badge, badge && t(d.status), progress]);
     if (key !== taskbarKey) {
       taskbarKey = key;
@@ -99,11 +100,19 @@ function createDesktop(ctx) {
     globalShortcut.unregisterAll();
     hotkeyErrors = {};
     const hk = store.settings.app.hotkeys;
-    const map = { toggleOverlay: actions.toggleOverlay, placement: actions.togglePlacement, muteChat: actions.toggleChatMute };
+    const map = { toggleOverlay: actions.toggleOverlay, placement: actions.togglePlacement, muteChat: actions.toggleChatMute, marker: actions.addMarker };
     for (const [name, fn] of Object.entries(map)) {
       const acc = hk[name];
       if (!acc) continue;
       try { if (!globalShortcut.register(acc, fn)) hotkeyErrors[name] = 'Already used by another app'; } catch (e) { hotkeyErrors[name] = 'Invalid shortcut'; }
+    }
+    // BabaDeck buttons with a shortcut (errors keyed "deck:<id>").
+    for (const { id, acc } of (actions.deckHotkeys ? actions.deckHotkeys() : [])) {
+      try { if (!globalShortcut.register(acc, () => actions.pressDeck(id))) hotkeyErrors['deck:' + id] = 'Already used by another app'; } catch (e) { hotkeyErrors['deck:' + id] = 'Invalid shortcut'; }
+    }
+    // Game counters +1 / -1 (errors keyed "counter+:<id>" / "counter-:<id>").
+    for (const { acc, key, fn } of (actions.counterHotkeys ? actions.counterHotkeys() : [])) {
+      try { if (!globalShortcut.register(acc, () => { try { fn(); } catch (e) { /* counter removed */ } })) hotkeyErrors[key] = 'Already used by another app'; } catch (e) { hotkeyErrors[key] = 'Invalid shortcut'; }
     }
   }
 
@@ -113,7 +122,13 @@ function createDesktop(ctx) {
     app.setLoginItemSettings({ openAtLogin: store.settings.app.launchAtStartup, path: exe, args: ['--hidden'] });
   }
 
-  return { createTray, refresh, onPanelShown, registerHotkeys, applyLoginItem, get hotkeyErrors() { return hotkeyErrors; } };
+  // Windows notification through the tray icon: works even without an installer-registered Start-menu shortcut.
+  function notify(title, content) {
+    if (!tray) return;
+    try { tray.displayBalloon({ title: String(title).slice(0, 63), content: String(content || ' ').slice(0, 250), iconType: 'none', respectQuietTime: true }); } catch (e) { /* not supported */ }
+  }
+
+  return { notify, createTray, refresh, onPanelShown, registerHotkeys, applyLoginItem, get hotkeyErrors() { return hotkeyErrors; } };
 }
 
 module.exports = { createDesktop };

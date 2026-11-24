@@ -6,9 +6,40 @@
   const P = (global.Puppet = global.Puppet || {});
   const { OUTLINE, rr, stroke, shade, star } = P.gfx;
 
-  function mitten(ctx, x, y, rot, color) {
+  // Cut-paper hand: a palm with the fingers folded, a thumb and a finger crease (no more plain ovals).
+  function mitten(ctx, x, y, rot, color, side) {
+    ctx.save(); ctx.translate(x, y); ctx.rotate(rot); if (side < 0) ctx.scale(-1, 1);
     ctx.fillStyle = color;
-    ctx.beginPath(); ctx.ellipse(x, y, 10, 12, rot, 0, Math.PI * 2); ctx.fill(); stroke(ctx, 2.5);
+    // thumb (behind the palm)
+    ctx.beginPath(); ctx.moveTo(4, -6); ctx.bezierCurveTo(10, -13, 17, -10, 15, -4); ctx.bezierCurveTo(14, 0, 9, 2, 5, 2); ctx.closePath(); ctx.fill(); stroke(ctx, 2.5);
+    // palm + fingers
+    ctx.beginPath();
+    ctx.moveTo(-8, -11);
+    ctx.bezierCurveTo(-1, -14, 8, -12, 9, -5);
+    ctx.bezierCurveTo(11, 2, 10, 9, 5, 12);
+    ctx.bezierCurveTo(0, 15, -7, 14, -10, 9);
+    ctx.bezierCurveTo(-13, 3, -13, -7, -8, -11);
+    ctx.closePath(); ctx.fill(); stroke(ctx, 2.5);
+    // folded fingers
+    ctx.beginPath(); ctx.moveTo(-6, 3); ctx.quadraticCurveTo(0, 6, 6, 3); ctx.moveTo(-6, 8); ctx.quadraticCurveTo(-1, 10.5, 4, 8.5);
+    ctx.lineWidth = 1.6; ctx.strokeStyle = 'rgba(0,0,0,.35)'; ctx.stroke();
+    // paper highlight
+    ctx.fillStyle = 'rgba(255,255,255,.22)'; ctx.beginPath(); ctx.ellipse(-4, -6, 3.5, 2.2, -0.5, 0, Math.PI * 2); ctx.fill();
+    ctx.restore();
+  }
+  // Shoe with a toe pointing outwards, a light sole and laces.
+  function shoe(ctx, x, dir, color) {
+    ctx.save(); ctx.translate(x, -5); ctx.scale(dir, 1);
+    ctx.fillStyle = color;
+    ctx.beginPath();
+    ctx.moveTo(-11, 5); ctx.lineTo(15, 5);
+    ctx.quadraticCurveTo(25, 5, 24, -2); ctx.quadraticCurveTo(22, -9, 11, -10);
+    ctx.lineTo(-5, -11); ctx.quadraticCurveTo(-14, -11, -14, -3); ctx.quadraticCurveTo(-14, 5, -11, 5);
+    ctx.closePath(); ctx.fill(); stroke(ctx, 2.5);
+    ctx.fillStyle = '#f4f1ea'; ctx.beginPath(); ctx.moveTo(-13, 1.5); ctx.lineTo(23.5, 1.5); ctx.quadraticCurveTo(23, 5, 15, 5); ctx.lineTo(-11, 5); ctx.quadraticCurveTo(-13.5, 5, -13, 1.5); ctx.fill();
+    ctx.beginPath(); ctx.moveTo(-13, 1.5); ctx.lineTo(23.5, 1.5); ctx.lineWidth = 1.8; ctx.strokeStyle = OUTLINE; ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(2, -9); ctx.lineTo(6, -5); ctx.moveTo(6, -10); ctx.lineTo(10, -6); ctx.lineWidth = 1.6; ctx.strokeStyle = 'rgba(255,255,255,.75)'; ctx.stroke();
+    ctx.restore();
   }
 
   function torsoPath(ctx, a) {
@@ -40,10 +71,9 @@
   function drawBody(ctx, a, st) {
     const c = a.clothColor || '#3498db';
     drawCape(ctx, a);
-    // feet
-    ctx.fillStyle = '#2b2b2b';
-    ctx.beginPath(); ctx.ellipse(-18, -5, 16, 7, 0, 0, Math.PI * 2); ctx.fill(); stroke(ctx, 2.5);
-    ctx.beginPath(); ctx.ellipse(18, -5, 16, 7, 0, 0, Math.PI * 2); ctx.fill(); stroke(ctx, 2.5);
+    // shoes
+    shoe(ctx, -15, -1, '#2b2b2b');
+    shoe(ctx, 15, 1, '#2b2b2b');
     // torso (paper trapezoid)
     torsoPath(ctx, a);
     ctx.fillStyle = a.outfit === 'labcoat' ? '#f4f6f8' : a.outfit === 'overalls' ? a.accentColor : c;
@@ -158,10 +188,10 @@
       ctx.lineWidth = 12; ctx.strokeStyle = OUTLINE; ctx.stroke(); ctx.lineWidth = 7; ctx.strokeStyle = a.outfit === 'tshirt' ? hand : cloth; ctx.stroke();
     }
     if (a.held && a.held !== 'none') {
-      const k = 1.4 * (a.heldSize || 1);
+      const k = 1.7 * (a.heldSize || 1);
       ctx.save(); ctx.translate(hx - 4, hy - 4); ctx.scale(k, k); ctx.translate(44, 44); drawHeld(ctx, a, st); ctx.restore();
     }
-    mitten(ctx, hx, hy, 0.3, hand); // mitten in front of the item = it's being held
+    mitten(ctx, hx, hy, 0.3, hand, -1); // hand in front of the item = it's being held
   }
 
   // Item held in the left mitten (-40, -40).
@@ -221,7 +251,7 @@
         ctx.fillStyle = '#ffffff88'; ctx.beginPath(); ctx.ellipse(x - 10 + sway, y - 124, 4, 6, -0.4, 0, Math.PI * 2); ctx.fill();
         break;
       }
-      default:
+      default: if (P.parts.drawExtraHeld) P.parts.drawExtraHeld(ctx, a, st, x, y);
     }
   }
 
