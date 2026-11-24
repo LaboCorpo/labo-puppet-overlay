@@ -35,8 +35,8 @@ Windows desktop overlay that shows the members of your current Discord voice cha
 ### 2. Release
 - Every push to `main` builds Windows binaries; they appear under *Actions → Build Windows → Artifacts*.
 - Pushing a tag `vX.Y.Z` also publishes a GitHub Release with:
-  - `PuppetOverlay-X.Y.Z-setup.exe`: per-user installer, auto-updates;
-  - `PuppetOverlay-X.Y.Z-portable.exe`: no install; only notifies when a new version exists;
+  - `LaboHub-X.Y.Z-setup.exe`: per-user installer, auto-updates;
+  - `LaboHub-X.Y.Z-portable.exe`: no install; only notifies when a new version exists;
   - `latest.yml` and the `.blockmap` file, which the auto-updater uses.
 - The repository must be public, so that releases can be downloaded and installed copies can update.
 - Optional: set the repository variable `DISCORD_CLIENT_ID` to override the built-in ID at build time.
@@ -141,7 +141,7 @@ npm run dist                 # Windows build (on Windows)
 
 ## LaboHub 1.5 notes
 
-- **Updates without reinstalling**: the app lists the GitHub releases of `updates.repo` (default `LaboCorpo/labo-puppet-overlay`) whose tag starts with `updates.tagPrefix` (`labohub-v`), takes the newest one carrying an `app.asar` asset, checks its sha256 (GitHub `digest`), saves it as `resources/app-update.bin` and swaps it in after exit (`labohub-update.cmd`). Publish as a **pre-release** so Puppet Overlay's own updater (`releases/latest`) ignores it.
+- *(Replaced in 1.8: the `app.asar` self-update and its `updates.repo` setting were removed, see the 1.8 notes.)*
 - **Discord bot**: same Discord application as RPC. Bot tab → token (stored encrypted with `safeStorage`), invite with scopes `bot applications.commands`, no privileged intent. `/puppet create|show|code|import`. Optional GitHub token (fine-grained, *Contents: read and write* on the avatars repository) to append the code to `avatars.txt`.
 - **OBS**: obs-websocket v5 (`electron/obs.js`), password stored encrypted. **La savane**: VDO.Ninja iframes (`&room`, `&push`, `&view … &solo`, `&mute` for the sender); presence is reported by the room window to the app (`savane-presence`) and shared with the OBS pages.
 - **New scopes** (users must log in to Twitch again once): moderation (chat messages, bans, chat settings), `clips:edit`, `channel:read:redemptions`.
@@ -164,3 +164,12 @@ npm run dist                 # Windows build (on Windows)
 - **Hub**: `stats.live.box` and hub list `box` = Helix game box art (144×192), cached in `twitch-api.js`.
 - **Album covers**: the Windows thumbnail is re-read for 10 s after a track change and then every 5 s; a thumbnail equal to the previous track's one within 4 s is ignored (stale); online covers are downloaded and served locally (`/covers/`).
 - **Installer** (`tools/installer/`): `Installer LaboHub.bat` → `installer.ps1` (WinForms: language, tabs). Layout `%LOCALAPPDATA%\Programs\LaboHub\{app\, Son Twitch\, LaboHub.lnk, LaboHub.ico, Desinstaller LaboHub.bat}`. The runtime comes from an existing `app\`, from the 1.0–1.6 loose layout (moved into `app\`, then only the moved names are deleted from the root) or from Puppet Overlay. Package: `app.asar`, `LaboHub.ico`, the three files of `tools/installer/` (replace `__VERSION__` in the script).
+
+## LaboHub 1.8 notes
+
+- **One app, same identity as Puppet Overlay**: `build.appId` stays `com.puppetoverlay.app` (also the `AppUserModelId`) and `build.publish` points to this repository, so Puppet Overlay 0.x installs update to LaboHub through electron-updater and keep their taskbar pin. The product name is LaboHub (installer `LaboHub-X.Y.Z-setup.exe`, data in `%APPDATA%\LaboHub`, imported once from `%APPDATA%\Puppet Overlay` by `importPuppetOverlay()`).
+- **Updates** (`electron/updater.js`): only electron-updater for NSIS installs (it checks the installer's sha512 from `latest.yml`). Portable builds and hand-made installs (no `resources/app-update.yml`) compare `releases/latest` (`vX.Y.Z` tags only) and open the download page. The repository is fixed in the code: no setting can redirect updates. Release with a `vX.Y.Z` tag on `main` (CI publishes it).
+- **Features** (first-run setup and Settings → Features, `web/panel-tour.js`): Discord puppets (`app.discordPuppets` + `app.tabs.puppet`), Twitch viewer puppets (`twitch.enabled`, `twitch.channel`), and the tabs `hud`, `hub`, `deck`, `bababot`. New installs and configs never set up start light (`tabs.puppet` only). Discord RPC and the Discord bot only run while `discordOn()` (`main.js`); with Twitch puppets only, the Discord pages are hidden (`body.no-discord`, `data-need="discord"`).
+- **Secrets**: the Discord RPC token and the Twitch login are stored with the other secrets (`secrets.discordToken`, `secrets.twitchToken`, sealed with `safeStorage`). Plain `token` / `twitchToken` from older configs are moved there at start (`sealPlainTokens()`).
+- **Hand-made installer** (`tools/installer/`): kept for testing only; such installs don't update themselves. Uninstall them (`Desinstaller LaboHub.bat`) before installing the official setup, so the two don't share `%LOCALAPPDATA%\Programs\LaboHub`.
+- **Repository hygiene** (`npm test`): Windows-safe file names (no reserved names, no case clashes), no `debugger`, no unused `require` in `electron/`, no duplicate French keys. Line endings: LF, CRLF for `.bat`/`.cmd`/`.ps1` (`.gitattributes`, `.editorconfig`).

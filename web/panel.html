@@ -79,7 +79,7 @@
     <button class="navbtn" id="navBack" title="Back (right-click, Alt+←, mouse back button)" disabled>←</button>
     <button class="navbtn" id="navFwd" title="Forward (Alt+→)" disabled>→</button>
   </div>
-  <!-- Top tabs: one per tool, chosen at install (Settings → Tabs), renamable (double-click). -->
+  <!-- Top tabs: one per tool, chosen at first launch (Settings → Features), renamable (double-click). -->
   <div class="gtabs" role="tablist">
     <button class="gtab" data-group="puppet" role="tab" style="--gc:#ff7a45"><svg class="gi"><use href="#ic-puppet"/></svg><span class="gname" data-no-i18n>Puppet Overlay</span></button>
     <button class="gtab" data-group="hud" role="tab" style="--gc:#a970ff"><svg class="gi"><use href="#ic-hud"/></svg><span class="gname" data-no-i18n>Widget Twitch</span></button>
@@ -100,11 +100,11 @@
     <button class="tab active" data-tab="status" data-group="puppet">Status</button>
     <button class="tab" data-tab="overlay" data-group="puppet">Overlay</button>
     <button class="tab" data-tab="avatars" data-group="puppet">Avatars</button>
-    <button class="tab" data-tab="members" data-group="puppet">Members</button>
+    <button class="tab" data-tab="members" data-group="puppet" data-need="discord">Members</button>
     <button class="tab" data-tab="twitch" data-group="puppet">Twitch viewers</button>
     <button class="tab" data-tab="obs" data-group="puppet">OBS / Streamlabs</button>
-    <button class="tab" data-tab="discord" data-group="puppet">Discord setup</button>
-    <button class="tab" data-tab="bot" data-group="puppet">Discord bot</button>
+    <button class="tab" data-tab="discord" data-group="puppet" data-need="discord">Discord setup</button>
+    <button class="tab" data-tab="bot" data-group="puppet" data-need="discord">Discord bot</button>
     <button class="tab guide-tab" data-tab="guide-hud" data-group="hud">Guide</button>
     <button class="tab" data-tab="stream" data-group="hud">Stream widgets</button>
     <button class="tab sub" data-tab="w-followers" data-group="hud">Followers</button>
@@ -736,9 +736,11 @@
         <label class="check"><input type="checkbox" data-key="app.launchAtStartup"> Launch with Windows (starts hidden in the tray)</label>
         <label class="check"><input type="checkbox" data-key="app.autoUpdate"> Check for updates automatically</label>
       </div>
-      <h2>Tabs</h2>
+      <h2>Features</h2>
       <div class="card">
-        <p class="muted" style="margin-top:0">Untick a tab you don't use: it disappears and its background work stops (lighter on your PC). Give each one the name you like.</p>
+        <p class="muted" style="margin-top:0">Untick what you don't use: its tab disappears and its background work stops (lighter on your PC).</p>
+        <div id="featSetup" class="setup-tabs" data-no-i18n></div>
+        <p class="muted">Tab names (or double-click a tab):</p>
         <div id="tabSetup" class="tab-setup" data-no-i18n></div>
       </div>
       <h2>Folder</h2>
@@ -759,13 +761,6 @@
         <div class="row"><b>Version</b><span id="appVersion" data-no-i18n>—</span></div>
         <div class="row"><b>Status</b><span id="updStatus" data-no-i18n>—</span></div>
         <div class="btns"><button class="ghost" id="checkUpdate">Check for updates</button><button class="hidden" id="installUpdate">Update now</button><button class="ghost" id="showWhatsNew">What's new</button></div>
-        <details class="adv"><summary>Update source</summary>
-          <div class="grid" style="margin-top:8px">
-            <label>GitHub repository <input data-key="updates.repo" placeholder="owner/repo" spellcheck="false"></label>
-            <label>Release tag prefix <input data-key="updates.tagPrefix" spellcheck="false"></label>
-            <p class="muted wide">LaboHub only downloads its new package (app.asar, a few MB) from the releases of this repository, then restarts. Your settings, avatars and sounds stay.</p>
-          </div>
-        </details>
       </div>
       <h2>Troubleshooting</h2>
       <div class="card btns" style="margin-top:0">
@@ -841,14 +836,14 @@
       <div class="setup-langs"><button class="setup-lang" data-lang="fr"><b>Français</b><small data-no-i18n>Interface en français</small></button><button class="setup-lang" data-lang="en"><b>English</b><small data-no-i18n>English interface</small></button></div>
     </div>
     <div data-step="1">
-      <h2>What do you want in LaboHub?</h2>
-      <p class="muted">Tick the tabs you want. You can change this any time in Settings → Tabs.</p>
+      <h2>What do you want to use?</h2>
+      <p class="muted">Tick what you need: LaboHub only shows and runs that. You can change it any time in Settings → Features.</p>
       <div id="suTabs" class="setup-tabs" data-no-i18n></div>
     </div>
     <div data-step="2">
-      <h2>All set!</h2>
-      <p data-i18n-html>The first time you open a tab, a short tour shows you around. You can skip it, and replay it with the <b class="kbd-q">?</b> button at the top right (or F1).</p>
-      <p class="muted" data-i18n-html>Each tab also has a <b>Guide</b> page with the steps to set it up.</p>
+      <h2>All set! Next steps</h2>
+      <div id="suSteps" data-no-i18n></div>
+      <p class="muted" data-i18n-html>Replay a tab's tour with the <b class="kbd-q">?</b> button at the top right (or F1). Each tab also has a <b>Guide</b> page with the steps to set it up.</p>
     </div>
     <div class="btns modal-nav"><button class="ghost" id="suBack">Back</button><span class="grow"></span><button id="suNext">Next</button></div>
   </div>

@@ -1,8 +1,8 @@
 {
   "name": "labohub",
   "productName": "LaboHub",
-  "version": "1.7.0",
-  "description": "LaboHub: Discord voice puppets, Twitch tools, OBS widgets, streaming hub and stream timestamps",
+  "version": "1.8.0",
+  "description": "LaboHub: Discord voice puppets, Twitch viewer puppets and optional streaming tools (OBS widgets, alerts, stream deck, chat bot)",
   "main": "electron/main.js",
   "private": true,
   "scripts": {
@@ -15,7 +15,7 @@
     "electron-builder": "26.18.0"
   },
   "build": {
-    "appId": "fr.labo.hub",
+    "appId": "com.puppetoverlay.app",
     "productName": "LaboHub",
     "files": [
       "electron/**",
@@ -39,7 +39,14 @@
       "perMachine": false,
       "runAfterFinish": true,
       "deleteAppDataOnUninstall": false
-    }
+    },
+    "publish": [
+      {
+        "provider": "github",
+        "owner": "LaboCorpo",
+        "repo": "labo-puppet-overlay"
+      }
+    ]
   },
   "dependencies": {
     "electron-updater": "^6.8.11"

@@ -29,7 +29,9 @@ This file is everything needed to continue the project exactly where the previou
 
 ## 2. Project summary
 
-> **Current state (LaboHub 1.7.0, branch `labohub`, PR to `main` for F4ilortrue to review — do not merge yourself)**: the app is **LaboHub** (`appId fr.labo.hub`, data in `%APPDATA%/LaboHub`, imports the Puppet Overlay config on first run). Top tabs (chosen at install or in Settings → Tabs, renamable by double-click, a tour on first visit + "?"/F1, a Guide page with manual ticks): Puppet Overlay, **Widget Twitch** (widgets incl. game counters, editor with pictures/custom CSS/My templates, Friends' cams = VDO.Ninja push links → `cams.html`, scenes, alert sounds + GIFs from the **Son Twitch** folder), **Hub Labo** (My stream: live banner with box art, title/category, giveaway, poll, stream health, ads, Discord go-live, summary, checklist; friends' streams, multi-stream, clips), **BabaDeck** (dock, right-click edit, drag swap, shortcuts page with QWERTY/AZERTY recommended keys, click-through shortcut strip `deck-hud.html`, OBS connection, channel points), **Baba Bot** (chat bot, automatic messages, sound commands). La savane and Labo test were removed in 1.7 (settings keys `savane`/`lab` kept, see MAINTAINER “LaboHub 1.7 notes”). Release notes: `web/shared/changelog.js`. Test builds: hand-made `app.asar` + `tools/installer/` (PowerShell window: language + tabs; layout `LaboHub\app\` + `LaboHub\Son Twitch\`), reusing an Electron runtime already on the PC.
+> **Current state (LaboHub 1.8.0, on `main`)**: PR #2 (LaboHub by Civiouzou) merged, then: same identity as Puppet Overlay (`appId com.puppetoverlay.app`, electron-updater, so 0.x installs update in place), the `app.asar` self-update removed, Discord/Twitch logins encrypted, first-run **feature choice** (Discord puppets, Twitch viewer puppets, widgets & alerts, My stream & crew, BabaDeck, Baba Bot; new installs start light) also in Settings → Features, repo hygiene checks. See MAINTAINER “LaboHub 1.8 notes”.
+>
+> **LaboHub 1.7.0 (by Civiouzou, PR #2)**: the app is **LaboHub** (data in `%APPDATA%/LaboHub`, imports the Puppet Overlay config on first run). Top tabs (renamable by double-click, a tour on first visit + "?"/F1, a Guide page with manual ticks): Puppet Overlay, **Widget Twitch** (widgets incl. game counters, editor with pictures/custom CSS/My templates, Friends' cams = VDO.Ninja push links → `cams.html`, scenes, alert sounds + GIFs from the **Son Twitch** folder), **Hub Labo** (My stream: live banner with box art, title/category, giveaway, poll, stream health, ads, Discord go-live, summary, checklist; friends' streams, multi-stream, clips), **BabaDeck** (dock, right-click edit, drag swap, shortcuts page with QWERTY/AZERTY recommended keys, click-through shortcut strip `deck-hud.html`, OBS connection, channel points), **Baba Bot** (chat bot, automatic messages, sound commands). La savane and Labo test were removed in 1.7 (settings keys `savane`/`lab` kept). Release notes: `web/shared/changelog.js`. `tools/installer/` = hand-made test installs only.
 >
 > **Before that (v0.11.0, commit on this branch)**: alert sounds, OBS stream widgets, streaming hub, optional Twitch account login (Device Code flow).
 >
@@ -87,8 +89,8 @@ The app is a Windows desktop overlay that shows people in your **Discord voice c
   ```
   - Never force-push, and never move existing tags: create a new patch version instead.
   - The GitHub REST API was not reachable from the previous environment, so build status had to be confirmed by the maintainer.
-- **Updater (LaboHub)**: `electron/updater.js` lists the GitHub releases of `settings.updates.repo` (default LaboCorpo/labo-puppet-overlay) whose tag starts with `labohub-v` and that carry an `app.asar` asset (sha256 checked against GitHub's `digest`), downloads it next to the app and swaps it after exit. Publish those as **pre-releases** so old Puppet Overlay installs (`releases/latest`) ignore them. Nothing is published yet: ask the maintainer first.
-  - The CI workflow still builds `electron-builder` installers on PRs (artifacts only) and publishes a release on `v*` tags: do not push a `v*` tag from this branch without asking (it would become “latest” for Puppet Overlay users).
+- **Updater**: `electron/updater.js` — electron-updater for NSIS installs (sha512 from `latest.yml`); portable and hand-made installs compare `releases/latest` (`vX.Y.Z`) and open the download page. Repository fixed in the code (no setting). Release = `vX.Y.Z` tag on `main`.
+  - CI builds installers on PRs too (artifacts only) and publishes a GitHub Release on `v*` tags.
   - The repo must be public for friends to download releases and for updates to work.
 - **Versions so far**:
   - v0.1.0 initial; v0.1.1 YAML fix;
@@ -104,6 +106,7 @@ The app is a Windows desktop overlay that shows people in your **Discord voice c
   - LaboHub 1.0–1.4 (installed by hand on the maintainer's PC): rename to LaboHub, tabbed shell, widget editor with themes/share codes, Spotify via Windows media session, multi-stream hub, timestamps/clips;
   - LaboHub 1.5.0: La savane, BabaDeck + OBS WebSocket, Labo test, Discord bot (`/puppet`), scenes, chat widget, moderation, new accessories, logo, `app.asar` updates;
   - LaboHub 1.6.0 (branch `labohub`, PR): La savane window closable, own device picker, drag/resize free layout, OBS links per camera; Labo test chat bot, viewer games (giveaway, poll, counters, queue, emote rain, hype, end screen), streamer tools (title/category presets, ads, Discord go-live, summary, checklist).
+  - LaboHub 1.8.0: PR #2 merged into `main`; Puppet Overlay identity and electron-updater kept (0.x installs update in place), asar self-update removed, encrypted logins, feature choice at first launch / Settings → Features, hygiene checks.
   - LaboHub 1.7.0: tabs restructured (Widget Twitch, Hub Labo → My stream, BabaDeck, Baba Bot; La savane → Friends' cams; Labo test removed), first-run setup + tours, tab choice/renaming, Son Twitch folder, alert GIFs, game counters with in-game shortcuts, widget pictures/CSS/templates, BabaDeck dock/right-click/shortcut strip/recommended keys, live box art, album cover sync fix, baboon icon, installer with language and tabs.
 
 ## 4. Architecture
@@ -254,7 +257,7 @@ tools/mock-discord.js   fake Discord IPC server for tests (Windows named pipe or
 - **Security**:
   - The server binds to 127.0.0.1, with a Host check on every request and an Origin check on mutations.
   - Every avatar entering the store goes through `cleanAvatar()` (ID 15–22 digits; photo must be a data:image URL).
-  - Known gap: the Discord and Twitch tokens are stored in plain text in `config.json` (backlog: Electron `safeStorage`).
+  - Secrets (Discord RPC token, Twitch login, OBS password, bot/GitHub tokens, Discord webhook) are sealed with Electron `safeStorage` in `config.json` → `secrets` (`electron/secrets.js`); never in settings, never sent to pages.
 - **IP**: the art style is original (cut-paper marionettes). Never reference or reproduce South Park or other copyrighted characters in code, assets or docs.
 - **Comments**: in English, short; explain the *why* for non-obvious code.
 
@@ -262,7 +265,7 @@ tools/mock-discord.js   fake Discord IPC server for tests (Windows named pipe or
 
 | Section | Settings |
 |---|---|
-| `app` | `language` (auto/en/fr), `performance`, `launchAtStartup` (false), `taskbarIcon` (true: taskbar button when started hidden), `closeAction` (minimize/tray/quit; `migrate()` maps old `taskbarIcon:false` to `tray`), `autoUpdate`, `hotkeys`, `firstRunDone` (tray notice shown), `welcomeDone` (first-run guide finished/skipped; `migrate()` sets it for pre-0.9 configs) |
+| `app` | `language` (auto/en/fr), `performance`, `launchAtStartup` (false), `taskbarIcon` (true: taskbar button when started hidden), `closeAction` (minimize/tray/quit; `migrate()` maps old `taskbarIcon:false` to `tray`), `autoUpdate`, `hotkeys`, `firstRunDone` (tray notice shown), `welcomeDone` (first-run guide finished/skipped; `migrate()` sets it for pre-0.9 configs), `tabs` (features: `puppet`/`hud`/`hub`/`deck`/`bababot`; default puppet only), `discordPuppets` (true), `tabNames`, `setupDone`, `tours` |
 | `overlay` | `enabled`, `layout`, `anchor` (corner or `custom` + `pos {x,y}` ratios), `scale`, `spacing`, `margin`, `display`, `maxVisible`, `entrance`, `exit`, `statusStyle` (props/badges/both), `sleepMinutes`, `lookAtSpeaker`, `showNames`, `showSelf`, `hideIdle`, `glow`, `hoverFade`, `hoverOpacity` (0–100 %), `hoverRadius` (px) |
 | `twitch` | `enabled`, `channel`, `layout`, `anchor`/`pos`, `widthRatio`, `scale`, `maxViewers`, `bubbleSeconds`, `idleMinutes`, style (`palette`, `colors`, `hats`, `beards`, `showNames`, `useChatColor`, `bubbleBg`/`bubbleFg`), `ignore`, commands (`commandsEnabled`, `commandPrefix`, `hideCommands`, `disabledCommands`, cooldowns), effects (`raidEffects`, `raidMax`, `subEffects`, `bitsEffects`), `showOnDesktop`, `sound` (below) |
 | `members` | `{ [discordId]: { hidden, alias, scale } }` |
@@ -321,7 +324,7 @@ tools/mock-discord.js   fake Discord IPC server for tests (Windows named pipe or
 
 **For a public release**
 - [ ] "Bring your own Discord app" onboarding.
-- [ ] Encrypt the token with `safeStorage`.
+- [x] Encrypt the tokens with `safeStorage` (1.8).
 - [ ] Code signing (Azure Trusted Signing or SignPath for OSS).
 - [ ] Licence + privacy note.
 - [ ] Landing page with a demo GIF + the online creator.

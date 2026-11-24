@@ -1,6 +1,6 @@
 /*
- * First-run setup (language + tabs, unless the installer already asked), the tours (one per top tab: the first time
- * it is opened, a few highlighted steps; "?" or F1 replays it) and Settings → Tabs (keep / rename the top tabs).
+ * First-run setup (language + features, unless the installer already asked), the tours (one per top tab: the first time
+ * it is opened, a few highlighted steps; "?" or F1 replays it) and Settings → Features (what to use, tab names).
  * Tours done or skipped are kept in settings.app.tours. Texts are built in functions so they follow the language.
  */
 (function () {
@@ -19,7 +19,7 @@
   // { tab: page to show first, sel: element to highlight (missing = centred), title, text }
   const TOURS = {
     puppet: () => [
-      { sel: '.gtabs', title: t('Your tools'), text: t('LaboHub has one tab per tool. Double-click a tab to rename it; Settings → Tabs hides the ones you don\'t use.') },
+      { sel: '.gtabs', title: t('Your tools'), text: t('LaboHub has one tab per tool. Double-click a tab to rename it; Settings → Features hides the ones you don\'t use.') },
       { tab: 'status', sel: '.side', title: t('The pages'), text: t('Each tab has its pages here. <b>Guide</b> lists the steps to set it up: tick them as you go.') },
       { tab: 'status', sel: '.preview', title: t('Your crew as puppets'), text: t('Everyone in your Discord voice channel appears here and on your screen, as a paper puppet that talks with them.') },
       { tab: 'avatars', sel: '#openCreator', title: t('Your puppet'), text: t('Draw your puppet or start from a photo, then share it with the crew.') },
@@ -152,12 +152,60 @@
     if (s && s.app.setupDone && !tour && !(s.app.tours || []).includes(g)) tourWhenFree(g, 300);
   });
 
+  // ---------- Features ----------
+  // What the user wants to use. Each feature shows its tab (and only then runs its background work);
+  // Discord and Twitch puppets share the Puppet Overlay tab.
+  const FEATURES = [
+    { id: 'discord', group: 'puppet', title: 'Discord puppets', desc: 'Your Discord voice channel as paper puppets, on your screen and in OBS.' },
+    { id: 'twitch', group: 'puppet', title: 'Twitch viewer puppets', desc: 'Your Twitch chat viewers as puppets with speech bubbles. No Twitch login needed.' },
+    { id: 'hud', group: 'hud', title: 'Stream widgets & alerts', desc: DESC.hud },
+    { id: 'hub', group: 'hub', title: 'My stream & the crew', desc: DESC.hub },
+    { id: 'deck', group: 'deck', title: 'BabaDeck', desc: DESC.deck },
+    { id: 'bababot', group: 'bababot', title: 'Baba Bot', desc: DESC.bababot },
+  ];
+  const COLORS = { puppet: '#ff7a45', hud: '#a970ff', hub: '#2fd4a3', deck: '#3d8bff', bababot: '#ff9f1c' };
+  const LIGHT = { discord: true, twitch: false, hud: false, hub: false, deck: false, bababot: false };
+  const cleanChannel = (v) => String(v || '').trim().replace(/^.*twitch\.tv\//i, '').replace(/^#/, '').toLowerCase().slice(0, 25);
+
+  function featuresOf(s) {
+    const tab = (g) => s.app.tabs[g] !== false;
+    return { discord: tab('puppet') && s.app.discordPuppets !== false, twitch: tab('puppet') && !!s.twitch.enabled, hud: tab('hud'), hub: tab('hub'), deck: tab('deck'), bababot: tab('bababot') };
+  }
+  // Settings patch for a choice; the Twitch channel only when one is given.
+  function featurePatch(f, channel) {
+    const patch = { app: { tabs: { puppet: f.discord || f.twitch, hud: f.hud, hub: f.hub, deck: f.deck, bababot: f.bababot }, discordPuppets: f.discord }, twitch: { enabled: f.twitch } };
+    if (channel) patch.twitch.channel = cleanChannel(channel);
+    return patch;
+  }
+  function featureCards(f, channel) {
+    return FEATURES.map((x) => `<label class="setup-tab${f[x.id] ? ' on' : ''}" style="--gc:${COLORS[x.group]}">
+      <input type="checkbox" data-f="${x.id}"${f[x.id] ? ' checked' : ''}>${ICON(x.group)}<span><b>${esc(t(x.title))}</b><small>${esc(t(x.desc))}</small>
+      ${x.id === 'twitch' && f.twitch ? `<input class="setup-chan" data-chan maxlength="60" spellcheck="false" placeholder="${esc(t('Your Twitch channel name'))}" value="${esc(channel || '')}">` : ''}</span></label>`).join('');
+  }
+  // What to do next for each chosen feature (last step of the setup).
+  function nextSteps(f, channel) {
+    const d = Panel.state.discord || {};
+    const items = [];
+    if (f.discord) {
+      items.push(d.me
+        ? `<li class="ok">✔ ${esc(t('Discord connected as {name}.', { name: d.me.name }))}</li>`
+        : `<li>${t('Open the <b>Discord desktop app</b>, then click <b>Authorize</b> in its popup.')}</li>`);
+    }
+    if (f.twitch) items.push(`<li>${channel ? esc(t('Your viewers appear when they chat on #{channel}.', { channel: cleanChannel(channel) })) : t('Type your channel name in <b>Puppet Overlay → Twitch viewers</b>.')}</li>`);
+    if (f.discord || f.twitch) items.push(`<li>${t('Make your own puppet in <b>Avatars</b>, and add the address from the <b>OBS</b> page to show the puppets on stream.')}</li>`);
+    const tools = FEATURES.filter((x) => x.group !== 'puppet' && f[x.id]).map((x) => t(x.title));
+    if (tools.length) items.push(`<li>${esc(t('{tools}: a short tour shows you around the first time you open each tab.', { tools: tools.join(', ') }))}</li>`);
+    return `<ol class="setup-next">${items.join('')}</ol>`;
+  }
+
   // ---------- First-run setup ----------
   const setup = $('#setup');
-  let suStep = 0, suTabs = null, suLang = '', suOpen = false;
+  let suStep = 0, suFeat = null, suChan = '', suLang = '', suOpen = false;
   function openSetup() {
     const s = Panel.state.settings;
-    suTabs = Object.assign({}, s.app.tabs);
+    // Never set up before (fresh install, or a Puppet Overlay config): start light, with the puppets only.
+    suFeat = s.app.setupDone ? featuresOf(s) : Object.assign({}, LIGHT, { twitch: !!s.twitch.enabled });
+    suChan = s.twitch.channel || '';
     suLang = s.app.language === 'auto' ? '' : s.app.language;
     suStep = 0; suOpen = true;
     if (tour) endTour(false);
@@ -170,49 +218,71 @@
     $('#suDots').innerHTML = [0, 1, 2].map((i) => `<span class="${i <= suStep ? 'on' : ''}"></span>`).join('');
     $('#suBack').style.visibility = suStep ? 'visible' : 'hidden';
     $('#suNext').textContent = t(suStep === 2 ? 'Start' : 'Next');
-    $('#suNext').disabled = suStep === 1 && !Object.values(suTabs).some(Boolean);
+    $('#suNext').disabled = suStep === 1 && !Object.values(suFeat).some(Boolean);
     $$('.setup-lang').forEach((b) => b.classList.toggle('on', b.dataset.lang === (suLang || I18N.lang)));
-    $('#suTabs').innerHTML = Panel.GROUPS.map((g) => `<label class="setup-tab${suTabs[g] !== false ? ' on' : ''}" style="--gc:${{ puppet: '#ff7a45', hud: '#a970ff', hub: '#2fd4a3', deck: '#3d8bff', bababot: '#ff9f1c' }[g]}">
-      <input type="checkbox" data-g="${g}"${suTabs[g] !== false ? ' checked' : ''}>${ICON(g)}<span><b>${esc(t(Panel.GROUP_NAMES[g]))}</b><small>${esc(t(DESC[g]))}</small></span></label>`).join('');
+    if (!$('#suTabs').contains(document.activeElement)) $('#suTabs').innerHTML = featureCards(suFeat, suChan);
+    $('#suSteps').innerHTML = nextSteps(suFeat, suChan);
   }
   $$('.setup-lang').forEach((b) => (b.onclick = () => { suLang = b.dataset.lang; Panel.save('app.language', suLang); suStep = 1; setTimeout(renderSetup, 250); renderSetup(); }));
-  $('#suTabs').addEventListener('change', (e) => { const g = e.target.dataset.g; if (g) { suTabs[g] = e.target.checked; renderSetup(); } });
+  $('#suTabs').addEventListener('change', (e) => {
+    const id = e.target.dataset.f;
+    if (!id) return;
+    suFeat[id] = e.target.checked;
+    e.target.blur();
+    renderSetup();
+    if (id === 'twitch' && suFeat.twitch) { const c = $('#suTabs [data-chan]'); if (c) c.focus(); }
+  });
+  $('#suTabs').addEventListener('input', (e) => { if (e.target.matches('[data-chan]')) suChan = e.target.value; });
   $('#suBack').onclick = () => { if (suStep > 0) { suStep--; renderSetup(); } };
   $('#suNext').onclick = async () => {
     if (suStep < 2) { suStep++; renderSetup(); return; }
     suOpen = false;
     setup.classList.add('hidden');
     const s = Panel.state.settings;
-    s.app.setupDone = true; s.app.tabs = Object.assign({}, suTabs);
-    await Panel.action('setup-done', { language: suLang || s.app.language, tabs: suTabs });
-    Panel.save('app.welcomeDone', true);
+    const patch = featurePatch(suFeat, suChan);
+    Object.assign(patch.app, { setupDone: true, welcomeDone: true }, suLang ? { language: suLang } : {});
+    // Local copy first, so the right tab opens before the server echoes the new settings.
+    Object.assign(s.app, patch.app);
+    await Panel.api('/api/settings', patch);
     const first = Panel.groupOn(Panel.group) ? Panel.group : Panel.visibleGroups()[0];
     if (first) { Panel.openGroup(first); tourWhenFree(first, 400); }
   };
   $('#showSetup').onclick = openSetup;
   let asked = false;
 
-  // ---------- Settings → Tabs ----------
-  let tabsKey = '';
-  function renderTabsCard(s) {
-    const box = $('#tabSetup');
-    const k = I18N.lang + JSON.stringify([s.app.tabs, s.app.tabNames]);
-    if (k === tabsKey || box.contains(document.activeElement)) return;
-    tabsKey = k;
-    box.innerHTML = Panel.GROUPS.map((g) => `<div class="ts-row" data-g="${g}"><label class="check"><input type="checkbox" data-show${s.app.tabs[g] !== false ? ' checked' : ''}>${ICON(g)}</label>
-      <input data-name maxlength="24" value="${esc(s.app.tabNames[g] || '')}" placeholder="${esc(t(Panel.GROUP_NAMES[g]))}"><span class="muted">${esc(t(DESC[g]))}</span></div>`).join('');
+  // ---------- Settings → Features ----------
+  let featKey = '', namesKey = '';
+  function renderFeaturesCard(s) {
+    const box = $('#featSetup');
+    const k = I18N.lang + JSON.stringify([featuresOf(s), s.twitch.channel]);
+    if (k !== featKey && !box.contains(document.activeElement)) { featKey = k; box.innerHTML = featureCards(featuresOf(s), s.twitch.channel); }
+    const names = $('#tabSetup');
+    const n = I18N.lang + JSON.stringify([s.app.tabs, s.app.tabNames]);
+    if (n === namesKey || names.contains(document.activeElement)) return;
+    namesKey = n;
+    names.innerHTML = Panel.visibleGroups().map((g) => `<div class="ts-row" data-g="${g}">${ICON(g)}
+      <input data-name maxlength="24" value="${esc(s.app.tabNames[g] || '')}" placeholder="${esc(t(Panel.GROUP_NAMES[g]))}"></div>`).join('');
   }
+  $('#featSetup').addEventListener('change', (e) => {
+    const s = Panel.state.settings;
+    if (e.target.matches('[data-chan]')) { const c = cleanChannel(e.target.value); s.twitch.channel = c; Panel.save('twitch.channel', c); return; }
+    const id = e.target.dataset.f;
+    if (!id) return;
+    const f = Object.assign(featuresOf(s), { [id]: e.target.checked });
+    if (!Object.values(f).some(Boolean)) { e.target.checked = true; Panel.toast(t('Keep at least one feature')); return; }
+    const patch = featurePatch(f);
+    Object.assign(s.app, patch.app); Object.assign(s.twitch, patch.twitch);
+    Panel.api('/api/settings', patch);
+    featKey = '';
+    renderFeaturesCard(s);
+  });
   $('#tabSetup').addEventListener('change', (e) => {
     const row = e.target.closest('[data-g]');
-    if (!row) return;
-    const s = Panel.state.settings, g = row.dataset.g;
-    if (e.target.matches('[data-show]')) {
-      const tabs = Object.assign({}, s.app.tabs, { [g]: e.target.checked });
-      if (!Object.values(tabs).some(Boolean)) { e.target.checked = true; Panel.toast(t('Keep at least one tab')); return; }
-      s.app.tabs = tabs; Panel.save('app.tabs', tabs);
-    }
-    if (e.target.matches('[data-name]')) { const names = Object.assign({}, s.app.tabNames, { [g]: e.target.value.trim() }); s.app.tabNames = names; Panel.save('app.tabNames', names); }
-    tabsKey = '';
+    if (!row || !e.target.matches('[data-name]')) return;
+    const s = Panel.state.settings;
+    const names = Object.assign({}, s.app.tabNames, { [row.dataset.g]: e.target.value.trim() });
+    s.app.tabNames = names; Panel.save('app.tabNames', names);
+    namesKey = '';
   });
 
   Panel.onState((s, langChanged) => {
@@ -220,6 +290,7 @@
     if (!asked && !s.settings.app.setupDone) { asked = true; openSetup(); }
     else if (!asked) { asked = true; tourWhenFree(Panel.group, 900); }
     if (langChanged) { renderSetup(); if (tour) show(); }
-    renderTabsCard(s.settings);
+    else if (suOpen && suStep === 2) $('#suSteps').innerHTML = nextSteps(suFeat, suChan); // Discord status changes live
+    renderFeaturesCard(s.settings);
   });
 })();

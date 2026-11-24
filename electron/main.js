@@ -71,7 +71,14 @@ function startBot() {
     },
   });
   bot.on('change', () => push());
-  if (store.settings.bot.enabled) bot.start();
+  restartBot();
+}
+// The Discord bot belongs to the Discord puppets: it only runs while they are on and the bot is enabled.
+function restartBot() {
+  if (!bot) return;
+  if (discordOn() && store.settings.bot.enabled) return bot.start();
+  bot.stop();
+  bot.set('off');
 }
 let twitchApi, stats, nowPlaying, hub, markers;
 const alertPicker = new AlertPicker();
@@ -86,6 +93,9 @@ function logSound(what) { const now = Date.now(); if (now - lastSoundLog < 1000)
 const syncLang = () => I18N.setLang(I18N.resolve(store.settings.app.language, app.getLocale()));
 // Top tabs kept at setup: a removed tab also stops its background work (Discord, polling, hotkeys…).
 const tabOn = (g) => store.settings.app.tabs[g] !== false;
+// Discord puppets can be turned off while keeping the tab for Twitch viewer puppets: then Discord is never contacted.
+const discordOn = () => tabOn('puppet') && store.settings.app.discordPuppets;
+const discordSnapshot = () => (!discordOn() ? { status: 'off', members: [] } : rpc ? rpc.snapshot() : { status: 'starting', members: [] });
 
 // "Son Twitch": sounds and pictures you drop in, used by the alerts, their GIFs and the sound commands.
 // Installed by the LaboHub installer (…\LaboHub\app\LaboHub.exe): next to the app folder; otherwise in the data folder.
@@ -134,6 +144,21 @@ function importPuppetOverlay() {
   } catch (e) { /* the app still starts with its own config */ }
 }
 
+// Discord and Twitch logins are kept encrypted (safeStorage) with the other secrets, never in plain config.json.
+function readToken(name) {
+  try { const v = secrets.open(store.getSecret(name)); return v ? JSON.parse(v) : null; } catch (e) { return null; }
+}
+function writeToken(name, tok) { store.setSecret(name, tok ? secrets.seal(JSON.stringify(tok)) : ''); }
+// Configs from before v1.8 kept them in plain text: move them once.
+function sealPlainTokens() {
+  for (const [plain, name] of [['token', 'discordToken'], ['twitchToken', 'twitchToken']]) {
+    if (!store.data[plain]) continue;
+    if (!store.getSecret(name)) writeToken(name, store.data[plain]);
+    store.data[plain] = null;
+    store.save();
+  }
+}
+
 function readBundledConfig() {
   try { return JSON.parse(fs.readFileSync(path.join(__dirname, 'app-config.json'), 'utf8')); } catch (e) { return {}; }
 }
@@ -142,7 +167,7 @@ function readBundledConfig() {
 function appState() {
   const primary = screen.getPrimaryDisplay().id;
   return {
-    discord: rpc ? rpc.snapshot() : { status: 'starting', members: [] },
+    discord: discordSnapshot(),
     known: store.data.known,
     syncStatus: sync ? sync.status : { status: 'off' },
     twitchStatus: twitch ? twitch.snapshot() : { status: 'off' },
@@ -183,8 +208,8 @@ function startDiscord() {
   const d = store.settings.discord;
   rpc = new DiscordVoiceRPC({
     clientId: d.clientId, clientSecret: d.clientSecret, redirectUri: d.redirectUri,
-    getToken: () => (store.data.token && store.data.token.clientId === d.clientId ? store.data.token : null),
-    saveToken: (tok) => { store.data.token = tok ? Object.assign({ clientId: d.clientId }, tok) : null; store.save(); },
+    getToken: () => { const tok = readToken('discordToken'); return tok && tok.clientId === d.clientId ? tok : null; },
+    saveToken: (tok) => writeToken('discordToken', tok ? Object.assign({ clientId: d.clientId }, tok) : null),
   });
   rpc.on('status', (s, detail) => { log.info(`[discord] ${s}${detail ? ' — ' + detail : ''}`); push(); });
   rpc.on('channel', () => { store.rememberMembers(rpc.snapshot().members); push(); });
@@ -246,8 +271,8 @@ function playAlert(e) {
 function startStreamTools() {
   twitchApi = new TwitchApi({
     getClientId: () => store.settings.twitchApi.clientId,
-    getToken: () => store.data.twitchToken,
-    saveToken: (tok) => { store.data.twitchToken = tok; store.save(); },
+    getToken: () => readToken('twitchToken'),
+    saveToken: (tok) => writeToken('twitchToken', tok),
     log,
   });
   stats = new StreamStats({ api: twitchApi, log });
@@ -311,7 +336,8 @@ function syncModules() {
   const s = store.settings;
   if (nowPlaying) nowPlaying.setEnabled(tabOn('hud') && s.widgets.spotify.enabled, s.widgets.spotify.source === 'any');
   if (hub) { if (tabOn('hub')) hub.schedule(); else hub.stop(); }
-  if (rpc) { if (tabOn('puppet')) { if (rpc.stopped) startDiscord(); } else if (!rpc.stopped) { rpc.stop(); rpc.stopped = true; push(); } }
+  if (discordOn()) { if (!rpc || rpc.stopped) startDiscord(); } else if (rpc && !rpc.stopped) { rpc.stop(); rpc.stopped = true; push(); }
+  if (bot && (discordOn() && s.bot.enabled) !== (bot.status !== 'off')) restartBot();
   if (windows) { windows.updateOverlayVisibility(); windows.syncDeckHud(); }
   if (obs) {
     const want = (tabOn('deck') || tabOn('hub')) && s.obs.enabled;
@@ -373,7 +399,7 @@ async function runDeckAction(a) {
     case 'lab.ad': return labTools.snooze();
     case 'lab.profile': return labTools.applyProfile(a.name);
     case 'lab.sound': return labChat.playByName(a.name);
-    case 'url': if (a.url) shell.openExternal(a.url); return;
+    case 'url': if (/^https?:\/\/\S+$/.test(a.url || '')) shell.openExternal(a.url); return; // never file: or custom protocols
     default: throw new Error('Unknown action');
   }
 }
@@ -382,7 +408,7 @@ function applySettings(patch) {
   const prev = store.settings;
   const s = store.updateSettings(patch);
   const changed = (a, b) => JSON.stringify(a) !== JSON.stringify(b);
-  if (changed(prev.discord, s.discord)) startDiscord();
+  if (changed(prev.discord, s.discord) && discordOn()) startDiscord();
   if (prev.overlay.display !== s.overlay.display || prev.twitch.showOnDesktop !== s.twitch.showOnDesktop) windows.rebuildOverlay();
   else windows.updateOverlayVisibility();
   if (changed(prev.sync, s.sync)) sync.schedule();
@@ -395,10 +421,10 @@ function applySettings(patch) {
   const counterKeys = (l) => l.counters.map((c) => c.id + c.plusKey + c.minusKey).join();
   if (changed(prev.app.hotkeys, s.app.hotkeys) || changed(deckKeys(prev.deck), deckKeys(s.deck)) || counterKeys(prev.lab) !== counterKeys(s.lab) || changed(prev.app.tabs, s.app.tabs)) desktop.registerHotkeys();
   if (changed(prev.obs, s.obs)) obs.restart();
-  if (changed(prev.app.tabs, s.app.tabs) || changed(prev.deck.hud, s.deck.hud) || changed(prev.widgets.spotify, s.widgets.spotify)) syncModules();
+  if (changed(prev.app.tabs, s.app.tabs) || prev.app.discordPuppets !== s.app.discordPuppets || changed(prev.deck.hud, s.deck.hud) || changed(prev.widgets.spotify, s.widgets.spotify)) syncModules();
   if (lab && changed(prev.lab.points, s.lab.points)) lab.syncPoints();
   if (changed(prev.lab, s.lab)) twitch.sync(); // chat bot / games may need the chat connection
-  if (bot && prev.bot.enabled !== s.bot.enabled) { if (s.bot.enabled) bot.start(); else { bot.stop(); bot.set('off'); } }
+  if (prev.bot.enabled !== s.bot.enabled) restartBot();
   if (prev.deck.onTop !== s.deck.onTop) windows.setDeckOnTop(s.deck.onTop);
   if (prev.app.launchAtStartup !== s.app.launchAtStartup) desktop.applyLoginItem();
   if (prev.app.language !== s.app.language) syncLang();
@@ -433,7 +459,7 @@ function copyDiagnostics() {
 
 async function onAction(name, b) {
   switch (name) {
-    case 'reconnect': store.data.token = null; store.save(); startDiscord(); return;
+    case 'reconnect': writeToken('discordToken', null); if (discordOn()) startDiscord(); return;
     case 'open-creator': windows.openCreator(`${base()}/creator.html${/^\d{15,22}$/.test(b.id || '') ? '?id=' + b.id : ''}`); return;
     case 'placement': windows.setPlacement(!!b.on); return;
     case 'update-check': await updater.check(); return;
@@ -472,17 +498,10 @@ async function onAction(name, b) {
     case 'deck-hud-place': windows.setHudPlacing(!!b.on); return;
     // ---------- "Son Twitch" folder ----------
     case 'open-media-dir': await fs.promises.mkdir(mediaDir(), { recursive: true }); shell.openPath(mediaDir()); return;
-    // ---------- First-run setup (language + tabs) when the installer did not ask ----------
-    case 'setup-done': {
-      const tabs = {};
-      if (isObj(b.tabs)) for (const g of ['puppet', 'hud', 'hub', 'deck', 'bababot']) if (typeof b.tabs[g] === 'boolean') tabs[g] = b.tabs[g];
-      applySettings({ app: Object.assign({ setupDone: true, tabs }, ['en', 'fr', 'auto'].includes(b.language) ? { language: b.language } : {}) });
-      return;
-    }
     // ---------- Discord bot ----------
-    case 'bot-token': store.setSecret('botToken', b.token ? secrets.seal(String(b.token).trim().slice(0, 200)) : ''); if (store.settings.bot.enabled) bot.start(); else bot.stop(); push(); return;
+    case 'bot-token': store.setSecret('botToken', b.token ? secrets.seal(String(b.token).trim().slice(0, 200)) : ''); restartBot(); push(); return;
     case 'bot-github-token': store.setSecret('githubToken', b.token ? secrets.seal(String(b.token).trim().slice(0, 300)) : ''); push(); return;
-    case 'bot-restart': if (store.settings.bot.enabled) await bot.start(); else bot.stop(); return;
+    case 'bot-restart': await restartBot(); return;
     case 'chat-badges': return { badges: await hub.badges(Array.isArray(b.rooms) ? b.rooms : []) };
     // ---------- My stream, Baba Bot, game counters ----------
     case 'lab-giveaway': { const winner = labChat.giveawayOp(String(b.op || '')); twitch.sync(); return { winner }; }
@@ -555,13 +574,15 @@ app.on('before-quit', () => {
 app.on('will-quit', () => globalShortcut.unregisterAll());
 
 app.whenReady().then(async () => {
-  app.setAppUserModelId('fr.labo.hub');
+  // Same ID as Puppet Overlay: existing installs keep their taskbar pin and notifications.
+  app.setAppUserModelId('com.puppetoverlay.app');
   log = createLogger(path.join(app.getPath('userData'), 'logs'));
   log.info(`LaboHub ${app.getVersion()} starting${START_HIDDEN ? ' (hidden)' : ''}`);
   importPuppetOverlay();
   store = new Store(app.getPath('userData'), readBundledConfig(), log);
   store.data.avatars = cleanAvatarMap(store.data.avatars);
   store.data.syncedAvatars = cleanAvatarMap(store.data.syncedAvatars);
+  sealPlainTokens();
   if (store.data.lastVersion === null) { store.data.lastVersion = app.getVersion(); store.save(); } // fresh install: nothing new to show
   syncLang();
 
@@ -575,7 +596,7 @@ app.whenReady().then(async () => {
   }
   log.info('server on ' + base());
 
-  updater = new Updater(log, { getSource: () => store.settings.updates });
+  updater = new Updater(log);
   updater.on('change', (st) => {
     push();
     if (st.status === 'ready') notify(t('Update ready'), t('LaboHub {v} will install when you restart the app.', { v: st.latest }));
@@ -591,7 +612,7 @@ app.whenReady().then(async () => {
   });
   desktop = createDesktop({
     store, t, windows, icon: ICON,
-    discord: () => (rpc ? rpc.snapshot() : { status: 'starting', members: [] }),
+    discord: discordSnapshot,
     update: () => updater.state,
     actions: {
       openPanel: () => windows.openPanel(), openCreator: (u) => windows.openCreator(u),
@@ -601,7 +622,7 @@ app.whenReady().then(async () => {
       // Game counters (Widget Twitch → Counters): their own +1 / -1 shortcuts.
       counterHotkeys: () => (tabOn('hud') ? store.settings.lab.counters.flatMap((c) => [c.plusKey && { acc: c.plusKey, key: 'counter+:' + c.id, fn: () => labChat && labChat.bumpCounter(c.id, 1) }, c.minusKey && { acc: c.minusKey, key: 'counter-:' + c.id, fn: () => labChat && labChat.bumpCounter(c.id, -1) }]).filter(Boolean) : []),
       pressDeck: (id) => deck.press(id).catch((e) => notify('BabaDeck', t(e.message))),
-      reconnect: () => rpc && rpc.restart(),
+      reconnect: () => { if (discordOn() && rpc) rpc.restart(); },
       installUpdate: () => updater.install(),
       quit: () => { quitting = true; app.quit(); },
     },
@@ -620,7 +641,6 @@ app.whenReady().then(async () => {
 
   startBot();
   desktop.createTray();
-  startDiscord();
   startTwitch();
   startStreamTools();
   windows.createOverlay();

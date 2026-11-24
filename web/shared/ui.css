@@ -700,15 +700,20 @@ label.inline { display: inline-flex; align-items: center; gap: 6px; flex-directi
 .setup-tab { flex-direction: row; align-items: center; gap: 12px; padding: 10px 12px; border-radius: 12px; border: 1px solid var(--line); background: var(--card); cursor: pointer; color: var(--text); opacity: .6; transition: opacity .2s, border-color .2s; }
 .setup-tab.on { opacity: 1; border-color: var(--gc); box-shadow: inset 4px 0 0 var(--gc); }
 .setup-tab .gi { width: 34px; height: 34px; flex: none; }
+.setup-chan { margin-top: 6px; max-width: 260px; padding: 6px 8px; font-weight: 500; }
+.setup-next { margin: 8px 0 14px; padding-left: 20px; display: flex; flex-direction: column; gap: 8px; }
+.setup-next li.ok { color: var(--ok); }
 .setup-tab span { display: flex; flex-direction: column; gap: 2px; } .setup-tab small { color: var(--muted); font-weight: 500; }
 .kbd-q { display: inline-grid; place-items: center; width: 20px; height: 20px; border-radius: 50%; border: 1px solid var(--line); font-size: 12px; }
 
 /* Settings → Tabs */
 .tab-setup { display: flex; flex-direction: column; gap: 6px; }
-.ts-row { display: grid; grid-template-columns: 70px 200px minmax(0, 1fr); gap: 10px; align-items: center; }
+.ts-row { display: grid; grid-template-columns: 30px minmax(0, 260px); gap: 10px; align-items: center; }
 .ts-row .gi { width: 26px; height: 26px; }
 .ts-row input:not([type=checkbox]) { padding: 6px 8px; }
-.ts-row .muted { font-size: 12px; }
 @media (max-width: 900px) { .ts-row { grid-template-columns: 70px 1fr; } .ts-row .muted { grid-column: 1 / -1; } .kl-row { grid-template-columns: 1fr 160px 34px; } .kl-row .err { grid-column: 1 / -1; } }
 .gstep .gtick { margin-left: auto; font-size: 13px; }
 .gtab { flex: 0 1 auto; max-width: 230px; }
+
+/* Features: pages that only make sense with Discord puppets on. */
+body.no-discord .tab[data-need="discord"] { display: none; }

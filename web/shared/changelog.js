@@ -3,6 +3,19 @@
   'use strict';
   root.CHANGELOG = [
     {
+      version: '1.8.0',
+      en: [
+        'Puppet Overlay is now LaboHub. Your avatars, Discord login and settings come along.',
+        'Choose what you use: Discord puppets, Twitch viewer puppets, stream widgets & alerts, My stream & the crew, BabaDeck, Baba Bot. Only what you tick is shown and runs (Settings → Features).',
+        'Safer: your Discord and Twitch logins are now stored encrypted, and updates only come from the official installer.',
+      ],
+      fr: [
+        'Puppet Overlay devient LaboHub. Tes avatars, ta connexion Discord et tes réglages suivent.',
+        'Choisis ce que tu utilises : marionnettes Discord, marionnettes des spectateurs Twitch, widgets de stream et alertes, Mon stream et l’équipe, BabaDeck, Baba Bot. Seul ce que tu coches s’affiche et tourne (Réglages → Fonctions).',
+        'Plus sûr : tes connexions Discord et Twitch sont maintenant chiffrées, et les mises à jour viennent uniquement de l’installeur officiel.',
+      ],
+    },
+    {
       version: '1.7.0',
       en: [
         'New layout: Puppet Overlay, Widget Twitch, Hub Labo, BabaDeck and Baba Bot. Choose your tabs and your language (installer or Settings → Tabs), rename a tab with a double-click. Each tab has a short tour the first time (replay it with ? or F1) and a Guide where you tick the steps.',

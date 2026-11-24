@@ -46,9 +46,11 @@
   // Names, kept tabs: the top bar follows app.tabs / app.tabNames.
   let groupsKey = '';
   function renderGroups() {
-    const key = I18N.lang + JSON.stringify([state.settings.app.tabs, state.settings.app.tabNames]);
+    const key = I18N.lang + JSON.stringify([state.settings.app.tabs, state.settings.app.tabNames, state.settings.app.discordPuppets]);
     if (key === groupsKey) return;
     groupsKey = key;
+    // Twitch puppets only: the Discord pages are hidden.
+    document.body.classList.toggle('no-discord', state.settings.app.discordPuppets === false);
     $$('.gtab').forEach((b) => {
       const g = b.dataset.group;
       b.querySelector('.gname').textContent = groupName(g);
@@ -260,7 +262,7 @@
   }
 
   // ---------- App / updates ----------
-  const UPD = { idle: '—', dev: 'Development build (updates disabled)', disabled: 'No update source set', checking: 'Checking…', 'up-to-date': 'Up to date', downloading: 'Downloading', ready: 'Ready — restart to install', available: 'New version available', error: 'Error' };
+  const UPD = { idle: '—', dev: 'Development build (updates disabled)', checking: 'Checking…', 'up-to-date': 'Up to date', downloading: 'Downloading', ready: 'Ready — restart to install', available: 'New version available', error: 'Error' };
   function renderApp() {
     const a = state.app || {};
     $('#version').textContent = a.version ? 'v' + a.version + (a.portable ? ' · ' + t('portable') : '') : '';
@@ -273,10 +275,11 @@
     $('#updStatus').textContent = txt;
     const banner = $('#updateBanner');
     $('#installUpdate').classList.toggle('hidden', !(u.status === 'ready' || u.status === 'available'));
+    $('#installUpdate').textContent = t(u.status === 'ready' ? 'Restart & update' : 'Download');
     if (u.status === 'ready' || u.status === 'available') {
       banner.classList.remove('hidden');
-      $('#updateText').textContent = u.status === 'ready' ? t('Version {v} is downloaded and ready.', { v: u.latest }) : t('Version {v} is available: it installs in a few seconds, no need to download the app again.', { v: u.latest });
-      $('#updateBtn').textContent = t(u.status === 'ready' ? 'Restart & update' : 'Update now');
+      $('#updateText').textContent = u.status === 'ready' ? t('Version {v} is downloaded and ready.', { v: u.latest }) : t("Version {v} is available. This copy can't update itself — download the new installer.", { v: u.latest });
+      $('#updateBtn').textContent = t(u.status === 'ready' ? 'Restart & update' : 'Download');
     } else banner.classList.add('hidden');
     for (const k of ['toggleOverlay', 'placement', 'muteChat', 'marker']) $('#hk-' + k).textContent = t((a.hotkeyErrors || {})[k] || '');
     $$('.hk-err').forEach((el) => { el.textContent = t((a.hotkeyErrors || {})[el.dataset.hk] || ''); });
@@ -499,7 +502,7 @@
   function openWhatsNew(from) {
     const cur = state.app.version || '0';
     const all = (window.CHANGELOG || []).filter((e) => cmpVersion(e.version, cur) <= 0);
-    const list = from === null ? all.slice(0, 3) : from === '' ? all.filter((e) => e.version === cur) : all.filter((e) => cmpVersion(e.version, from) > 0);
+    const list = from === null ? all.slice(0, 3) : from === '' ? all.filter((e) => e.version === cur) : all.filter((e) => cmpVersion(e.version, from) > 0).slice(0, 3); // long jumps (e.g. from Puppet Overlay 0.x): the latest notes only
     if (!list.length) return false;
     const fr = I18N.lang === 'fr';
     $('#wnList').innerHTML = list.map((e) => `<h3>v${escapeHtml(e.version)}</h3><ul>${(fr ? e.fr : e.en).map((x) => `<li>${escapeHtml(x)}</li>`).join('')}</ul>`).join('');

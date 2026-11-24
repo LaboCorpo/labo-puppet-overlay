@@ -18,8 +18,10 @@ const DEFAULTS = {
     hotkeys: { toggleOverlay: 'CommandOrControl+Shift+O', placement: 'CommandOrControl+Shift+P', muteChat: 'CommandOrControl+Shift+M', marker: 'CommandOrControl+Alt+M' },
     firstRunDone: false, // tray notification shown once, on the first panel close
     welcomeDone: false, // first-run guide finished or skipped
-    // v1.7: top tabs kept (chosen at install or in the first-run setup); a hidden tab also stops its background work.
-    tabs: { puppet: true, hud: true, hub: true, deck: true, bababot: true },
+    // Features chosen at first launch (or in Settings → Features): a hidden tab also stops its background work.
+    // New installs start light: only the puppets. discordPuppets: false keeps the tab for Twitch viewer puppets only.
+    tabs: { puppet: true, hud: false, hub: false, deck: false, bababot: false },
+    discordPuppets: true,
     tabNames: {}, // renamed top tabs: { group: 'name' }
     setupDone: false, // first-run setup (language + tabs) done
     tours: [], // top tabs whose tour was shown (or skipped)
@@ -100,8 +102,6 @@ const DEFAULTS = {
     hud: { enabled: false, x: -1, y: 8, w: 640, h: 64, opacity: 92, labels: true, all: false } },
   // OBS scenes made of several widgets: [{ id, name, width, height, items: [{ w, x, y, width, height }] }]
   scenes: [],
-  // LaboHub updates: GitHub releases of this repo whose tag starts with tagPrefix and that carry an app.asar.
-  updates: { repo: 'LaboCorpo/labo-puppet-overlay', tagPrefix: 'labohub-v' },
   // Alert sounds: several audio files per event. mode: 'random' (never the same twice in a row) | 'sequence' | 'all' (layered).
   // Each sound: { file, name, volume 0..1, min } — min = bits / raiders / gifted subs needed (tiers: the highest reached wins).
   alerts: {
@@ -181,14 +181,12 @@ const PATTERNS = {
   'twitch.bubbleFg': /^#[0-9a-f]{6}$/i,
   'twitch.commandPrefix': /^\S{1,3}$/,
   'twitchApi.clientId': /^([a-z0-9]{20,40})?$/,
-  'updates.repo': /^([\w.-]{1,39}\/[\w.-]{1,100})?$/,
   'obs.host': /^[\w.-]{1,100}$/,
   'lab.raidThanks.text': /^[^\n]{1,400}$/,
   'lab.chatbot.uptimeText': /^[^\n]{1,400}$/, 'lab.chatbot.soText': /^[^\n]{1,400}$/, 'lab.chatbot.lurkText': /^[^\n]{1,400}$/, 'lab.chatbot.welcomeText': /^[^\n]{1,400}$/,
   'lab.ads.chatText': /^[^\n]{1,400}$/, 'lab.discordLive.text': /^[\s\S]{1,1500}$/,
   'lab.giveaway.keyword': /^[a-z0-9_]{1,25}$/,
   'bot.githubRepo': /^([\w.-]{1,39}\/[\w.-]{1,100})?$/, 'bot.githubPath': /^[\w./-]{1,100}$/,
-  'updates.tagPrefix': /^[\w.-]{1,20}$/,
   'markers.commandName': /^[a-z0-9_]{1,20}$/,
 };
 const MAX_LEN = { 'twitch.ignore': 1000, 'sync.url': 500, 'discord.redirectUri': 200, 'discord.clientSecret': 200, 'lab.raidThanks.text': 400,

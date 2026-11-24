@@ -608,27 +608,27 @@ const PUPPET_FILES = ['avatar', 'gfx', 'animator', 'body', 'face', 'hair', 'extr
     assert.ok(ed.components[1].components[0].options.some((o) => o.value === 'viking'));
   });
 
-  await test('updater: picks the newest LaboHub release with an app.asar', async () => {
-    const { pickRelease, isAsar, cmpVersion } = require('../electron/updater');
-    const asset = (v) => ({ name: 'app.asar', size: 10, browser_download_url: `https://github.com/o/r/releases/download/labohub-v${v}/app.asar`, digest: 'sha256:' + 'a'.repeat(64) });
-    const rels = [
-      { tag_name: 'v0.11.0', assets: [asset('0.11.0')] },
-      { tag_name: 'labohub-v1.4.0', assets: [asset('1.4.0')] },
-      { tag_name: 'labohub-v1.6.0', draft: true, assets: [asset('1.6.0')] },
-      { tag_name: 'labohub-v1.5.2', assets: [asset('1.5.2')], body: 'notes' },
-      { tag_name: 'labohub-v1.5.10', assets: [{ name: 'other.zip', browser_download_url: 'https://github.com/x' }] },
-      { tag_name: 'labohub-v1.7.0', assets: [{ name: 'app.asar', browser_download_url: 'https://evil.example/app.asar' }] },
-    ];
-    const r = pickRelease(rels, 'labohub-v', '1.4.0');
-    assert.equal(r.version, '1.5.2'); assert.equal(r.sha256, 'a'.repeat(64)); assert.equal(r.notes, 'notes');
-    assert.equal(pickRelease(rels, 'labohub-v', '1.5.2'), null);
-    assert.ok(cmpVersion('1.10.0', '1.9.9') > 0);
-    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'po-upd-'));
-    const good = path.join(dir, 'a.bin'), bad = path.join(dir, 'b.bin');
-    const hdr = Buffer.alloc(16); hdr.writeUInt32LE(4, 0); hdr.writeUInt32LE(100, 4);
-    fs.writeFileSync(good, hdr); fs.writeFileSync(bad, Buffer.from('<html>not found</html>'));
-    assert.equal(isAsar(good), true); assert.equal(isAsar(bad), false);
-    fs.rmSync(dir, { recursive: true, force: true });
+  await test('updater: release tags and versions; installs stay on the official update channel', () => {
+    const { releaseVersion, cmpVersion } = require('../electron/updater');
+    assert.equal(releaseVersion('v1.8.0'), '1.8.0');
+    for (const tag of ['labohub-v1.9.0', 'v1.8', '1.8.0', 'v1.8.0-beta', null]) assert.equal(releaseVersion(tag), null, String(tag));
+    assert.ok(cmpVersion('1.10.0', '1.9.9') > 0); assert.ok(cmpVersion('1.8.0', '0.10.1') > 0); assert.equal(cmpVersion('v1.2.3', '1.2.3'), 0);
+    const pkg = JSON.parse(read('package.json'));
+    // Same appId and publish target as Puppet Overlay: existing installs update in place (electron-updater + NSIS).
+    assert.equal(pkg.build.appId, 'com.puppetoverlay.app');
+    assert.deepEqual(pkg.build.publish, [{ provider: 'github', owner: 'LaboCorpo', repo: 'labo-puppet-overlay' }]);
+    assert.ok(read('electron/main.js').includes("setAppUserModelId('com.puppetoverlay.app')"));
+    assert.ok(!/updates\.repo|app\.asar/.test(read('electron/updater.js').split('*/')[1]), 'no self-replacing package updates');
+  });
+
+  await test('features: new installs start light, Discord only runs when its puppets are on', () => {
+    assert.deepEqual(DEFAULTS.app.tabs, { puppet: true, hud: false, hub: false, deck: false, bababot: false });
+    assert.equal(DEFAULTS.app.discordPuppets, true);
+    const main = read('electron/main.js');
+    assert.ok(/const discordOn = \(\) => tabOn\('puppet'\) && store\.settings\.app\.discordPuppets;/.test(main));
+    assert.ok(main.split('\n').filter((l) => l.includes('startDiscord()') && !l.includes('function startDiscord')).every((l) => l.includes('discordOn()')), 'every startDiscord() call is gated by discordOn()');
+    const tour = read('web/panel-tour.js');
+    for (const id of ['discord', 'twitch', 'hud', 'hub', 'deck', 'bababot']) assert.ok(tour.includes(`{ id: '${id}'`), id);
   });
 
   await test('now playing: Windows media session, real cover file, timeline, legacy fallback', async () => {
@@ -1049,6 +1049,52 @@ const PUPPET_FILES = ['avatar', 'gfx', 'animator', 'body', 'face', 'hair', 'extr
     }
     I.setLang('en');
     assert.equal(missing.size, 0, 'Missing French strings:\n       ' + [...missing].join('\n       '));
+  });
+
+  // ---------- Repository hygiene ----------
+  // Files every tool (Git for Windows, the NSIS packer, Explorer) can handle: v0.10.0 failed to build on Windows
+  // because of one badly named file.
+  await test('repo: Windows-safe file names, no case clashes, no stray build output', () => {
+    const RESERVED = /^(con|prn|aux|nul|com\d|lpt\d)(\..*)?$/i;
+    const bad = [], seen = new Map();
+    (function walk(dir) {
+      for (const ent of fs.readdirSync(rel(dir), { withFileTypes: true })) {
+        if (['.git', 'node_modules', 'dist'].includes(ent.name)) continue;
+        const p = dir ? dir + '/' + ent.name : ent.name;
+        if (/[<>:"|?*\u0000-\u001f\\]/.test(ent.name) || /[. ]$/.test(ent.name) || RESERVED.test(ent.name)) bad.push(p);
+        const low = p.toLowerCase();
+        if (seen.has(low)) bad.push(`${p} (same name as ${seen.get(low)})`); else seen.set(low, p);
+        if (ent.isDirectory()) walk(p);
+      }
+    })('');
+    assert.deepEqual(bad, []);
+    for (const f of ['app-update.bin', 'electron/app-update.yml']) assert.ok(!fs.existsSync(rel(f)), f);
+  });
+
+  await test('repo: no debugger statements, no unused requires in the main process', () => {
+    const problems = [];
+    for (const f of [...listJs('electron'), ...listJs('web'), ...listJs('tools')]) {
+      const src = read(f);
+      if (/^\s*debugger\s*;?\s*$/m.test(src)) problems.push(`${f}: debugger`);
+      if (!f.startsWith('electron')) continue;
+      for (const m of src.matchAll(/^const (?:\{([^}]+)\}|(\w+)) = require\(/gm)) {
+        const names = m[1] ? m[1].split(',').map((x) => x.split(':').pop().trim()).filter(Boolean) : [m[2]];
+        for (const n of names) if ((src.match(new RegExp(`\\b${n}\\b`, 'g')) || []).length < 2) problems.push(`${f}: unused ${n}`);
+      }
+    }
+    assert.deepEqual(problems, []);
+  });
+
+  await test('i18n: no duplicate keys in the French dictionary', () => {
+    const src = read('web/shared/i18n.js');
+    const body = src.slice(src.indexOf('const FR = {'), src.indexOf('\n  };', src.indexOf('const FR = {')));
+    const keys = new Map(), dups = [];
+    // A key is a string literal followed by ':' (values are followed by ',' or a line end).
+    for (const m of body.matchAll(/('(?:[^'\\\n]|\\.)*'|"(?:[^"\\\n]|\\.)*")\s*:/g)) {
+      const k = m[1];
+      if (keys.has(k)) dups.push(k.slice(0, 80)); else keys.set(k, true);
+    }
+    assert.deepEqual(dups, []);
   });
 
   // ---------- Report ----------
